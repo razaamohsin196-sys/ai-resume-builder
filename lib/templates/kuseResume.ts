@@ -636,6 +636,34 @@ const html = `
         </div>
     </div>
 
+    <!-- VOLUNTEERING SECTION -->
+    <div class="section">
+        <div class="section-title">Volunteering</div>
+        <div class="experience-item">
+            <div class="job-header">
+                <div class="job-title">Volunteer Role</div>
+                <div class="job-date">Jan 2020 - Present</div>
+            </div>
+            <div class="company-location">Organization Name — Location</div>
+            <ul class="achievements">
+                <li>Description of volunteer work...</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- CERTIFICATIONS & AWARDS -->
+    <div class="section">
+        <div class="section-title">Certifications & Awards</div>
+        <div class="skills-group">
+            <span class="skills-category">Certifications:</span>
+            <span class="skills-list">AWS Certified Solutions Architect, Google Project Management</span>
+        </div>
+        <div class="skills-group">
+            <span class="skills-category">Awards:</span>
+            <span class="skills-list">Employee of the Month (2023), Best Innovation (2022)</span>
+        </div>
+    </div>
+
     <div class="section" contenteditable="true" data-editor-original-outline="" style="outline: none;">
         <div class="section-title">Skills</div>
         <div class="skills-group">

@@ -2,6 +2,8 @@
 "use client";
 
 import React, { useState } from 'react';
+import ReactMarkdown from 'react-markdown';
+
 import { useCareer } from '@/context/CareerContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -28,12 +30,35 @@ export function ProfileReview() {
     const { profile, setProfile, setStep } = useCareer();
     const [isChatOpen, setIsChatOpen] = useState(true); // Default open for visibility
     const [messages, setMessages] = useState<Message[]>([
-        { id: '1', role: 'assistant', content: 'Does this profile look accurate? If not, just tell me what to fix! e.g. "Add a bullet to my last job about leading a team" or "Change my summary to focus on Product Strategy".', timestamp: Date.now() }
+        {
+            id: '1',
+            role: 'assistant',
+            content: profile?.analysisReport
+                ? `Here are some insights I found:\n\n${profile.analysisReport}\n\nDoes this look accurate?`
+                : 'Does this profile look accurate? If not, just tell me what to fix! e.g. "Add a bullet to my last job about leading a team" or "Change my summary to focus on Product Strategy".',
+            timestamp: Date.now()
+        }
     ]);
     const [input, setInput] = useState('');
     const [isThinking, setIsThinking] = useState(false);
 
     if (!profile) return <div>No profile generated.</div>;
+
+    // [Guardrail] Prevent rendering empty profiles which look broken
+    if (profile.items.length === 0) {
+        return (
+            <div className="flex flex-col items-center justify-center h-screen bg-background p-8 text-center space-y-4">
+                <AlertCircle className="w-16 h-16 text-muted-foreground opacity-50" />
+                <h2 className="text-xl font-semibold">We couldn't extract usable data from your inputs yet.</h2>
+                <p className="text-muted-foreground max-w-md">
+                    This can happen if the GitHub/LinkedIn profile was empty, private, or had no clear projects/roles.
+                </p>
+                <Button onClick={() => setStep('onboarding-inputs')} variant="outline">
+                    Back to Inputs
+                </Button>
+            </div>
+        );
+    }
 
     const handleSendMessage = async () => {
         if (!input.trim()) return;
@@ -80,7 +105,10 @@ export function ProfileReview() {
                                 "max-w-[85%] rounded-lg px-4 py-3 text-sm",
                                 m.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted'
                             )}>
-                                {m.content}
+                                <div className="prose prose-sm dark:prose-invert max-w-none">
+                                    <ReactMarkdown>{m.content}</ReactMarkdown>
+                                </div>
+
                             </div>
                         </div>
                     ))}
@@ -135,24 +163,6 @@ export function ProfileReview() {
                         )}
                     </div>
 
-                    {/* Analysis Report (Consultant Memo) */}
-                    {profile.analysisReport && (
-                        <div className="bg-primary/5 border border-primary/20 p-6 rounded-lg relative overflow-hidden">
-                            <div className="absolute top-0 right-0 p-4 opacity-10">
-                                <BrainCircuit className="w-24 h-24 text-primary" />
-                            </div>
-                            <div className="relative z-10">
-                                <h2 className="text-lg font-semibold text-primary mb-3 flex items-center">
-                                    <BrainCircuit className="w-5 h-5 mr-2" />
-                                    AI Strategy Insight
-                                </h2>
-                                <p className="text-base leading-relaxed text-foreground/90 font-medium">
-                                    {profile.analysisReport}
-                                </p>
-                            </div>
-                        </div>
-                    )}
-
                     {/* Professional Summary Strategy */}
                     <div className="bg-muted/30 p-6 rounded-lg border">
                         <h2 className="font-semibold mb-3">Professional Summary Draft</h2>
@@ -180,14 +190,50 @@ export function ProfileReview() {
                         </div>
                     )}
 
+                    {/* Personal & Contact Info */}
+                    <div className="bg-card border rounded-lg p-6 shadow-sm">
+                        <h2 className="text-xl font-semibold mb-4">Profile & Contact</h2>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-2">Personal</h3>
+                                <div className="space-y-1">
+                                    <p><span className="font-semibold">Name:</span> {profile.personal?.name || "Not found"}</p>
+                                    <p><span className="font-semibold">Location:</span> {profile.personal?.location || "Not found"}</p>
+                                </div>
+                            </div>
+                            <div>
+                                <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-2">Contact</h3>
+                                <div className="space-y-1 text-sm">
+                                    {profile.contact?.email && <p>📧 {profile.contact.email}</p>}
+                                    {profile.contact?.phone && <p>📱 {profile.contact.phone}</p>}
+                                    {profile.contact?.linkedin && <p>💼 <a href={profile.contact.linkedin} target="_blank" className="text-blue-600 hover:underline">LinkedIn</a></p>}
+                                    {profile.contact?.github && <p>🐙 <a href={profile.contact.github} target="_blank" className="text-blue-600 hover:underline">GitHub</a></p>}
+                                    {!profile.contact && <p className="text-muted-foreground italic">No contact info found</p>}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     {/* Roles */}
-                    <Section title="Roles identified" items={profile.items.filter(i => i.category === 'role')} />
+                    <Section title="Experience" items={profile.items.filter(i => i.category === 'role')} />
 
                     {/* Projects */}
                     <Section title="Key Projects" items={profile.items.filter(i => i.category === 'project')} />
 
                     {/* Education */}
                     <Section title="Education" items={profile.items.filter(i => i.category === 'education')} />
+
+                    {/* Volunteering */}
+                    <Section title="Volunteering" items={profile.items.filter(i => i.category === 'volunteer')} />
+
+                    {/* Certifications */}
+                    <Section title="Certifications" items={profile.items.filter(i => i.category === 'certification')} />
+
+                    {/* Awards */}
+                    <Section title="Awards" items={profile.items.filter(i => i.category === 'award')} />
+
+                    {/* Languages */}
+                    <Section title="Languages" items={profile.items.filter(i => i.category === 'language')} />
 
                     {/* Skills */}
                     {profile.items.filter(i => i.category === 'skill').length > 0 && (
@@ -231,76 +277,92 @@ export function ProfileReview() {
 }
 
 function Section({ title, items }: { title: string, items: CareerProfileItem[] }) {
-    if (items.length === 0) return null;
+    // Always render title, check for items
     return (
         <div className="space-y-4">
             <h2 className="text-xl font-semibold">{title}</h2>
-            <div className="grid gap-4">
-                {items.map(item => (
-                    <div key={item.id} className="border rounded-lg p-4 bg-card shadow-sm hover:shadow-md transition-shadow">
-                        <div className="flex justify-between items-start mb-2">
-                            <div>
-                                <h3 className="font-bold text-lg">{item.title}</h3>
-                                {item.dates && <p className="text-sm text-muted-foreground">{item.dates}</p>}
+            {items.length === 0 ? (
+                <p className="text-sm italic text-muted-foreground border rounded-lg p-4 bg-muted/20">
+                    No relevant information found in sources.
+                </p>
+            ) : (
+                <div className="grid gap-4">
+                    {items.map(item => (
+                        <div key={item.id} className="border rounded-lg p-4 bg-card shadow-sm hover:shadow-md transition-shadow">
+                            <div className="flex justify-between items-start mb-2">
+                                <div>
+                                    <h3 className="font-bold text-lg">{item.title}</h3>
+                                    {item.dates && <p className="text-sm text-muted-foreground">{item.dates}</p>}
+                                </div>
+                                <StrengthBadge strength={item.evidenceStrength} />
                             </div>
-                            <StrengthBadge strength={item.evidenceStrength} />
+                            <p className="text-sm text-muted-foreground leading-relaxed">{item.description}</p>
+                            <div className="mt-3 text-xs text-muted-foreground flex items-center flex-wrap gap-2">
+                                <span className="text-muted-foreground mr-1">Sources:</span>
+                                {item.sourceIds.map(id => (
+                                    <SourceBadge key={id} sourceId={id} />
+                                ))}
+                            </div>
                         </div>
-                        <p className="text-sm text-muted-foreground leading-relaxed">{item.description}</p>
-                        <div className="mt-3 text-xs text-muted-foreground flex items-center flex-wrap gap-2">
-                            <span className="text-muted-foreground mr-1">Sources:</span>
-                            {item.sourceIds.map(id => (
-                                <SourceBadge key={id} sourceId={id} />
-                            ))}
-                        </div>
-                    </div>
-                ))}
-            </div>
+                    ))}
+                </div>
+            )}
         </div>
     );
 }
 
 function SourceBadge({ sourceId }: { sourceId: string }) {
     const { rawMemory } = useCareer();
-    // Safe check
-    if (!rawMemory?.inputs) return null;
 
-    // Convert "1" -> Index 0
-    const index = parseInt(sourceId) - 1;
-    const input = rawMemory.inputs[index];
-
-    if (!input) return null;
-
-    let label = `Source ${sourceId}`;
-    let detail = "";
+    let label = sourceId;
+    let detail = "Source details unavailable";
     let icon = "📄";
 
-    if (input.type === 'file') {
-        label = input.content.length > 20 ? input.content.slice(0, 15) + '...' : input.content;
-        detail = `File: ${input.content}`;
-        icon = "📄";
-    } else if (input.type === 'url' || input.type === 'linkedin') {
-        try {
-            label = new URL(input.content).hostname;
-        } catch { label = "URL"; }
-        detail = input.content;
-        icon = "🔗";
+    // Detect Source Type by Prefix
+    if (sourceId.startsWith('github:')) {
+        icon = "🐙";
+        const parts = sourceId.split(':');
+        // github:username or github:username/repo
+        label = parts.length > 2 ? `GitHub Repo: ${parts[2]}` : `GitHub: ${parts[1]}`;
+        detail = `Verified Metadata from GitHub API (${sourceId})`;
+    } else if (sourceId.startsWith('linkedin:')) {
+        icon = "💼";
+        label = "LinkedIn Profile";
+        detail = `Extracted from LinkedIn (${sourceId})`;
     } else {
-        label = "Text Input";
-        detail = input.content.slice(0, 50) + "...";
-        icon = "📝";
+        // Fallback for Integer IDs (Legacy Files/Text)
+        if (!isNaN(parseInt(sourceId)) && rawMemory?.inputs) {
+            const index = parseInt(sourceId) - 1;
+            const input = rawMemory.inputs[index];
+            if (input) {
+                if (input.type === 'file') {
+                    label = input.content.length > 15 ? input.content.slice(0, 12) + '...' : input.content;
+                    detail = `File: ${input.content}`;
+                } else if (input.type === 'url' || input.type === 'linkedin') {
+                    try { label = new URL(input.content).hostname; } catch { label = "URL"; }
+                    detail = input.content;
+                    icon = "🔗";
+                } else {
+                    label = "Text Input";
+                    detail = input.content.slice(0, 50) + "...";
+                    icon = "📝";
+                }
+            }
+        }
     }
 
     return (
         <TooltipProvider>
             <Tooltip>
                 <TooltipTrigger asChild>
-                    <span className="inline-flex items-center px-2 py-1 rounded bg-muted hover:bg-muted/80 cursor-help transition-colors text-xs font-medium">
+                    <span className="inline-flex items-center px-2 py-1 rounded bg-muted hover:bg-muted/80 cursor-help transition-colors text-xs font-medium border border-border">
                         <span className="mr-1">{icon}</span>
                         {label}
                     </span>
                 </TooltipTrigger>
                 <TooltipContent>
-                    <p>{detail}</p>
+                    <p className="font-semibold text-xs mb-1">Source Evidence</p>
+                    <p className="text-xs text-muted-foreground">{detail}</p>
                 </TooltipContent>
             </Tooltip>
         </TooltipProvider>

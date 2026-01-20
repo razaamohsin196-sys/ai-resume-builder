@@ -15,6 +15,8 @@ GOAL: The user wants a ROBUST, DETAILED profile. Do not leave anything out.
 
 Output JSON format:
 {
+  "personal": { "name": "Candidate Name", "location": "City, Country" },
+  "contact": { "email": "...", "phone": "...", "linkedin": "...", "github": "...", "website": "..." },
   "summary": "High level professional summary inferred from inputs",
   "items": [
     {
@@ -95,7 +97,7 @@ Output JSON format:
   "sections": [
     {
       "id": "section-id",
-      "title": "Experience" | "Projects" | "Skills" | "Education",
+      "title": "Experience" | "Projects" | "Skills" | "Education" | "Volunteering" | "Certifications" | "Awards" | "Languages",
       "bullets": [
         {
           "id": "bullet-id",

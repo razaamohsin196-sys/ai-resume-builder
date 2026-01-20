@@ -25,9 +25,21 @@ export function InputDropzone() {
 
     const handleAddUrl = () => {
         if (!urlInput.trim()) return;
+
+        // Auto-detect type
+        const lowerUrl = urlInput.toLowerCase();
+        let type: 'url' | 'linkedin' = 'url';
+
+        if (lowerUrl.includes('linkedin.com')) {
+            type = 'linkedin';
+        }
+        // We can treat github as generic 'url' and let bridge handle it,
+        // or add explicit type if RawInput supported it. 
+        // Since RawInput type is limited, we stick to 'url' for github for now.
+
         const input: RawInput = {
             id: crypto.randomUUID(),
-            type: 'url',
+            type: type,
             content: urlInput,
             timestamp: Date.now()
         };

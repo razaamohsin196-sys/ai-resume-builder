@@ -32,6 +32,17 @@ export interface CareerProfileItem {
 }
 
 export interface CareerProfile {
+    personal?: {
+        name: string;
+        location?: string;
+    };
+    contact?: {
+        email?: string;
+        phone?: string;
+        linkedin?: string;
+        github?: string;
+        website?: string;
+    };
     analysisReport: string; // "Consultant Strategy Memo"
     summary: string;
     items: CareerProfileItem[];

@@ -1,0 +1,170 @@
+import { ApifyClient } from 'apify-client';
+import { IngestionAgent, IngestionSource, CareerProfilePatch, ChatLearning } from '../types';
+import { CareerIntent } from '@/types/career';
+import { generateContent } from '@/lib/ai/gemini';
+
+const SYSTEM_PROMPT = `
+You are LinkedInIngestionAgent.
+
+GOAL
+Extract evidence-backed career signals from a LinkedIn profile JSON and output a structured PATCH using atomic upserts.
+
+STABLE ID RULES
+- Role: "linkedin:role:<company_clean>:<title_clean>"
+- Skill: "skill:<normalized_name>"
+- Project: "linkedin:project:<name>"
+- Education: "linkedin:edu:<school_clean>:<degree_clean>"
+- Volunteer: "linkedin:vol:<org_clean>:<role_clean>"
+- Certification: "linkedin:cert:<name_clean>"
+- Award: "linkedin:award:<title_clean>"
+
+OUTPUT FORMAT (JSON)
+{
+  "chat_learnings": { "sourceType": "LinkedIn", "title": "LinkedIn Analysis", "sections": [{"heading": "Key Strengths", "bullets": ["..."]}] },
+  "career_profile_patch": {
+      "sourceId": "linkedin:profile",
+      "upsert_roles": [
+          {
+              "id": "linkedin:role:company:title",
+              "title": { "value": "Title", "evidence": [{ "sourceId": "linkedin:profile", "level": "high", "label": "Experience Section" }] },
+              "company": { "value": "Company", "evidence": [] },
+              "description": { "value": "...", "evidence": [] },
+              "startDate": { "value": "...", "evidence": [] },
+              "endDate": { "value": "...", "evidence": [] }
+          }
+      ],
+      "upsert_skills": [
+          { 
+              "id": "skill:java", 
+              "name": "Java", 
+              "category": "Language", 
+              "evidence": [{ "sourceId": "linkedin:profile", "level": "high" }] 
+          }
+      ],
+      "upsert_education": [
+          {
+              "id": "linkedin:edu:ubc:bcs",
+              "school": { "value": "UBC", "evidence": [] },
+              "degree": { "value": "Bachelor of Computer Science", "evidence": [] },
+              "startDate": { "value": "2016", "evidence": [] },
+              "endDate": { "value": "2020", "evidence": [] }
+          }
+      ],
+      "upsert_volunteering": [
+          {
+              "id": "linkedin:vol:spca:walker",
+              "role": { "value": "Dog Walker", "evidence": [] },
+              "organization": { "value": "SPCA", "evidence": [] },
+              "description": { "value": "...", "evidence": [] }
+          }
+      ],
+      "upsert_certifications": [],
+      "upsert_awards": [],
+      "upsert_languages": [{ "id": "lang:mandarin", "name": "Mandarin", "category": "Language", "evidence": [] }],
+      "upsert_languages": [{ "id": "lang:mandarin", "name": "Mandarin", "category": "Language", "evidence": [] }],
+      "personal": { "name": "John Doe", "location": "Seattle, WA" },
+      "contact": { "linkedin": "https://linkedin.com/in/johndoe", "email": "john@example.com" },
+      "professionalSummaryDraft": { "value": "...", "evidence": [] }
+  }
+}
+`;
+
+export const LinkedInIngestionAgent: IngestionAgent = {
+    id: 'linkedin-agent',
+
+    accepts: (source: IngestionSource) => {
+        return source.type === 'linkedin' && !!source.url && source.url.includes('linkedin.com/');
+    },
+
+    process: async (source: IngestionSource, intent: CareerIntent) => {
+        // 1. Get Apify Token
+        const token = process.env.APIFY_API_TOKEN;
+        if (!token) {
+            console.warn("No APIFY_API_TOKEN found.");
+            throw new Error("Missing APIFY_API_TOKEN");
+        }
+
+        const client = new ApifyClient({ token });
+
+        // 2. Fetch/Run Scraper
+        let profileData = source.content ? JSON.parse(source.content) : null;
+        if (!profileData && source.url) {
+            try {
+                // HarvestAPI Scraper (LpVuK3Zozwuipa5bp)
+                const run = await client.actor("LpVuK3Zozwuipa5bp").call({
+                    "profileScraperMode": "Profile details no email ($4 per 1k)",
+                    "queries": [source.url]
+                });
+
+                const { items } = await client.dataset(run.defaultDatasetId).listItems();
+                if (items.length > 0) profileData = items[0];
+            } catch (e: any) {
+                console.error("Apify execution failed:", e);
+                throw new Error("LinkedIn Scraper failed: " + e.message);
+            }
+        }
+
+        if (!profileData) throw new Error("Failed to fetch LinkedIn data");
+
+        // [Checklist A] Verify LinkedIn fetch returns data
+        console.log(`[LinkedIn Agent] Parsed Profile: ${profileData.publicIdentifier} (${profileData.fullName || profileData.firstName + ' ' + profileData.lastName})`);
+
+        // HarvestAPI uses 'experience' (singular), unlike 'experiences' (plural) in others
+        const experienceCount = profileData.experience?.length || profileData.experiences?.length || 0;
+        const skillsCount = profileData.skills?.length || 0;
+        const educationCount = profileData.education?.length || 0;
+
+        console.log(`[LinkedIn Agent] Raw Data: ${experienceCount} Experiences, ${skillsCount} Skills, ${educationCount} Education entries`);
+
+        // [Checklist B] Verification
+        if (experienceCount === 0 && skillsCount === 0) {
+            console.warn("[LinkedIn Agent] Warning: sparse profile data.");
+        }
+
+        // 3. AI Extraction
+        const userContent = JSON.stringify({
+            job_intent: intent,
+            linkedin_url: source.url,
+            linkedin_data: {
+                ...profileData,
+                // Explicitly pick fields we want to ensure show up if they exist
+                experience: profileData.experience || profileData.experiences,
+                education: profileData.education,
+                headline: profileData.headline,
+                location: profileData.location || profileData.geoCountryName,
+                publicIdentifier: profileData.publicIdentifier,
+                contactInfo: profileData.contactInfo,
+                volunteering: profileData.volunteering || profileData.volunteer,
+                certifications: profileData.certifications,
+                honorsAndAwards: profileData.honorsAndAwards || profileData.awards,
+                languages: profileData.languages,
+                publications: profileData.publications,
+                projects: profileData.projects
+            }
+        });
+
+        const result = await generateContent(SYSTEM_PROMPT, userContent);
+        if (!result) throw new Error("Generative AI failed");
+
+        // Force sourceId on the patch to be consistent
+        const patch = result.career_profile_patch;
+        patch.sourceId = `linkedin:${profileData.publicIdentifier || 'profile'}`;
+
+        // [Checklist C] Verify patch content
+        console.log("[LinkedIn Agent] Final Patch Check:");
+        if (patch.upsert_roles?.length === 0) console.warn("!! Warning: No roles in patch");
+        if (patch.upsert_skills?.length === 0) console.warn("!! Warning: No skills in patch");
+
+        console.log(`   - Extracted: ${patch.upsert_education?.length || 0} Education, ${patch.upsert_volunteering?.length || 0} Volunteer, ${patch.upsert_certifications?.length || 0} Certs`);
+
+        if (patch.upsert_roles && patch.upsert_roles.length > 0) {
+            const r1 = patch.upsert_roles[0];
+            console.log(`   - Sample Role: ${r1.title.value} @ ${r1.company.value}`);
+        }
+
+        return {
+            patch: patch,
+            learnings: result.chat_learnings
+        };
+    }
+};

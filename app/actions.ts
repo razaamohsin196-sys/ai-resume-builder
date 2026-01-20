@@ -5,6 +5,11 @@ import { SYSTEM_PROMPTS } from "@/lib/ai/prompts";
 import { RawInput, CareerIntent, CareerProfile, ResumeDraft, ResumeBullet } from "@/types/career";
 import { hydrateContext } from "@/lib/context-hydrator";
 import { getTemplateById } from "@/lib/templates"; // Registry import
+import { IngestionSource, CareerProfilePatch, ChatLearning } from "@/lib/ingestion/types";
+import { GitHubIngestionAgent } from "@/lib/ingestion/agents/github";
+import { LinkedInIngestionAgent } from "@/lib/ingestion/agents/linkedin";
+// Import Bridge
+import { processCareerProfile as processBridge } from "@/lib/bridge-process";
 
 // Mock data for when API key is missing
 const MOCK_PROFILE: CareerProfile = {
@@ -70,7 +75,17 @@ const MOCK_RESUME: ResumeDraft = {
     ]
 };
 
+
 export async function processCareerProfile(inputs: RawInput[], intent: CareerIntent) {
+    console.log("[BRIDGE] Delegating to Multi-Source Bridge...");
+    // We try to use the bridge. If it handles it, great.
+    // If it falls back (empty profile), we might want to run legacy?
+    // For now, let's just use the bridge entirely as it has basic fallback logic inside.
+    return await processBridge(inputs, intent);
+}
+
+// Renamed legacy function
+async function processLegacy(inputs: RawInput[], intent: CareerIntent) {
     // Construct the parts for Gemini
     // We will mix text parts and inlineData parts (for files)
     const parts: any[] = [];
@@ -187,7 +202,12 @@ export async function generateHtmlResume(profile: CareerProfile, intent: CareerI
         - Experience Items (Map the candidate's roles to the .experience-item divs. Create more or fewer divs as needed to fit the candidate's history, but keep the HTML structure identical for each item.)
         - Education (Map education)
         - Skills (Map skills to .skills-list)
-    5. If the candidate has 2 jobs, generate 2 .experience-item blocks. If 3, generate 3.
+        - **NEW SECTIONS**:
+            - Volunteering: Map to the Volunteering section (structure similar to Experience). REMOVE if empty.
+            - Certifications: Map to the Certifications list. REMOVE if empty.
+            - Awards: Map to awards list. REMOVE if empty.
+            - Languages: Map to language list. REMOVE if empty.
+    5. If the candidate has 2 jobs, generate 2 .experience-item blocks. If 3, generate 3. Same logic for Volunteering.
     
     CANDIDATE INTENT:
     Target Role: ${intent.targetRole}
@@ -505,3 +525,22 @@ export async function generateInterviewPrep(bullet: ResumeBullet, profile: Caree
         };
     }
 }
+
+export async function ingestSource(source: IngestionSource, intent: CareerIntent): Promise<{ patch: CareerProfilePatch, learnings: ChatLearning }> {
+    console.log(`[ingestSource] Ingesting ${source.type} from ${source.url}`);
+
+    // Router Logic (Simple for now)
+    try {
+        if (GitHubIngestionAgent.accepts(source)) {
+            return await GitHubIngestionAgent.process(source, intent);
+        } else if (LinkedInIngestionAgent.accepts(source)) {
+            return await LinkedInIngestionAgent.process(source, intent);
+        } else {
+            throw new Error(`No agent found for source type: ${source.type}`);
+        }
+    } catch (e: any) {
+        console.error(`[ingestSource] Error processing ${source.type}:`, e);
+        throw new Error(`Ingestion failed: ${e.message}`);
+    }
+}
+
