@@ -1,0 +1,70 @@
+export interface CareerIntent {
+    targetRole: string;
+    targetLocation: string;
+    yearsOfExperience: number;
+    jobSearchIntent?: string;
+}
+
+export type EvidenceStrength = 'strong' | 'medium' | 'weak';
+
+export interface RawInput {
+    id: string;
+    type: 'file' | 'url' | 'text' | 'linkedin';
+    content: string; // For text, this is the text. For file, this is the filename.
+    mimeType?: string; // For files
+    data?: string; // Base64 encoded data for files
+    metadata?: Record<string, any>;
+    timestamp: number;
+}
+
+export interface RawCareerMemory {
+    inputs: RawInput[];
+}
+
+export interface CareerProfileItem {
+    id: string;
+    category: 'role' | 'project' | 'education' | 'skill' | 'certification' | 'award' | 'language' | 'volunteer' | 'publication';
+    title: string;
+    description: string;
+    sourceIds: string[];
+    evidenceStrength: EvidenceStrength;
+    dates?: string;
+}
+
+export interface CareerProfile {
+    analysisReport: string; // "Consultant Strategy Memo"
+    summary: string;
+    items: CareerProfileItem[];
+    gaps: string[];
+    missingInfo?: string[];
+}
+
+export interface ResumeBullet {
+    id: string;
+    text: string;
+    sourceIds: string[];
+    evidenceStrength: EvidenceStrength;
+    skills: string[];
+}
+
+export interface ResumeSection {
+    id: string;
+    title: string;
+    bullets: ResumeBullet[];
+}
+
+export interface ResumeDraft {
+    sections: ResumeSection[];
+}
+
+export type AppStep = 'onboarding-intent' | 'onboarding-inputs' | 'processing' | 'profile-review' | 'resume-draft' | 'resume-editor' | 'interview-prep';
+
+export interface CareerState {
+    step: AppStep;
+    intent: CareerIntent | null;
+    rawMemory: RawCareerMemory;
+    profile: CareerProfile | null;
+    resume: ResumeDraft | null;
+    resumeHtml?: string;
+    isProcessing: boolean;
+}

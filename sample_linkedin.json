@@ -1,0 +1,1269 @@
+[{
+  "id": "ACoAADeSb_IBaT1_dVp-pOQUSrzpwfGTuMaFv3A",
+  "publicIdentifier": "beckyhsiung",
+  "linkedinUrl": "https://www.linkedin.com/in/beckyhsiung",
+  "firstName": "Becky",
+  "lastName": "Hsiung",
+  "headline": "Growth Marketing Product Owner",
+  "openToWork": false,
+  "hiring": false,
+  "premium": false,
+  "influencer": false,
+  "memorialized": false,
+  "location": {
+    "linkedinText": "Taipei–Keelung Metropolitan area",
+    "countryCode": "TW",
+    "parsed": {
+      "text": null,
+      "countryCode": null,
+      "regionCode": null,
+      "country": null,
+      "countryFull": null
+    }
+  },
+  "objectUrn": "932343794",
+  "registeredAt": "2021-09-11T01:59:54.822Z",
+  "topSkills": null,
+  "connectionsCount": 365,
+  "followerCount": 370,
+  "verified": false,
+  "about": null,
+  "currentPosition": [
+    {
+      "companyId": "6407440",
+      "companyLinkedinUrl": "https://www.linkedin.com/company/6407440/",
+      "companyName": "Taroko",
+      "dateRange": {
+        "start": {
+          "month": 7,
+          "year": 2023,
+          "day": null
+        },
+        "end": null
+      }
+    }
+  ],
+  "profileTopEducation": [
+    {
+      "schoolId": "17469",
+      "companyId": "554182",
+      "schoolLinkedinUrl": "https://www.linkedin.com/company/554182/",
+      "schoolName": "National Taiwan University"
+    }
+  ],
+  "profileActions": [],
+  "profilePicture": {
+    "url": "https://media.licdn.com/dms/image/v2/C5603AQEyobCqrDUC8A/profile-displayphoto-shrink_800_800/profile-displayphoto-shrink_800_800/0/1657783834743?e=1770249600&v=beta&t=ryhp9DeP5BnAo28-n97qkCmNqpayahhnZEGFFBCHYAw",
+    "sizes": [
+      {
+        "url": "https://media.licdn.com/dms/image/v2/C5603AQEyobCqrDUC8A/profile-displayphoto-shrink_800_800/profile-displayphoto-shrink_800_800/0/1657783834743?e=1770249600&v=beta&t=ryhp9DeP5BnAo28-n97qkCmNqpayahhnZEGFFBCHYAw",
+        "width": 800,
+        "height": 800,
+        "expiresAt": 1770249600000
+      },
+      {
+        "url": "https://media.licdn.com/dms/image/v2/C5603AQEyobCqrDUC8A/profile-displayphoto-shrink_400_400/profile-displayphoto-shrink_400_400/0/1657783834743?e=1770249600&v=beta&t=9NGAZwiIUkRO9Ou5HRzOEiEpZSS8GZ5ay0B8zCaL7os",
+        "width": 400,
+        "height": 400,
+        "expiresAt": 1770249600000
+      },
+      {
+        "url": "https://media.licdn.com/dms/image/v2/C5603AQEyobCqrDUC8A/profile-displayphoto-shrink_200_200/profile-displayphoto-shrink_200_200/0/1657783834743?e=1770249600&v=beta&t=YrksvVbeVHirCva6D7CdkCmVohiCTq_ndA94nsrZzeQ",
+        "width": 200,
+        "height": 200,
+        "expiresAt": 1770249600000
+      },
+      {
+        "url": "https://media.licdn.com/dms/image/v2/C5603AQEyobCqrDUC8A/profile-displayphoto-shrink_100_100/profile-displayphoto-shrink_100_100/0/1657783834743?e=1770249600&v=beta&t=aqITd6Jt7nKoYvTlvrL9JDoUd97ZLYJ_j5nfT8ztz14",
+        "width": 100,
+        "height": 100,
+        "expiresAt": 1770249600000
+      }
+    ]
+  },
+  "coverPicture": {
+    "url": "https://media.licdn.com/dms/image/v2/C4E16AQFiDL3HwPkjmg/profile-displaybackgroundimage-shrink_350_1400/profile-displaybackgroundimage-shrink_350_1400/0/1631682651067?e=1770249600&v=beta&t=0P6Qv1ephlyTgHnunwgbNknXsbr3HSk69M-l1V-wvGM",
+    "sizes": [
+      {
+        "url": "https://media.licdn.com/dms/image/v2/C4E16AQFiDL3HwPkjmg/profile-displaybackgroundimage-shrink_350_1400/profile-displaybackgroundimage-shrink_350_1400/0/1631682651067?e=1770249600&v=beta&t=0P6Qv1ephlyTgHnunwgbNknXsbr3HSk69M-l1V-wvGM",
+        "width": 1400,
+        "height": 350,
+        "expiresAt": 1770249600000
+      },
+      {
+        "url": "https://media.licdn.com/dms/image/v2/C4E16AQFiDL3HwPkjmg/profile-displaybackgroundimage-shrink_200_800/profile-displaybackgroundimage-shrink_200_800/0/1631682651067?e=1770249600&v=beta&t=wQyGd96lZihxwenqI4dpD7Bzu-ZMUL3WZrS45TerwAM",
+        "width": 800,
+        "height": 200,
+        "expiresAt": 1770249600000
+      }
+    ]
+  },
+  "photo": "https://media.licdn.com/dms/image/v2/C5603AQEyobCqrDUC8A/profile-displayphoto-shrink_800_800/profile-displayphoto-shrink_800_800/0/1657783834743?e=1770249600&v=beta&t=ryhp9DeP5BnAo28-n97qkCmNqpayahhnZEGFFBCHYAw",
+  "services": null,
+  "experience": [
+    {
+      "position": "Product Manager",
+      "location": "Taipei–Keelung Metropolitan area",
+      "employmentType": "Full-time",
+      "workplaceType": "Hybrid",
+      "companyName": "Taroko",
+      "companyLinkedinUrl": "https://www.linkedin.com/company/taroko-software/",
+      "companyId": "6407440",
+      "companyUniversalName": "taroko-software",
+      "duration": "2 yrs 7 mos",
+      "description": null,
+      "skills": [
+        "Product Management",
+        "Generative AI",
+        "Data Analysis",
+        "Business Strategy"
+      ],
+      "startDate": {
+        "month": "Jul",
+        "year": 2023,
+        "text": "Jul 2023"
+      },
+      "endDate": {
+        "text": "Present"
+      },
+      "companyLogo": {
+        "url": "https://media.licdn.com/dms/image/v2/D560BAQH_qKJ5rbpNKw/company-logo_400_400/company-logo_400_400/0/1737431089104/taroko_software_logo?e=1770249600&v=beta&t=4UeHdu_gMkTNQFwHaNFA1m8LH5PkvzW7_ECSjBydOAg",
+        "sizes": [
+          {
+            "url": "https://media.licdn.com/dms/image/v2/D560BAQH_qKJ5rbpNKw/company-logo_400_400/company-logo_400_400/0/1737431089104/taroko_software_logo?e=1770249600&v=beta&t=4UeHdu_gMkTNQFwHaNFA1m8LH5PkvzW7_ECSjBydOAg",
+            "width": 400,
+            "height": 400,
+            "expiresAt": 1770249600000
+          },
+          {
+            "url": "https://media.licdn.com/dms/image/v2/D560BAQH_qKJ5rbpNKw/company-logo_200_200/company-logo_200_200/0/1737431089104/taroko_software_logo?e=1770249600&v=beta&t=ETfe5_XyF4Q1ynJpjpk0n0Rn9v7UYP32w1J_Ewmc8Vs",
+            "width": 200,
+            "height": 200,
+            "expiresAt": 1770249600000
+          },
+          {
+            "url": "https://media.licdn.com/dms/image/v2/D560BAQH_qKJ5rbpNKw/company-logo_100_100/company-logo_100_100/0/1737431089104/taroko_software_logo?e=1770249600&v=beta&t=h8YBo8rWAilg6SB75bPPVtCJ9sV3yZ1Yur0CUrCn38s",
+            "width": 100,
+            "height": 100,
+            "expiresAt": 1770249600000
+          }
+        ]
+      }
+    },
+    {
+      "position": "Senior Product Manager",
+      "location": null,
+      "employmentType": "Full-time",
+      "workplaceType": null,
+      "companyName": "PChome Online Inc.",
+      "companyLinkedinUrl": "https://www.linkedin.com/company/146251/",
+      "companyId": "146251",
+      "duration": "1 yr",
+      "description": "Product Owner of GA4, facilitated migration from UA to GA4 by establishing data infrastructure and data integrity.\nLed a scrum team of 11, owned Growth Marketing product roadmap and feature prioritization.",
+      "skills": [
+        "SQL",
+        "Google Analytics",
+        "Data Analysis",
+        "Data Visualization",
+        "Scrum"
+      ],
+      "startDate": {
+        "month": "Aug",
+        "year": 2022,
+        "text": "Aug 2022"
+      },
+      "endDate": {
+        "month": "Jul",
+        "year": 2023,
+        "text": "Jul 2023"
+      },
+      "companyLogo": {
+        "url": "https://media.licdn.com/dms/image/v2/C4E0BAQGFRNIIju8f2w/company-logo_400_400/company-logo_400_400/0/1630573868557/pchome_online_logo?e=1770249600&v=beta&t=nd4vYVtmuZjW6UeLyUKXtcRcl9CfTrGqNkThgCj0oL0",
+        "sizes": [
+          {
+            "url": "https://media.licdn.com/dms/image/v2/C4E0BAQGFRNIIju8f2w/company-logo_400_400/company-logo_400_400/0/1630573868557/pchome_online_logo?e=1770249600&v=beta&t=nd4vYVtmuZjW6UeLyUKXtcRcl9CfTrGqNkThgCj0oL0",
+            "width": 400,
+            "height": 400,
+            "expiresAt": 1770249600000
+          },
+          {
+            "url": "https://media.licdn.com/dms/image/v2/C4E0BAQGFRNIIju8f2w/company-logo_200_200/company-logo_200_200/0/1630573868557/pchome_online_logo?e=1770249600&v=beta&t=yinEOjJgAFJPaXGwC4YCmkv8-7X0LkU2gLJXSyiwluc",
+            "width": 200,
+            "height": 200,
+            "expiresAt": 1770249600000
+          },
+          {
+            "url": "https://media.licdn.com/dms/image/v2/C4E0BAQGFRNIIju8f2w/company-logo_100_100/company-logo_100_100/0/1630573868557/pchome_online_logo?e=1770249600&v=beta&t=7VhK6_RgjBimoIML_IS88Jh9-udv0XaSMB_l3eVSr5Q",
+            "width": 100,
+            "height": 100,
+            "expiresAt": 1770249600000
+          }
+        ]
+      }
+    },
+    {
+      "position": "Product Supervisor",
+      "location": "Taipei City, Taiwan",
+      "employmentType": "Full-time",
+      "workplaceType": null,
+      "companyName": "WohMedical 沃醫學股份有限公司",
+      "companyLinkedinUrl": "https://www.linkedin.com/company/28146153/",
+      "companyId": "28146153",
+      "duration": "3 mos",
+      "description": "Received \"Rising Star Award\" as the youngest and fastest-promoted supervisor in company history. \nLed a team of 7 members, marketing content/strategies of 10+ products, and 30+ project timelines.",
+      "skills": [
+        "Project Management",
+        "Data Analysis",
+        "Data Visualization"
+      ],
+      "experienceGroupId": "4650d1cad4f291244f54c7a498477e15f403e20e",
+      "startDate": {
+        "month": "Jun",
+        "year": 2021,
+        "text": "Jun 2021"
+      },
+      "endDate": {
+        "month": "Aug",
+        "year": 2021,
+        "text": "Aug 2021"
+      },
+      "companyLogo": {
+        "url": "https://media.licdn.com/dms/image/v2/C4D0BAQHFykFiReMMTw/company-logo_400_400/company-logo_400_400/0/1630574732110/wohmedical_logo?e=1770249600&v=beta&t=6iXcjqICxqrgeQtVahUMqtD5lmLYxk6AVRVaWW-pnNM",
+        "sizes": [
+          {
+            "url": "https://media.licdn.com/dms/image/v2/C4D0BAQHFykFiReMMTw/company-logo_400_400/company-logo_400_400/0/1630574732110/wohmedical_logo?e=1770249600&v=beta&t=6iXcjqICxqrgeQtVahUMqtD5lmLYxk6AVRVaWW-pnNM",
+            "width": 400,
+            "height": 400,
+            "expiresAt": 1770249600000
+          },
+          {
+            "url": "https://media.licdn.com/dms/image/v2/C4D0BAQHFykFiReMMTw/company-logo_200_200/company-logo_200_200/0/1630574732110/wohmedical_logo?e=1770249600&v=beta&t=R-9VsQvhlvFZ8rlSNFnAl_yQcD5mBuygSXIuZ8qzqrQ",
+            "width": 200,
+            "height": 200,
+            "expiresAt": 1770249600000
+          },
+          {
+            "url": "https://media.licdn.com/dms/image/v2/C4D0BAQHFykFiReMMTw/company-logo_100_100/company-logo_100_100/0/1630574732110/wohmedical_logo?e=1770249600&v=beta&t=ElvTVbqQEXHVK1ZmvarbQlqbSRmE-gayBpjK4vBUh4g",
+            "width": 100,
+            "height": 100,
+            "expiresAt": 1770249600000
+          }
+        ]
+      }
+    },
+    {
+      "position": "Product Specialist",
+      "location": "Taipei, Taipei City, Taiwan",
+      "employmentType": "Full-time",
+      "workplaceType": null,
+      "companyName": "WohMedical 沃醫學股份有限公司",
+      "companyLinkedinUrl": "https://www.linkedin.com/company/28146153/",
+      "companyId": "28146153",
+      "duration": "1 yr 3 mos",
+      "description": "Acted as subject matter expert of Zimmer Aesthetics products and initiated B2B partner marketing campaigns to drive sales enablement. Key achievements include:\n- exceeded mid-year product KPI by 50%\n- delivered 120+ pitches and demos per quarter (2-3 times that of peers)",
+      "skills": [
+        "Product Management",
+        "Product Support"
+      ],
+      "experienceGroupId": "4650d1cad4f291244f54c7a498477e15f403e20e",
+      "startDate": {
+        "month": "Mar",
+        "year": 2020,
+        "text": "Mar 2020"
+      },
+      "endDate": {
+        "month": "May",
+        "year": 2021,
+        "text": "May 2021"
+      },
+      "companyLogo": {
+        "url": "https://media.licdn.com/dms/image/v2/C4D0BAQHFykFiReMMTw/company-logo_400_400/company-logo_400_400/0/1630574732110/wohmedical_logo?e=1770249600&v=beta&t=6iXcjqICxqrgeQtVahUMqtD5lmLYxk6AVRVaWW-pnNM",
+        "sizes": [
+          {
+            "url": "https://media.licdn.com/dms/image/v2/C4D0BAQHFykFiReMMTw/company-logo_400_400/company-logo_400_400/0/1630574732110/wohmedical_logo?e=1770249600&v=beta&t=6iXcjqICxqrgeQtVahUMqtD5lmLYxk6AVRVaWW-pnNM",
+            "width": 400,
+            "height": 400,
+            "expiresAt": 1770249600000
+          },
+          {
+            "url": "https://media.licdn.com/dms/image/v2/C4D0BAQHFykFiReMMTw/company-logo_200_200/company-logo_200_200/0/1630574732110/wohmedical_logo?e=1770249600&v=beta&t=R-9VsQvhlvFZ8rlSNFnAl_yQcD5mBuygSXIuZ8qzqrQ",
+            "width": 200,
+            "height": 200,
+            "expiresAt": 1770249600000
+          },
+          {
+            "url": "https://media.licdn.com/dms/image/v2/C4D0BAQHFykFiReMMTw/company-logo_100_100/company-logo_100_100/0/1630574732110/wohmedical_logo?e=1770249600&v=beta&t=ElvTVbqQEXHVK1ZmvarbQlqbSRmE-gayBpjK4vBUh4g",
+            "width": 100,
+            "height": 100,
+            "expiresAt": 1770249600000
+          }
+        ]
+      }
+    },
+    {
+      "position": "Marketing And Public Relations Specialist",
+      "location": "Taipei City, Taiwan",
+      "employmentType": "Internship",
+      "workplaceType": null,
+      "companyName": "Turner (Turner Broadcasting System, Inc)",
+      "companyLinkedinUrl": "https://www.linkedin.com/company/2047/",
+      "companyId": "2047",
+      "duration": "9 mos",
+      "description": "- Assisted in Cartoon Network Facebook Fanpage content creation and analysis\n- Delivered brand awareness of Adventure Time via press release and social media",
+      "skills": [
+        "Project Management",
+        "Digital Strategy"
+      ],
+      "startDate": {
+        "month": "Apr",
+        "year": 2017,
+        "text": "Apr 2017"
+      },
+      "endDate": {
+        "month": "Dec",
+        "year": 2017,
+        "text": "Dec 2017"
+      },
+      "companyLogo": {
+        "url": "https://media.licdn.com/dms/image/v2/C4E0BAQGwqaoNAXa9TA/company-logo_400_400/company-logo_400_400/0/1630566199085/turner_broadcasting_logo?e=1770249600&v=beta&t=M-yeB1L-gT8f-10S7NYiGUZOiLftV0XUKmOQR9-Avl4",
+        "sizes": [
+          {
+            "url": "https://media.licdn.com/dms/image/v2/C4E0BAQGwqaoNAXa9TA/company-logo_400_400/company-logo_400_400/0/1630566199085/turner_broadcasting_logo?e=1770249600&v=beta&t=M-yeB1L-gT8f-10S7NYiGUZOiLftV0XUKmOQR9-Avl4",
+            "width": 400,
+            "height": 400,
+            "expiresAt": 1770249600000
+          },
+          {
+            "url": "https://media.licdn.com/dms/image/v2/C4E0BAQGwqaoNAXa9TA/company-logo_200_200/company-logo_200_200/0/1630566199085/turner_broadcasting_logo?e=1770249600&v=beta&t=YbaUOUNGgTNzdfaAef15gz_kuAKiiMGQdDH1jw2FQc8",
+            "width": 200,
+            "height": 200,
+            "expiresAt": 1770249600000
+          },
+          {
+            "url": "https://media.licdn.com/dms/image/v2/C4E0BAQGwqaoNAXa9TA/company-logo_100_100/company-logo_100_100/0/1630566199085/turner_broadcasting_logo?e=1770249600&v=beta&t=7osrMnJVpMz_HWcWyK9kCMvgRXepRWwG_DAANf0wrZk",
+            "width": 100,
+            "height": 100,
+            "expiresAt": 1770249600000
+          }
+        ]
+      }
+    },
+    {
+      "position": "Administrative Assistant",
+      "location": "Taipei City, Taiwan",
+      "employmentType": "Internship",
+      "workplaceType": null,
+      "companyName": "EBS Educational Consultancy 安柏思英語顧問",
+      "companyLinkedinUrl": "https://www.linkedin.com/company/6430999/",
+      "companyId": "6430999",
+      "duration": "8 mos",
+      "description": "- Performed client segmentation analysis for insights and 2C marketing campaign strategies\n- Communicated with clients regularly to ensure course alignment and progress",
+      "skills": null,
+      "startDate": {
+        "month": "Jan",
+        "year": 2016,
+        "text": "Jan 2016"
+      },
+      "endDate": {
+        "month": "Aug",
+        "year": 2016,
+        "text": "Aug 2016"
+      },
+      "companyLogo": {
+        "url": "https://media.licdn.com/dms/image/v2/C510BAQEWIUj5yB54lg/company-logo_400_400/company-logo_400_400/0/1631360755166?e=1770249600&v=beta&t=mL8HcOUjexxQ2YaMPTkNLHvIP4q04pC-bd0iVbw_hvQ",
+        "sizes": [
+          {
+            "url": "https://media.licdn.com/dms/image/v2/C510BAQEWIUj5yB54lg/company-logo_400_400/company-logo_400_400/0/1631360755166?e=1770249600&v=beta&t=mL8HcOUjexxQ2YaMPTkNLHvIP4q04pC-bd0iVbw_hvQ",
+            "width": 400,
+            "height": 400,
+            "expiresAt": 1770249600000
+          },
+          {
+            "url": "https://media.licdn.com/dms/image/v2/C510BAQEWIUj5yB54lg/company-logo_200_200/company-logo_200_200/0/1631360755166?e=1770249600&v=beta&t=2P3dp-3UYEbuaNxVI3Gclb2cKLZXyXlYrqL8rabdiAk",
+            "width": 200,
+            "height": 200,
+            "expiresAt": 1770249600000
+          },
+          {
+            "url": "https://media.licdn.com/dms/image/v2/C510BAQEWIUj5yB54lg/company-logo_100_100/company-logo_100_100/0/1631360755166?e=1770249600&v=beta&t=UGqFWhiwWyBYim-6L00mX8YJkb_yiQzz0m4tkFki1SA",
+            "width": 100,
+            "height": 100,
+            "expiresAt": 1770249600000
+          }
+        ]
+      }
+    }
+  ],
+  "education": [
+    {
+      "schoolName": "National Taiwan University",
+      "schoolLinkedinUrl": "https://www.linkedin.com/company/554182/",
+      "schoolId": "554182",
+      "degree": "Bachelor of Arts - BA",
+      "fieldOfStudy": "Library and Information Science",
+      "skills": [],
+      "insights": "Grade: GPA 3.8\nActivities and societies: HackNTU, ICTribe, NTU Dance Club",
+      "startDate": {
+        "month": "Sep",
+        "year": 2015,
+        "text": "Sep 2015"
+      },
+      "endDate": {
+        "month": "May",
+        "year": 2019,
+        "text": "May 2019"
+      },
+      "period": "Sep 2015 - May 2019",
+      "schoolLogo": {
+        "url": "https://media.licdn.com/dms/image/v2/C560BAQGAh08jkWo23Q/company-logo_400_400/company-logo_400_400/0/1679904708552/national_taiwan_university_logo?e=1770249600&v=beta&t=b7u21c-57gkf0vQtJr9_ZLHePheV2mys59wTAQmkCD8",
+        "sizes": [
+          {
+            "url": "https://media.licdn.com/dms/image/v2/C560BAQGAh08jkWo23Q/company-logo_400_400/company-logo_400_400/0/1679904708552/national_taiwan_university_logo?e=1770249600&v=beta&t=b7u21c-57gkf0vQtJr9_ZLHePheV2mys59wTAQmkCD8",
+            "width": 400,
+            "height": 400,
+            "expiresAt": 1770249600000
+          },
+          {
+            "url": "https://media.licdn.com/dms/image/v2/C560BAQGAh08jkWo23Q/company-logo_200_200/company-logo_200_200/0/1679904708552/national_taiwan_university_logo?e=1770249600&v=beta&t=u3jIhPj3U4Z8BgU8A4CL7TxN8725P_99HTsOq9yiIrw",
+            "width": 200,
+            "height": 200,
+            "expiresAt": 1770249600000
+          },
+          {
+            "url": "https://media.licdn.com/dms/image/v2/C560BAQGAh08jkWo23Q/company-logo_100_100/company-logo_100_100/0/1679904708552/national_taiwan_university_logo?e=1770249600&v=beta&t=mDtrmQD-f8uWBFPkT72Cy2muzptYpdpAiC2ugefIeq0",
+            "width": 100,
+            "height": 100,
+            "expiresAt": 1770249600000
+          }
+        ]
+      }
+    },
+    {
+      "schoolName": "Taipei Fuhsing Private School",
+      "schoolLinkedinUrl": "https://www.linkedin.com/search/results/all/?keywords=Taipei+Fuhsing+Private+School",
+      "schoolId": null,
+      "degree": "High School",
+      "fieldOfStudy": null,
+      "skills": [],
+      "insights": "Activities and societies: Graduate with Honours, President of Student Council 2013-14",
+      "startDate": {
+        "month": "Sep",
+        "year": 2012,
+        "text": "Sep 2012"
+      },
+      "endDate": {
+        "month": "Jun",
+        "year": 2015,
+        "text": "Jun 2015"
+      },
+      "period": "Sep 2012 - Jun 2015",
+      "schoolLogo": null
+    }
+  ],
+  "certifications": [
+    {
+      "title": "Cloud Digital Leader",
+      "issuedAt": "Issued Feb 2023 · Expires Feb 2026",
+      "link": "https://www.credential.net/acbd8610-eb68-4238-a77d-ae31f7d88085",
+      "issuedBy": "Google Cloud Skills Boost",
+      "issuedByLink": null,
+      "issuedByLogo": {
+        "url": null,
+        "sizes": []
+      }
+    },
+    {
+      "title": "Agile Product Owner Role: Techniques",
+      "issuedAt": "Issued Oct 2021",
+      "link": "https://www.linkedin.com/learning/certificates/b8d23d769b5d9e50b190704ba41cee13a899aaae92332a4fbfebad0083e3c7a7?trk=backfilled_certificate",
+      "issuedBy": "LinkedIn",
+      "issuedByLink": "https://www.linkedin.com/company/1337/",
+      "issuedByLogo": {
+        "url": "https://media.licdn.com/dms/image/v2/C560BAQHaVYd13rRz3A/company-logo_400_400/company-logo_400_400/0/1638831590218/linkedin_logo?e=1770249600&v=beta&t=5tdIWO6lVO_gz0S44RthVIAZLVMl9kWZAZoF1IoUKDo",
+        "sizes": [
+          {
+            "url": "https://media.licdn.com/dms/image/v2/C560BAQHaVYd13rRz3A/company-logo_400_400/company-logo_400_400/0/1638831590218/linkedin_logo?e=1770249600&v=beta&t=5tdIWO6lVO_gz0S44RthVIAZLVMl9kWZAZoF1IoUKDo",
+            "width": 400,
+            "height": 400,
+            "expiresAt": 1770249600000
+          },
+          {
+            "url": "https://media.licdn.com/dms/image/v2/C560BAQHaVYd13rRz3A/company-logo_200_200/company-logo_200_200/0/1638831590218/linkedin_logo?e=1770249600&v=beta&t=sGMcmiZn9PTnRMIzjWiXfcAn1TUr7ABU7XLBEL9gP7k",
+            "width": 200,
+            "height": 200,
+            "expiresAt": 1770249600000
+          },
+          {
+            "url": "https://media.licdn.com/dms/image/v2/C560BAQHaVYd13rRz3A/company-logo_100_100/company-logo_100_100/0/1638831590218/linkedin_logo?e=1770249600&v=beta&t=wlFV0T6if-Wp8IVVH5KIb3Echa56wmpCqMFtaxw4308",
+            "width": 100,
+            "height": 100,
+            "expiresAt": 1770249600000
+          }
+        ]
+      }
+    },
+    {
+      "title": "Tableau Desktop Specialist",
+      "issuedAt": "Issued Oct 2021",
+      "link": "https://www.credly.com/badges/6fbe988a-55c5-4071-b01a-afb75445e158?source=linked_in_profile",
+      "issuedBy": "Tableau",
+      "issuedByLink": "https://www.linkedin.com/company/206993/",
+      "issuedByLogo": {
+        "url": "https://media.licdn.com/dms/image/v2/C560BAQGbNutqXFCq8g/company-logo_400_400/company-logo_400_400/0/1630636446931/tableau_software_logo?e=1770249600&v=beta&t=sNae4J8k6lOB8SFdHSDiSSXYdfKVUfoqWHx2inDq02s",
+        "sizes": [
+          {
+            "url": "https://media.licdn.com/dms/image/v2/C560BAQGbNutqXFCq8g/company-logo_400_400/company-logo_400_400/0/1630636446931/tableau_software_logo?e=1770249600&v=beta&t=sNae4J8k6lOB8SFdHSDiSSXYdfKVUfoqWHx2inDq02s",
+            "width": 400,
+            "height": 400,
+            "expiresAt": 1770249600000
+          },
+          {
+            "url": "https://media.licdn.com/dms/image/v2/C560BAQGbNutqXFCq8g/company-logo_200_200/company-logo_200_200/0/1630636446931/tableau_software_logo?e=1770249600&v=beta&t=BNfNsz8CYdeX0Br1R4eZQFzr3CWqUeuzDFBoQpoyy98",
+            "width": 200,
+            "height": 200,
+            "expiresAt": 1770249600000
+          },
+          {
+            "url": "https://media.licdn.com/dms/image/v2/C560BAQGbNutqXFCq8g/company-logo_100_100/company-logo_100_100/0/1630636446931/tableau_software_logo?e=1770249600&v=beta&t=FJKaBXkpk9r4hOMFlmzShhu9mryl2mBuVhwU12XSHFY",
+            "width": 100,
+            "height": 100,
+            "expiresAt": 1770249600000
+          }
+        ]
+      }
+    },
+    {
+      "title": " Data Analysis with R Programming",
+      "issuedAt": "Issued Sep 2021",
+      "link": "https://www.coursera.org/account/accomplishments/certificate/FQ9Z2SGDPERF",
+      "issuedBy": "Coursera",
+      "issuedByLink": "https://www.linkedin.com/company/2453129/",
+      "issuedByLogo": {
+        "url": "https://media.licdn.com/dms/image/v2/C4D0BAQGexnfBxeEG-g/company-logo_400_400/company-logo_400_400/0/1630530042036/coursera_logo?e=1770249600&v=beta&t=2_BJLoUSlTTR6xktmNHtJg62K7kMFvMkS_-ZoOZNjcY",
+        "sizes": [
+          {
+            "url": "https://media.licdn.com/dms/image/v2/C4D0BAQGexnfBxeEG-g/company-logo_400_400/company-logo_400_400/0/1630530042036/coursera_logo?e=1770249600&v=beta&t=2_BJLoUSlTTR6xktmNHtJg62K7kMFvMkS_-ZoOZNjcY",
+            "width": 400,
+            "height": 400,
+            "expiresAt": 1770249600000
+          },
+          {
+            "url": "https://media.licdn.com/dms/image/v2/C4D0BAQGexnfBxeEG-g/company-logo_200_200/company-logo_200_200/0/1630530042036/coursera_logo?e=1770249600&v=beta&t=507YeN0B68gnY7sidpAuh9pPArPyorFOEp5P4lraGJk",
+            "width": 200,
+            "height": 200,
+            "expiresAt": 1770249600000
+          },
+          {
+            "url": "https://media.licdn.com/dms/image/v2/C4D0BAQGexnfBxeEG-g/company-logo_100_100/company-logo_100_100/0/1630530042036/coursera_logo?e=1770249600&v=beta&t=nxDyYbjMWcll08A6HsYLQAmCBhHWp49ySyhPWsu2DuE",
+            "width": 100,
+            "height": 100,
+            "expiresAt": 1770249600000
+          }
+        ]
+      }
+    },
+    {
+      "title": "Agile Project Management",
+      "issuedAt": "Issued Sep 2021",
+      "link": "https://www.coursera.org/account/accomplishments/certificate/QBS6YDTGACYG",
+      "issuedBy": "Coursera",
+      "issuedByLink": "https://www.linkedin.com/company/2453129/",
+      "issuedByLogo": {
+        "url": "https://media.licdn.com/dms/image/v2/C4D0BAQGexnfBxeEG-g/company-logo_400_400/company-logo_400_400/0/1630530042036/coursera_logo?e=1770249600&v=beta&t=2_BJLoUSlTTR6xktmNHtJg62K7kMFvMkS_-ZoOZNjcY",
+        "sizes": [
+          {
+            "url": "https://media.licdn.com/dms/image/v2/C4D0BAQGexnfBxeEG-g/company-logo_400_400/company-logo_400_400/0/1630530042036/coursera_logo?e=1770249600&v=beta&t=2_BJLoUSlTTR6xktmNHtJg62K7kMFvMkS_-ZoOZNjcY",
+            "width": 400,
+            "height": 400,
+            "expiresAt": 1770249600000
+          },
+          {
+            "url": "https://media.licdn.com/dms/image/v2/C4D0BAQGexnfBxeEG-g/company-logo_200_200/company-logo_200_200/0/1630530042036/coursera_logo?e=1770249600&v=beta&t=507YeN0B68gnY7sidpAuh9pPArPyorFOEp5P4lraGJk",
+            "width": 200,
+            "height": 200,
+            "expiresAt": 1770249600000
+          },
+          {
+            "url": "https://media.licdn.com/dms/image/v2/C4D0BAQGexnfBxeEG-g/company-logo_100_100/company-logo_100_100/0/1630530042036/coursera_logo?e=1770249600&v=beta&t=nxDyYbjMWcll08A6HsYLQAmCBhHWp49ySyhPWsu2DuE",
+            "width": 100,
+            "height": 100,
+            "expiresAt": 1770249600000
+          }
+        ]
+      }
+    },
+    {
+      "title": "Google Data Analytics Professional Certificate",
+      "issuedAt": "Issued Sep 2021",
+      "link": "https://www.coursera.org/account/accomplishments/specialization/certificate/NRGGTSJ52MCS",
+      "issuedBy": "Google",
+      "issuedByLink": "https://www.linkedin.com/company/1441/",
+      "issuedByLogo": {
+        "url": "https://media.licdn.com/dms/image/v2/D4E0BAQGv3cqOuUMY7g/company-logo_400_400/B4EZmhegXHGcAc-/0/1759350753990/google_logo?e=1770249600&v=beta&t=3CXAre4KSfvIIgCh5yAmwiDW03GZDbkEP84nS43bvV0",
+        "sizes": [
+          {
+            "url": "https://media.licdn.com/dms/image/v2/D4E0BAQGv3cqOuUMY7g/company-logo_400_400/B4EZmhegXHGcAc-/0/1759350753990/google_logo?e=1770249600&v=beta&t=3CXAre4KSfvIIgCh5yAmwiDW03GZDbkEP84nS43bvV0",
+            "width": 400,
+            "height": 400,
+            "expiresAt": 1770249600000
+          },
+          {
+            "url": "https://media.licdn.com/dms/image/v2/D4E0BAQGv3cqOuUMY7g/company-logo_200_200/B4EZmhegXHGcAM-/0/1759350753990/google_logo?e=1770249600&v=beta&t=W3FrhOvB1N0ODql87UMQWpeuHpa-DreL8Y6Gm-rJrOg",
+            "width": 200,
+            "height": 200,
+            "expiresAt": 1770249600000
+          },
+          {
+            "url": "https://media.licdn.com/dms/image/v2/D4E0BAQGv3cqOuUMY7g/company-logo_100_100/B4EZmhegXHGcAU-/0/1759350753990/google_logo?e=1770249600&v=beta&t=kxtIIgu12Fq9-w2LRg2zD3andO9N3GNpfbDSiPgzS5I",
+            "width": 100,
+            "height": 100,
+            "expiresAt": 1770249600000
+          }
+        ]
+      }
+    },
+    {
+      "title": "RYT200 Certified Yoga Instructor",
+      "issuedAt": "Issued Aug 2019",
+      "link": null,
+      "issuedBy": "Yoga Alliance",
+      "issuedByLink": "https://www.linkedin.com/company/627238/",
+      "issuedByLogo": {
+        "url": "https://media.licdn.com/dms/image/v2/D560BAQE8_HbJ7pORHw/company-logo_400_400/B56ZmWpcXEI8AY-/0/1759169070897/yoga_alliance_logo?e=1770249600&v=beta&t=oZqrb2884KkWUICjDgUQQo-be6N0ZJOtQBaT7QFtOhE",
+        "sizes": [
+          {
+            "url": "https://media.licdn.com/dms/image/v2/D560BAQE8_HbJ7pORHw/company-logo_400_400/B56ZmWpcXEI8AY-/0/1759169070897/yoga_alliance_logo?e=1770249600&v=beta&t=oZqrb2884KkWUICjDgUQQo-be6N0ZJOtQBaT7QFtOhE",
+            "width": 400,
+            "height": 400,
+            "expiresAt": 1770249600000
+          },
+          {
+            "url": "https://media.licdn.com/dms/image/v2/D560BAQE8_HbJ7pORHw/company-logo_200_200/B56ZmWpcXEI8AI-/0/1759169070897/yoga_alliance_logo?e=1770249600&v=beta&t=Gc2ynTQt5vIzcU2B9Ws84Q0jw_nOR8Pq9uJo-JS_L08",
+            "width": 200,
+            "height": 200,
+            "expiresAt": 1770249600000
+          },
+          {
+            "url": "https://media.licdn.com/dms/image/v2/D560BAQE8_HbJ7pORHw/company-logo_100_100/B56ZmWpcXEI8AQ-/0/1759169070897/yoga_alliance_logo?e=1770249600&v=beta&t=GPUbF6ulUb67FXkOJCOqySWWYaj_0LrKcH93dHbhYhU",
+            "width": 100,
+            "height": 100,
+            "expiresAt": 1770249600000
+          }
+        ]
+      }
+    },
+    {
+      "title": "Certified Cycling Aerobics Instructor",
+      "issuedAt": "Issued Nov 2016",
+      "link": null,
+      "issuedBy": "Taiwan Recreational Sport Managers Association",
+      "issuedByLink": null,
+      "issuedByLogo": {
+        "url": null,
+        "sizes": []
+      }
+    },
+    {
+      "title": "Certified Interpreter",
+      "issuedAt": "Issued Jul 2015",
+      "link": null,
+      "issuedBy": "The Language training & Testing Center (LTTC)",
+      "issuedByLink": null,
+      "issuedByLogo": {
+        "url": null,
+        "sizes": []
+      }
+    },
+    {
+      "title": "Google Ads - Measurement Certification",
+      "issuedAt": "Issued Feb 2023 · Expired Feb 2024",
+      "link": "https://skillshop.exceedlms.com/student/award/iARY1RtH7NNY78ofEYGsKPDS",
+      "issuedBy": "Google Ads (Google Partner)",
+      "issuedByLink": "https://www.linkedin.com/company/86707615/",
+      "issuedByLogo": {
+        "url": "https://media.licdn.com/dms/image/v2/C4E0BAQHv7gTpMIkbog/company-logo_400_400/company-logo_400_400/0/1659180443660/google_ads_google_partner_logo?e=1770249600&v=beta&t=HXWmanFTrKW6YJdM0OrSuuBl2e02hDlF58z1EWyemCU",
+        "sizes": [
+          {
+            "url": "https://media.licdn.com/dms/image/v2/C4E0BAQHv7gTpMIkbog/company-logo_400_400/company-logo_400_400/0/1659180443660/google_ads_google_partner_logo?e=1770249600&v=beta&t=HXWmanFTrKW6YJdM0OrSuuBl2e02hDlF58z1EWyemCU",
+            "width": 400,
+            "height": 400,
+            "expiresAt": 1770249600000
+          },
+          {
+            "url": "https://media.licdn.com/dms/image/v2/C4E0BAQHv7gTpMIkbog/company-logo_200_200/company-logo_200_200/0/1659180443660/google_ads_google_partner_logo?e=1770249600&v=beta&t=Dgkr4pMfr-QORv79MllPt3FECMcW0cj3t1rra2qYeQc",
+            "width": 200,
+            "height": 200,
+            "expiresAt": 1770249600000
+          },
+          {
+            "url": "https://media.licdn.com/dms/image/v2/C4E0BAQHv7gTpMIkbog/company-logo_100_100/company-logo_100_100/0/1659180443660/google_ads_google_partner_logo?e=1770249600&v=beta&t=UPvg2MgKsLne57ldtyOzZdprHZa4PBM7oRA4DmmUByc",
+            "width": 100,
+            "height": 100,
+            "expiresAt": 1770249600000
+          }
+        ]
+      }
+    },
+    {
+      "title": "Registered Product Owner",
+      "issuedAt": "Issued Oct 2022 · Expired Oct 2023",
+      "link": "https://s3.amazonaws.com/scruminc-certs/RPO-2929973",
+      "issuedBy": "Scrum Inc.",
+      "issuedByLink": "https://www.linkedin.com/company/837574/",
+      "issuedByLogo": {
+        "url": "https://media.licdn.com/dms/image/v2/C4E0BAQHBoUxxsITCpw/company-logo_400_400/company-logo_400_400/0/1630601928178/scrum_inc_logo?e=1770249600&v=beta&t=6BBEjoQLKzuCMDC6IcU0UpxXa38F1re3wjG7Ad19wKE",
+        "sizes": [
+          {
+            "url": "https://media.licdn.com/dms/image/v2/C4E0BAQHBoUxxsITCpw/company-logo_400_400/company-logo_400_400/0/1630601928178/scrum_inc_logo?e=1770249600&v=beta&t=6BBEjoQLKzuCMDC6IcU0UpxXa38F1re3wjG7Ad19wKE",
+            "width": 400,
+            "height": 400,
+            "expiresAt": 1770249600000
+          },
+          {
+            "url": "https://media.licdn.com/dms/image/v2/C4E0BAQHBoUxxsITCpw/company-logo_200_200/company-logo_200_200/0/1630601928178/scrum_inc_logo?e=1770249600&v=beta&t=V0GLRFAlEgc2q4jk1DUgsAmS9nIUkTial2u6H_dh1Bk",
+            "width": 200,
+            "height": 200,
+            "expiresAt": 1770249600000
+          },
+          {
+            "url": "https://media.licdn.com/dms/image/v2/C4E0BAQHBoUxxsITCpw/company-logo_100_100/company-logo_100_100/0/1630601928178/scrum_inc_logo?e=1770249600&v=beta&t=ttyqOfib6xythCRZxf9gDMfbrIhpX9K9fgdZB-k5MRs",
+            "width": 100,
+            "height": 100,
+            "expiresAt": 1770249600000
+          }
+        ]
+      }
+    },
+    {
+      "title": "Registered Scrum Master",
+      "issuedAt": "Issued Oct 2022 · Expired Oct 2023",
+      "link": "https://s3.amazonaws.com/scruminc-certs/RSM-2172230",
+      "issuedBy": "Scrum Inc.",
+      "issuedByLink": "https://www.linkedin.com/company/837574/",
+      "issuedByLogo": {
+        "url": "https://media.licdn.com/dms/image/v2/C4E0BAQHBoUxxsITCpw/company-logo_400_400/company-logo_400_400/0/1630601928178/scrum_inc_logo?e=1770249600&v=beta&t=6BBEjoQLKzuCMDC6IcU0UpxXa38F1re3wjG7Ad19wKE",
+        "sizes": [
+          {
+            "url": "https://media.licdn.com/dms/image/v2/C4E0BAQHBoUxxsITCpw/company-logo_400_400/company-logo_400_400/0/1630601928178/scrum_inc_logo?e=1770249600&v=beta&t=6BBEjoQLKzuCMDC6IcU0UpxXa38F1re3wjG7Ad19wKE",
+            "width": 400,
+            "height": 400,
+            "expiresAt": 1770249600000
+          },
+          {
+            "url": "https://media.licdn.com/dms/image/v2/C4E0BAQHBoUxxsITCpw/company-logo_200_200/company-logo_200_200/0/1630601928178/scrum_inc_logo?e=1770249600&v=beta&t=V0GLRFAlEgc2q4jk1DUgsAmS9nIUkTial2u6H_dh1Bk",
+            "width": 200,
+            "height": 200,
+            "expiresAt": 1770249600000
+          },
+          {
+            "url": "https://media.licdn.com/dms/image/v2/C4E0BAQHBoUxxsITCpw/company-logo_100_100/company-logo_100_100/0/1630601928178/scrum_inc_logo?e=1770249600&v=beta&t=ttyqOfib6xythCRZxf9gDMfbrIhpX9K9fgdZB-k5MRs",
+            "width": 100,
+            "height": 100,
+            "expiresAt": 1770249600000
+          }
+        ]
+      }
+    },
+    {
+      "title": "Google Analytics Individual Qualification",
+      "issuedAt": "Issued Apr 2022 · Expired Apr 2023",
+      "link": "https://skillshop.exceedlms.com/student/award/feet8fQYqPNroVQiRVVnXqyE",
+      "issuedBy": "Google",
+      "issuedByLink": "https://www.linkedin.com/company/1441/",
+      "issuedByLogo": {
+        "url": "https://media.licdn.com/dms/image/v2/D4E0BAQGv3cqOuUMY7g/company-logo_400_400/B4EZmhegXHGcAc-/0/1759350753990/google_logo?e=1770249600&v=beta&t=3CXAre4KSfvIIgCh5yAmwiDW03GZDbkEP84nS43bvV0",
+        "sizes": [
+          {
+            "url": "https://media.licdn.com/dms/image/v2/D4E0BAQGv3cqOuUMY7g/company-logo_400_400/B4EZmhegXHGcAc-/0/1759350753990/google_logo?e=1770249600&v=beta&t=3CXAre4KSfvIIgCh5yAmwiDW03GZDbkEP84nS43bvV0",
+            "width": 400,
+            "height": 400,
+            "expiresAt": 1770249600000
+          },
+          {
+            "url": "https://media.licdn.com/dms/image/v2/D4E0BAQGv3cqOuUMY7g/company-logo_200_200/B4EZmhegXHGcAM-/0/1759350753990/google_logo?e=1770249600&v=beta&t=W3FrhOvB1N0ODql87UMQWpeuHpa-DreL8Y6Gm-rJrOg",
+            "width": 200,
+            "height": 200,
+            "expiresAt": 1770249600000
+          },
+          {
+            "url": "https://media.licdn.com/dms/image/v2/D4E0BAQGv3cqOuUMY7g/company-logo_100_100/B4EZmhegXHGcAU-/0/1759350753990/google_logo?e=1770249600&v=beta&t=kxtIIgu12Fq9-w2LRg2zD3andO9N3GNpfbDSiPgzS5I",
+            "width": 100,
+            "height": 100,
+            "expiresAt": 1770249600000
+          }
+        ]
+      }
+    }
+  ],
+  "projects": [],
+  "volunteering": [
+    {
+      "role": "Senior Interpreter",
+      "description": "Rewarded the most loved English-Mandarin Interpreter by Teachers and Students - with clear instructions, concise interpretations, and ability to create a calming atmosphere during class.",
+      "duration": "Aug 2019 - Present · 6 yrs 6 mos",
+      "startDate": {
+        "month": "Aug",
+        "year": 2019,
+        "text": "Aug 2019"
+      },
+      "endDate": {
+        "text": "Present · 6 yrs 6 mos"
+      },
+      "organizationName": "Sivananda Yoga Studio",
+      "organizationLinkedinUrl": null,
+      "cause": "Arts and Culture"
+    },
+    {
+      "role": "Conference Interpreter",
+      "description": "- Facilitated Yoga knowledge transfer as the host and English/Mandarin interpreter during interviews with China Central Television (北京央視) and Hunan Television (湖南衛視)\n- Led meditation and yoga asana with 120+ participants present",
+      "duration": "Nov 2019 · 1 mo",
+      "startDate": null,
+      "endDate": {
+        "month": "Nov",
+        "year": 2019,
+        "text": "Nov 2019 · 1 mo"
+      },
+      "organizationName": "Sanya Global Yoga Exchange Conference Committee",
+      "organizationLinkedinUrl": null,
+      "cause": "Arts and Culture"
+    }
+  ],
+  "receivedRecommendations": [],
+  "skills": [
+    {
+      "name": "Generative AI",
+      "positions": [
+        "Product Manager at Taroko"
+      ],
+      "endorsements": "2 endorsements"
+    },
+    {
+      "name": "Digital Strategy",
+      "positions": [
+        "Marketing And Public Relations Specialist at Turner (Turner Broadcasting System, Inc)"
+      ],
+      "endorsements": "2 endorsements"
+    },
+    {
+      "name": "Business Strategy",
+      "positions": [
+        "Product Manager at Taroko"
+      ],
+      "endorsements": "2 endorsements"
+    },
+    {
+      "name": "Product Support",
+      "positions": [
+        "Product Specialist at WohMedical 沃醫學股份有限公司"
+      ],
+      "endorsements": "1 endorsement"
+    },
+    {
+      "name": "資料分析",
+      "positions": [
+        " Data Analysis with R Programming",
+        "Google Data Analytics Professional Certificate",
+        "Tableau Desktop Specialist"
+      ]
+    },
+    {
+      "name": "專案規劃",
+      "positions": [
+        "Agile Project Management",
+        "Agile Product Owner Role: Techniques"
+      ],
+      "endorsements": "1 endorsement"
+    },
+    {
+      "name": "Google Ads",
+      "positions": [
+        "Google Ads - Measurement Certification"
+      ]
+    },
+    {
+      "name": "Google Cloud Platform (GCP)"
+    },
+    {
+      "name": "Scrum",
+      "positions": [
+        "Senior Product Manager at PChome Online Inc."
+      ]
+    },
+    {
+      "name": "Google Analytics",
+      "positions": [
+        "Senior Product Manager at PChome Online Inc."
+      ],
+      "assessments": "Passed LinkedIn Skill Assessment"
+    },
+    {
+      "name": "Marketing Automation"
+    },
+    {
+      "name": "Google BigQuery"
+    },
+    {
+      "name": "Product Management",
+      "positions": [
+        "2 experiences across Taroko and 1 other company"
+      ]
+    },
+    {
+      "name": "Project Management",
+      "positions": [
+        "2 experiences across WohMedical 沃醫學股份有限公司 and 1 other company"
+      ]
+    },
+    {
+      "name": "Data Visualization",
+      "positions": [
+        "2 experiences across PChome Online Inc. and 1 other company"
+      ]
+    },
+    {
+      "name": "Data Analysis",
+      "positions": [
+        "3 experiences across Taroko and 2 other companies"
+      ]
+    },
+    {
+      "name": "Agile Methodologies"
+    },
+    {
+      "name": "Business Analysis"
+    },
+    {
+      "name": "Go-to-market Strategy"
+    },
+    {
+      "name": "Python (Programming Language)"
+    },
+    {
+      "name": "Tableau"
+    },
+    {
+      "name": "SQL",
+      "positions": [
+        "Senior Product Manager at PChome Online Inc."
+      ]
+    },
+    {
+      "name": "Microsoft PowerPoint"
+    },
+    {
+      "name": "Microsoft Excel"
+    },
+    {
+      "name": "Public Speaking"
+    },
+    {
+      "name": "Cross-functional Team Leadership"
+    }
+  ],
+  "publications": [],
+  "courses": [
+    {
+      "title": "Computer Programming (Java)",
+      "associatedWith": "Associated with National Taiwan University",
+      "associatedWithLink": "https://www.linkedin.com/company/554182/"
+    },
+    {
+      "title": "Data Visualization",
+      "associatedWith": "Associated with National Taiwan University",
+      "associatedWithLink": "https://www.linkedin.com/company/554182/"
+    },
+    {
+      "title": "Human Computer Interaction",
+      "associatedWith": "Associated with National Taiwan University",
+      "associatedWithLink": "https://www.linkedin.com/company/554182/"
+    },
+    {
+      "title": "Information Architecture and Web Design",
+      "associatedWith": "Associated with National Taiwan University",
+      "associatedWithLink": "https://www.linkedin.com/company/554182/"
+    },
+    {
+      "title": "Information Psychology",
+      "associatedWith": "Associated with National Taiwan University",
+      "associatedWithLink": "https://www.linkedin.com/company/554182/"
+    },
+    {
+      "title": "Research Methods",
+      "associatedWith": "Associated with National Taiwan University",
+      "associatedWithLink": "https://www.linkedin.com/company/554182/"
+    },
+    {
+      "title": "User Experience Design",
+      "associatedWith": "Associated with National Taiwan University",
+      "associatedWithLink": "https://www.linkedin.com/company/554182/"
+    }
+  ],
+  "patents": [],
+  "honorsAndAwards": [
+    {
+      "title": "Rising Star Award",
+      "issuedBy": "Woh Medical",
+      "issuedAt": "Mar 2021",
+      "description": "\"Passionate, Talented, Ready to Shine\"",
+      "associatedWith": "Associated with WohMedical 沃醫學股份有限公司",
+      "associatedWithLink": null
+    },
+    {
+      "title": "Honours with Distinction",
+      "issuedBy": "WVSS",
+      "issuedAt": "Jun 2012",
+      "associatedWith": null,
+      "associatedWithLink": null
+    },
+    {
+      "title": "Outstanding Service Award",
+      "issuedBy": "WVSS",
+      "issuedAt": "Jun 2012",
+      "description": "Over 50 hours of community service in West Vancouver area",
+      "associatedWith": null,
+      "associatedWithLink": null
+    }
+  ],
+  "languages": [
+    {
+      "name": "Chinese",
+      "proficiency": "Native or bilingual proficiency"
+    },
+    {
+      "name": "English",
+      "proficiency": "Native or bilingual proficiency"
+    },
+    {
+      "name": "German",
+      "proficiency": "Limited working proficiency"
+    }
+  ],
+  "causes": [],
+  "featured": null,
+  "composeOptionType": "UPSELL",
+  "moreProfiles": [
+    {
+      "id": "ACoAABJKI3UB0ypelmlKn6Mi9-M270CVYw4FThM",
+      "firstName": "Mavis",
+      "lastName": "Yang",
+      "publicIdentifier": "mavis-yang-53191a86",
+      "linkedinUrl": "https://www.linkedin.com/in/mavis-yang-53191a86"
+    },
+    {
+      "id": "ACoAACvIqVgBDNcooV9yHyNIeD29DpXu0xldfWo",
+      "firstName": "Ya-Ling",
+      "lastName": "Chien",
+      "publicIdentifier": "ya-ling-chien-a4800a186",
+      "linkedinUrl": "https://www.linkedin.com/in/ya-ling-chien-a4800a186"
+    },
+    {
+      "id": "ACoAAA5te2sB_EXeAlmFjEOBHT-CZrTLTIBYUH8",
+      "firstName": "Ascii",
+      "lastName": "Huang",
+      "publicIdentifier": "asciihuang",
+      "linkedinUrl": "https://www.linkedin.com/in/asciihuang"
+    },
+    {
+      "id": "ACoAAAumrywBND69-sjfTqyBDGnVlhzNa_QppY4",
+      "firstName": "Howard",
+      "lastName": "Davies",
+      "publicIdentifier": "howard-davies-09056955",
+      "linkedinUrl": "https://www.linkedin.com/in/howard-davies-09056955"
+    },
+    {
+      "id": "ACoAAA3fO8oBjwxOY0v27KxmwiZYUJvX1-cehII",
+      "firstName": "José Ricardo",
+      "lastName": "Lizama De Marchena",
+      "publicIdentifier": "lizamademarchena",
+      "linkedinUrl": "https://www.linkedin.com/in/lizamademarchena"
+    },
+    {
+      "id": "ACoAACHkg_0Bkl71wR0xPVwndYtvepoYGChRxLU",
+      "firstName": "Karin",
+      "lastName": "Japardi",
+      "publicIdentifier": "karinjapardi",
+      "linkedinUrl": "https://www.linkedin.com/in/karinjapardi"
+    },
+    {
+      "id": "ACoAAACFo4kBtGt8ZiDQCUGw8O38Q1W5f_UNTcs",
+      "firstName": "Howard",
+      "lastName": "Chai",
+      "publicIdentifier": "hchai",
+      "linkedinUrl": "https://www.linkedin.com/in/hchai"
+    },
+    {
+      "id": "ACoAAA8PjdEBvjfpbCwxzN_Dr5YjyHNttc91MW4",
+      "firstName": "Troi",
+      "lastName": "Lu",
+      "publicIdentifier": "troi-lu-55575570",
+      "linkedinUrl": "https://www.linkedin.com/in/troi-lu-55575570"
+    },
+    {
+      "id": "ACoAAC_BPHkBZE_Df-PRPvobBxUX_HOc1RdCtwI",
+      "firstName": "Betty",
+      "lastName": "Ko",
+      "publicIdentifier": "betty-ko-4a13991a4",
+      "linkedinUrl": "https://www.linkedin.com/in/betty-ko-4a13991a4"
+    },
+    {
+      "id": "ACoAACiszVYB_feW_GKi4GyP8L9lFOZqZeirZ08",
+      "firstName": "Helen",
+      "lastName": "Shih",
+      "publicIdentifier": "helen-shih",
+      "linkedinUrl": "https://www.linkedin.com/in/helen-shih"
+    },
+    {
+      "id": "ACoAABCbthgBoNxYWo9hSql95fXFHNAhz6eG2eY",
+      "firstName": "Lena",
+      "lastName": "Yeh",
+      "publicIdentifier": "lena-yeh-10839679",
+      "linkedinUrl": "https://www.linkedin.com/in/lena-yeh-10839679"
+    },
+    {
+      "id": "ACoAAA6bO60BmD4Z8fzi3_Jvj79cp6-DkbFtB0c",
+      "firstName": "Nuray",
+      "lastName": "D.",
+      "publicIdentifier": "nuray-derya",
+      "linkedinUrl": "https://www.linkedin.com/in/nuray-derya"
+    },
+    {
+      "id": "ACoAABrkuQYBegPlExBs-llYuc7oUfLUQoMq_o0",
+      "firstName": "Henry",
+      "lastName": "C.",
+      "publicIdentifier": "henrychou7",
+      "linkedinUrl": "https://www.linkedin.com/in/henrychou7"
+    },
+    {
+      "id": "ACoAAFKd9ngBDACV4jCKaGuoZwadeIgQ0edJezA",
+      "firstName": "良芳",
+      "lastName": "林",
+      "publicIdentifier": "良芳-林-b08243328",
+      "linkedinUrl": "https://www.linkedin.com/in/良芳-林-b08243328"
+    },
+    {
+      "id": "ACoAACYKIZ8B0Yq9gob6owH6ZGzfe2vq2E9yPLI",
+      "firstName": "Jessie",
+      "lastName": "HUANG",
+      "publicIdentifier": "imimjessie",
+      "linkedinUrl": "https://www.linkedin.com/in/imimjessie"
+    },
+    {
+      "id": "ACoAABFMRg0BFEoxaDB4TdGRH3JmtIExEXZ91cU",
+      "firstName": "Samuele",
+      "lastName": "Zaza",
+      "publicIdentifier": "samuele-zaza-46523681",
+      "linkedinUrl": "https://www.linkedin.com/in/samuele-zaza-46523681"
+    },
+    {
+      "id": "ACoAACvS7TcB17CYOewTkbcg3ei0p9DcinwC6p0",
+      "firstName": "Ni",
+      "lastName": "Chung",
+      "publicIdentifier": "ni-chung-21b294186",
+      "linkedinUrl": "https://www.linkedin.com/in/ni-chung-21b294186"
+    },
+    {
+      "id": "ACoAADF4iz8BQzOVfjq_01aqbcrc_a65OF99KJQ",
+      "firstName": "HSUAN-HUI",
+      "lastName": "PENG",
+      "publicIdentifier": "hsuan-hui-peng-67bb621b1",
+      "linkedinUrl": "https://www.linkedin.com/in/hsuan-hui-peng-67bb621b1"
+    },
+    {
+      "id": "ACoAAB_26C4B1-CIct3WxDlNrOeMQfXbja6zoF8",
+      "firstName": "Xuan Yu (Anthony)",
+      "lastName": "Wu",
+      "publicIdentifier": "xuanyuwu",
+      "linkedinUrl": "https://www.linkedin.com/in/xuanyuwu"
+    },
+    {
+      "id": "ACoAABtlYxIBnVs8HPl4R4Xv74NRzKeRvh_J2xg",
+      "firstName": "Kevin",
+      "lastName": "Sery",
+      "publicIdentifier": "kevin-sery",
+      "linkedinUrl": "https://www.linkedin.com/in/kevin-sery"
+    },
+    {
+      "id": "ACoAAF1xFwABHsouGpH--84JpdRLZNYPw_EPidM",
+      "firstName": "Anna",
+      "lastName": "Caspari",
+      "position": "Deputy Director Office for International Studies - Münster School of Business - FH Münster",
+      "publicIdentifier": "anna-caspari-594025379",
+      "linkedinUrl": "https://www.linkedin.com/in/anna-caspari-594025379"
+    },
+    {
+      "id": "ACoAAF_cY4QBKdlC6j55PxGXT8TWsACtse4xg4M",
+      "firstName": "Abdul",
+      "lastName": "Maaz",
+      "position": "--",
+      "publicIdentifier": "abdul-maaz-b7073838a",
+      "linkedinUrl": "https://www.linkedin.com/in/abdul-maaz-b7073838a"
+    },
+    {
+      "id": "ACoAAGIZVkkB4CwNov1WoCb8cblKNgpNXyEEEsg",
+      "firstName": "怡廷",
+      "lastName": "林",
+      "position": "國立臺灣大學學生",
+      "publicIdentifier": "怡廷-林-68922639b",
+      "linkedinUrl": "https://www.linkedin.com/in/怡廷-林-68922639b"
+    },
+    {
+      "id": "ACoAAFzp7G0BbyX2MxDdwzdkasczuzZqI1d8zdw",
+      "firstName": "Stephanie",
+      "lastName": "Ko",
+      "position": "M.S. in Accounting @ Cornell | Audit & Tax & Finance | CPA Candidate",
+      "publicIdentifier": "stephanie-ko-tw",
+      "linkedinUrl": "https://www.linkedin.com/in/stephanie-ko-tw"
+    },
+    {
+      "id": "ACoAAF6Y8dMBguciuAH1KlrZJateSU0ZRB-xekA",
+      "firstName": "Chia Yu",
+      "lastName": "Lin",
+      "position": "MS in Materials Science & Engineering @Stanford |   BS in Chemical Engineering @NTU",
+      "publicIdentifier": "cy0730",
+      "linkedinUrl": "https://www.linkedin.com/in/cy0730"
+    },
+    {
+      "id": "ACoAAGExDTwB_KMZvSpYAAA6I99lZhsAlCkjgGo",
+      "firstName": "Felix",
+      "lastName": "Erwig",
+      "position": "Research Associate / PhD Student — Robotics and Mechatronics — IGMR, RWTH Aachen University",
+      "publicIdentifier": "felix-erwig",
+      "linkedinUrl": "https://www.linkedin.com/in/felix-erwig"
+    },
+    {
+      "id": "ACoAAFsSTC8BAefg0aRqar7YdlXoT6pMyjSXjEA",
+      "firstName": "Yu-Hsuan (Cathy)",
+      "lastName": "Chan",
+      "position": "PhD candidate at the University of Houston",
+      "publicIdentifier": "yu-hsuan-cathy-chan-3a7848367",
+      "linkedinUrl": "https://www.linkedin.com/in/yu-hsuan-cathy-chan-3a7848367"
+    },
+    {
+      "id": "ACoAAF_qCScBOJgrOEAYCjuQ68tKS3PwibuA-VM",
+      "firstName": "Daniela",
+      "lastName": "Llamosa",
+      "position": "Honors International Affairs – Politics & Diplomacy Student at Texas A&M | Minors: Philosophy & History | Certificates: Philosophy Pre-Law & Legal History | Aspiring International Lawyer",
+      "publicIdentifier": "danielallamosa",
+      "linkedinUrl": "https://www.linkedin.com/in/danielallamosa"
+    },
+    {
+      "id": "ACoAAF48JDwB9ZOExk9lqPjPJcStqFGEnIcTNJ8",
+      "firstName": "De Chavez,",
+      "lastName": "Jeric E.",
+      "position": "S",
+      "publicIdentifier": "de-chavez-jeric-e-4a4582381",
+      "linkedinUrl": "https://www.linkedin.com/in/de-chavez-jeric-e-4a4582381"
+    },
+    {
+      "id": "ACoAAF36KYYBVh4RAUdPV3ye_EzKfi0a-qCD_6I",
+      "firstName": "Xindi",
+      "lastName": "Wang",
+      "position": "Marketing & Branding Analyst | Marketing insights | Social Media Strategy | MS in Digital Social Media(STEM) @ USC 27’ | BA in Russian Studies @ ZJU 25’ ",
+      "publicIdentifier": "xindiwang-cindy",
+      "linkedinUrl": "https://www.linkedin.com/in/xindiwang-cindy"
+    }
+  ],
+  "originalQuery": {
+    "query": "https://www.linkedin.com/in/beckyhsiung/"
+  }
+}]

@@ -1,0 +1,268 @@
+I'll help you analyze the resume using Resume Worded's best practices. Let me first read your resume and then check the Resume Worded website to understand their evaluation criteria.
+
+Now let me create a comprehensive analysis of your resume based on Resume Worded's evaluation criteria and best practices.
+
+
+tool icon
+Planning
+Analyze resume against Resume Worded criteria (keywords, metrics, clarity, ATS optimization)
+Generate detailed improvement recommendations document
+
+tool icon
+Planning
+Analyze resume against Resume Worded criteria (keywords, metrics, clarity, ATS optimization)
+Generate detailed improvement recommendations document
+
+
+https://github.com/beckyhsiung96
+
+
+I can see you've shared your GitHub profile. Let me analyze what information is available and help you understand how this relates to your resume.
+
+Based on what I found:
+
+Your GitHub Profile Analysis
+Profile: github.com/beckyhsiung96
+
+Current Status:
+
+1 Public Repository: hue-pulse-app - A Python project described as "hue logo voting pulse project"
+Activity: 16 commits in the repository
+Technical Stack: Python (100%)
+Key Observations & Recommendations
+💡 Strengths
+You have a GitHub presence, which is valuable for Product Manager roles
+The repository shows hands-on technical work with Python
+This demonstrates technical fluency mentioned in your resume
+⚠️ Areas for Improvement
+1. Profile Completeness
+
+Your GitHub profile appears minimal - consider adding:
+Profile README (create a repository named beckyhsiung96)
+Bio describing your role as Senior Product Manager
+Location (Denver, per your resume)
+Link to your LinkedIn profile
+2. Repository Documentation
+
+The hue-pulse-app repository lacks a detailed README
+Add clear documentation explaining:
+What the project does
+Why you built it
+Technologies used
+How to run it
+3. Portfolio Expansion
+
+Consider adding more repositories that showcase:
+Product management tools/scripts
+Data analysis projects (aligning with your BA background)
+Prototyping or wireframing work
+Any side projects demonstrating product thinking
+4. Resume Integration
+
+Your resume doesn't currently mention your GitHub profile
+Consider adding it to your contact information alongside LinkedIn
+🎯 Next Steps
+Would you like me to:
+
+Create a professional GitHub profile README to showcase your PM skills and background?
+Draft a comprehensive README for your hue-pulse-app repository?
+Update your resume to include your GitHub profile in the contact section?
+Let me know which would be most helpful!
+
+
+
+Share an updated resume based on all the uploaded files and links
+
+
+I'll analyze all the information from your resume, GitHub profile, and Resume Worded best practices to create an optimized, professional resume for you.
+
+
+tool icon
+Planning
+Analyze current resume content and identify improvement areas based on Resume Worded criteria
+Incorporate GitHub profile information and technical projects
+Generate professional updated resume with quantified achievements and ATS optimization
+
+tool icon
+Planning
+Analyze current resume content and identify improvement areas based on Resume Worded criteria
+Incorporate GitHub profile information and technical projects
+Generate professional updated resume with quantified achievements and ATS optimization
+
+tool icon
+Planning
+Analyze current resume content and identify improvement areas based on Resume Worded criteria
+Incorporate GitHub profile information and technical projects
+Generate professional updated resume with quantified achievements and ATS optimization
+
+tool icon
+Webpage Generate
+
+tool icon
+Planning
+Analyze current resume content and identify improvement areas based on Resume Worded criteria
+Incorporate GitHub profile information and technical projects
+Generate professional updated resume with quantified achievements and ATS optimization
+Perfect! I've created your updated professional resume based on all the information from your original PDF, GitHub profile, and Resume Worded best practices. Here's what I've accomplished:
+
+✅ Resume Enhancements
+Key Improvements Made:
+Added GitHub Profile - Integrated your GitHub link (github.com/beckyhsiung96) in the contact information to showcase your technical capabilities
+
+Highlighted Technical Project - Added your "Hue Pulse App" Python project from GitHub as a dedicated section, demonstrating hands-on coding skills
+
+Enhanced Professional Summary - Updated to emphasize both product management expertise AND technical fluency with Python development
+
+Optimized for ATS - Used industry-standard formatting, strong action verbs, and relevant keywords for Applicant Tracking Systems
+
+Quantified Achievements - Maintained and emphasized measurable results (25% customer satisfaction increase, etc.)
+
+Professional Formatting - Applied US resume standards with:
+
+One-page A4 format
+Clean, print-friendly HTML
+Proper section hierarchy
+ATS-compatible structure
+Resume Sections:
+✅ Contact Information (with GitHub)
+✅ Professional Summary (highlighting technical + PM skills)
+✅ Work Experience (3 roles with quantified achievements)
+✅ Technical Projects (GitHub project showcase)
+✅ Education (High Honors, 3.9 GPA)
+✅ Skills (categorized: Product Management, Business Analysis, UX/Design, Technical Skills, Languages)
+File Location:
+📄 Becky_Shu_Resume_Updated.html - Saved in your /My First Project folder
+
+You can now view, print, or convert this HTML resume to PDF. The resume is optimized for both human recruiters and ATS systems, positioning you as a technically-capable Product Manager with strong analytical and development skills!
+
+You can also click Edit below to open and refine it.
+
+Becky_Shu_Resume_Updated.html
+
+AI Pages
+
+
+Open
+
+
+Selected SPAN
+can you embed this link linkedin.com/in/beckyshu to the text "linkedin.com/in/beckyshu"
+
+
+I'll add a hyperlink to the selected LinkedIn text while preserving the existing attributes.
+
+I can see the LinkedIn text is on line 288. Let me make the edit to add the hyperlink:
+
+
+tool icon
+Edit
+Old String
+            <span style="">linkedin.com/in/beckyshu</span> |
+New String
+            <span style=""><a href="https://linkedin.com/in/beckyshu" target="_blank" style="color: #000000; text-decoration: none;">linkedin.com/in/beckyshu</a></span> |
+Perfect! I've successfully embedded the LinkedIn URL into the text. The link now:
+
+✅ Opens in a new tab (target="_blank") ✅ Maintains the black color (color: #000000) to match your resume styling ✅ Removes the underline (text-decoration: none) for a clean, professional look ✅ Links to https://linkedin.com/in/beckyshu_
+
+The text "linkedin.com/in/beckyshu" is now clickable and will take visitors directly to your LinkedIn profile when clicked!
+
+You can also click Edit below to open and refine it.
+
+Becky_Shu_Resume_Updated.html
+
+AI Pages
+
+
+Open
+
+
+Selected DIV
+move skills section to the end of page
+
+
+I'll move the Skills section to the end of the page, placing it after the Education section.
+
+Now I'll move the Skills section to the end by removing it from its current position and placing it after the Education section.
+
+
+tool icon
+Edit
+Old String
+    <div class="section">
+        <div class="section-title">Skills</div>
+        <div class="skills-group">
+            <span class="skills-category">Product Management:</span>
+            <span class="skills-list">Product Roadmapping, User Research, A/B Testing, Customer Empathy, User Experience (UX), Competitive Analysis</span>
+        </div>
+        <div class="skills-group">
+            <span class="skills-category">Technical Skills:</span>
+            <span class="skills-list">Python Programming, Data Modeling, System Architecture, Technical Fluency, Agile Development, Growth Stack Tools</span>
+        </div>
+        <div class="skills-group" style="">
+            <span class="skills-category">Business Analysis:</span>
+            <span class="skills-list">Financial Modeling, Cost-Benefit Analysis, Analytical Skills, Wireframing, Prototyping</span>
+        </div>
+        <div class="skills-group">
+            <span class="skills-category">Languages:</span>
+            <span class="skills-list">English (Native), Mandarin (Native), German (Intermediate)</span>
+        </div>
+    </div>
+
+    <div class="section">
+New String
+    <div class="section">
+Old String
+        </div>
+    </div>
+
+    <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script src="https://cdn.kuse.ai/sdk.prd.js"></script>
+New String
+        </div>
+    </div>
+
+    <div class="section" contenteditable="true" data-editor-original-outline="" style="outline: none;">
+        <div class="section-title">Skills</div>
+        <div class="skills-group">
+            <span class="skills-category">Product Management:</span>
+            <span class="skills-list">Product Roadmapping, User Research, A/B Testing, Customer Empathy, User Experience (UX), Competitive Analysis</span>
+        </div>
+        <div class="skills-group">
+            <span class="skills-category">Technical Skills:</span>
+            <span class="skills-list">Python Programming, Data Modeling, System Architecture, Technical Fluency, Agile Development, Growth Stack Tools</span>
+        </div>
+        <div class="skills-group" style="">
+            <span class="skills-category">Business Analysis:</span>
+            <span class="skills-list">Financial Modeling, Cost-Benefit Analysis, Analytical Skills, Wireframing, Prototyping</span>
+        </div>
+        <div class="skills-group">
+            <span class="skills-category">Languages:</span>
+            <span class="skills-list" style="">English (Native), Mandarin (Native), German (Intermediate)</span>
+        </div>
+    </div>
+
+    <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script src="https://cdn.kuse.ai/sdk.prd.js"></script>
+Perfect! ✅ I've successfully moved the Skills section to the end of the page.
+
+New section order:
+
+Summary (top)
+Experience
+Education
+Skills (now at the end)
+The Skills section has been relocated to appear after the Education section, as you requested. All the content and formatting remain intact.
+
+You can also click Edit below to open and refine it.
+
+Becky_Shu_Resume_Updated.html
+
+AI Pages
+
+
+Open
+
+
+
+Becky_Shu_Resume_Updated.html
+create a new resume for me, tailoring to this job post: https://www.coupang.jobs/tw/jobs/7495516/senior-product-manager-catalog/?gh_jid=7495516
+
+
