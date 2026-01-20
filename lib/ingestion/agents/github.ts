@@ -148,6 +148,14 @@ export const GitHubIngestionAgent: IngestionAgent = {
             sourceId: sourceId,
             upsert_projects: projectUpserts,
             upsert_skills: skillUpserts,
+            personal: {
+                name: data.profile.name || data.profile.login,
+                location: data.profile.location
+            },
+            contact: {
+                github: data.profile.html_url,
+                website: data.profile.blog
+            },
             professionalSummaryDraft: enrichment.professional_summary_draft ? {
                 value: enrichment.professional_summary_draft,
                 evidence: [{ sourceId, level: 'medium', label: 'AI Synthesis' }]

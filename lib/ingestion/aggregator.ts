@@ -13,9 +13,9 @@ export class CareerProfileAggregator {
 
         const mergedItems = [...base.items];
 
-        const getEvidenceLevel = (field?: EnrichedField<any>): EvidenceStrength => {
-            if (!field || !field.evidence || field.evidence.length === 0) return 'weak';
-            const levels = field.evidence.map(e => e.level);
+        const getEvidenceLevel = (obj?: { evidence?: any[] }): EvidenceStrength => {
+            if (!obj || !obj.evidence || obj.evidence.length === 0) return 'weak';
+            const levels = obj.evidence.map(e => e.level);
             if (levels.includes('high')) return 'strong';
             if (levels.includes('medium')) return 'medium';
             return 'weak';
@@ -30,12 +30,19 @@ export class CareerProfileAggregator {
                     // Update Logic
                     const item = mergedItems[existingIdx];
 
-                    // Merge Metadata
-                    if (!item.sourceIds.includes(patch.sourceId)) item.sourceIds.push(patch.sourceId);
+                    // Check Lock
+                    if (base.manualOverrides?.items?.[item.id]) {
+                        continue;
+                    }
 
                     // Prioritize description from patch if it has high evidence or if existing is empty
-                    if (p.description?.value && (!item.description || getEvidenceLevel(p.description) === 'strong')) {
-                        item.description = p.description.value;
+                    // SPECIAL RULE: If source is 'refinement-agent', It ALWAYS wins (unless locked by user)
+                    // This is because refinement agent is a "Post-Processing" step designed to overwrite bad text.
+                    const isRefinement = patch.sourceId === 'refinement-agent';
+
+                    if (isRefinement || p.description?.value && (!item.description || getEvidenceLevel(p.description) === 'strong')) {
+                        console.log(`[Aggregator] Updating Project ${item.id} from ${patch.sourceId}`);
+                        item.description = p.description?.value || item.description;
                     }
 
                 } else {
@@ -62,6 +69,12 @@ export class CareerProfileAggregator {
                 if (existingIdx >= 0) {
                     const item = mergedItems[existingIdx];
                     if (!item.sourceIds.includes(patch.sourceId)) item.sourceIds.push(patch.sourceId);
+
+                    // Upgrade evidence strength if new source provides better evidence
+                    const newStrength = getEvidenceLevel(s);
+                    if (newStrength === 'strong' && item.evidenceStrength !== 'strong') {
+                        item.evidenceStrength = 'strong';
+                    }
                 } else {
                     mergedItems.push({
                         id: s.id, // STABLE ID
@@ -82,7 +95,20 @@ export class CareerProfileAggregator {
 
                 if (existingIdx >= 0) {
                     const item = mergedItems[existingIdx];
+
+                    // Check Lock
+                    if (base.manualOverrides?.items?.[item.id]) {
+                        continue;
+                    }
+
                     if (!item.sourceIds.includes(patch.sourceId)) item.sourceIds.push(patch.sourceId);
+
+                    // SPECIAL RULE: Refinement Agent wins
+                    const isRefinement = patch.sourceId === 'refinement-agent';
+                    if (isRefinement && r.description?.value) {
+                        console.log(`[Aggregator] Updating Role ${item.id} from ${patch.sourceId}`);
+                        item.description = r.description.value;
+                    }
                 } else {
                     mergedItems.push({
                         id: r.id, // STABLE ID
@@ -180,7 +206,33 @@ export class CareerProfileAggregator {
         if (patch.upsert_languages) {
             for (const l of patch.upsert_languages) {
                 const existingIdx = mergedItems.findIndex(i => i.id === l.id);
-                if (existingIdx === -1) {
+                if (existingIdx >= 0) {
+                    const existing = mergedItems[existingIdx];
+
+                    // Check Lock
+                    if (base.manualOverrides?.items?.[existing.id]) {
+                        // Item is locked by user edit. Do not overwrite description/title.
+                        // We MIGHT want to merge unseen sourceIds? 
+                        // For now, strict lock is safer to prevent overwriting user's "perfect" text.
+                        continue;
+                    }
+
+                    // Merge
+                    // For languages, title is name, description is category.
+                    // The user's provided snippet had `patchItem.description.value` which doesn't fit `l` (language).
+                    // Assuming the intent is to update sourceIds and potentially strength.
+                    if (!existing.sourceIds.includes(patch.sourceId)) {
+                        existing.sourceIds.push(patch.sourceId);
+                    }
+                    // Language strength is currently always 'strong' on creation, so no upgrade logic needed here.
+                    // If we were to update description/title, it would be:
+                    // existing.title = l.name;
+                    // existing.description = l.category || 'Language';
+                    // But the instruction implies a merge, not a full overwrite, and the provided snippet
+                    // for description was `patchItem.description.value || existing.description`,
+                    // which for languages would be `l.category || existing.description`.
+                    // Given the strict lock, we'll just update sourceIds for now.
+                } else {
                     mergedItems.push({
                         id: l.id,
                         category: 'language',
@@ -195,17 +247,33 @@ export class CareerProfileAggregator {
 
         // 9. Global Fields (Summary, Personal, Contact)
         if (patch.professionalSummaryDraft?.value) {
-            if (!base.summary) {
-                base.summary = patch.professionalSummaryDraft.value;
+            if (!base.manualOverrides?.summary) {
+                // SPECIAL RULE: Refinement Agent wins for Summary too
+                const isRefinement = patch.sourceId === 'refinement-agent';
+                if (isRefinement || !base.summary) {
+                    console.log(`[Aggregator] Updating Summary from ${patch.sourceId}`);
+                    base.summary = patch.professionalSummaryDraft.value;
+                }
             }
         }
 
         if (patch.personal) {
-            base.personal = { ...base.personal, ...patch.personal };
+            const pOverrides = base.manualOverrides?.personal || {};
+            base.personal = {
+                name: pOverrides.name ? (base.personal?.name || "") : (patch.personal.name || base.personal?.name || ""),
+                location: pOverrides.location ? base.personal?.location : (patch.personal.location || base.personal?.location)
+            };
         }
 
         if (patch.contact) {
-            base.contact = { ...base.contact, ...patch.contact };
+            const cOverrides = base.manualOverrides?.contact || {};
+            base.contact = {
+                email: cOverrides.email ? base.contact?.email : (patch.contact.email || base.contact?.email),
+                phone: cOverrides.phone ? base.contact?.phone : (patch.contact.phone || base.contact?.phone),
+                linkedin: cOverrides.linkedin ? base.contact?.linkedin : (patch.contact.linkedin || base.contact?.linkedin),
+                github: cOverrides.github ? base.contact?.github : (patch.contact.github || base.contact?.github),
+                website: cOverrides.website ? base.contact?.website : (patch.contact.website || base.contact?.website)
+            };
         }
 
         return {

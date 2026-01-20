@@ -3,8 +3,9 @@ import { CareerProfileAggregator } from '@/lib/ingestion/aggregator';
 import { ingestSource } from '@/app/actions';
 import { RawInput, CareerIntent, CareerProfile } from '@/types/career';
 import { IngestionSource } from '@/lib/ingestion/types';
+import { refineProfile } from './ingestion/refinement';
 
-export async function processCareerProfile(inputs: RawInput[], intent: CareerIntent): Promise<CareerProfile> {
+export async function processCareerProfile(inputs: RawInput[], intent: CareerIntent, overrides?: any): Promise<CareerProfile> {
 
     // 1. Convert RawInput to IngestionSource
     const sources: IngestionSource[] = inputs.map((input, idx) => ({
@@ -15,7 +16,13 @@ export async function processCareerProfile(inputs: RawInput[], intent: CareerInt
         metadata: input.metadata
     }));
 
-    let currentProfile: CareerProfile | null = null;
+    let currentProfile: CareerProfile | null = overrides ? {
+        analysisReport: '',
+        summary: '',
+        items: [],
+        gaps: [],
+        manualOverrides: overrides
+    } : null;
     let aggregateReports = "";
 
     // 2. Iterate and Ingest (Concurrent)
@@ -89,5 +96,10 @@ export async function processCareerProfile(inputs: RawInput[], intent: CareerInt
     // Update the report
     currentProfile.analysisReport = aggregateReports || "Analysis complete.";
 
-    return currentProfile;
+    // 5. Refine Profile (Resume-Language Layer)
+    console.log("[Bridge] Running Profile Refinement...");
+    // TODO: Pass actual user overrides when UI supports it
+    const refinedProfile = await refineProfile(currentProfile, intent, overrides || {});
+
+    return refinedProfile;
 }

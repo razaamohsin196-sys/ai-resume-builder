@@ -55,6 +55,13 @@ export function ResumeDraftView() {
     }, [resumeHtml, resume, profile, intent, setResumeHtml, setResume, loadingSteps.length]);
 
 
+    const handleExportPdf = () => {
+        const iframe = document.querySelector('iframe') as HTMLIFrameElement;
+        if (iframe && iframe.contentWindow) {
+            iframe.contentWindow.print();
+        }
+    };
+
     if (!resumeHtml) {
         return (
             <div className="flex flex-col items-center justify-center min-h-[60vh] text-center space-y-6">
@@ -89,45 +96,71 @@ export function ResumeDraftView() {
 
     return (
         <div className="min-h-screen bg-muted/10">
-            <header className="bg-background border-b px-6 py-4 flex items-center justify-between sticky top-0 z-10">
-                <div className="flex items-center space-x-4">
-                    <h1 className="font-semibold text-lg">Resume Draft</h1>
-                    <span className="text-sm text-muted-foreground px-2 py-1 bg-muted rounded-full">
-                        Target: {intent?.targetRole}
-                    </span>
+            <header className="bg-background border-b px-6 py-4 flex items-center justify-between sticky top-0 z-10 shadow-sm">
+                <div className="flex items-center">
+                    {/* Left side empty or maybe breadcrumb? Keeping clean as requested */}
                 </div>
-                <div className="flex items-center space-x-2">
-                    <Button variant="ghost" size="sm" onClick={() => setStep('profile-review')} className="text-muted-foreground hover:text-foreground">
+
+                <div className="flex items-center gap-4 w-full justify-center">
+                    <Button
+                        variant="ghost"
+                        onClick={() => setStep('profile-review')}
+                        className="text-muted-foreground hover:text-foreground absolute left-6"
+                    >
+                        <ArrowLeft className="w-4 h-4 mr-2" />
                         Back to Profile
                     </Button>
-                    <Button variant="outline" size="sm" onClick={() => setStep('interview-prep')}>
-                        Verify & Prep Interview <ChevronRight className="w-4 h-4 ml-1" />
+
+                    <Button
+                        size="lg"
+                        onClick={handleExportPdf}
+                        className="bg-purple-600 hover:bg-purple-700 shadow-md min-w-[200px]"
+                    >
+                        <Download className="w-4 h-4 mr-2" />
+                        Export PDF
                     </Button>
-                    <Button variant="secondary" size="sm" onClick={() => setStep('resume-editor')}>
-                        Open Advanced Editor
-                    </Button>
-                    <Button size="sm">
-                        <Download className="w-4 h-4 mr-2" /> Export PDF
-                    </Button>
+
+                    <div className="absolute right-6 flex items-center gap-2">
+                        <Button
+                            variant="outline"
+                            onClick={() => setStep('interview-prep')}
+                        >
+                            Prep Interview <ChevronRight className="w-4 h-4 ml-1" />
+                        </Button>
+                    </div>
                 </div>
             </header>
 
             <div className="flex max-w-7xl mx-auto p-6 gap-6 justify-center">
                 {/* Resume Paper Preview */}
-                <div className="flex flex-col items-center space-y-4">
-                    <div className="bg-white dark:bg-card shadow-lg border w-[210mm] h-[297mm] overflow-hidden relative group">
+                <div className="flex flex-col items-center space-y-4 pb-16">
+                    <div
+                        className="bg-white dark:bg-card shadow-lg border w-[210mm] min-h-[297mm] h-auto relative group cursor-pointer overflow-hidden transition-all hover:ring-2 hover:ring-purple-500/50"
+                        onClick={() => setStep('resume-editor')}
+                    >
                         <iframe
                             srcDoc={resumeHtml}
-                            className="w-full h-full border-none pointer-events-none"
+                            className="w-full h-full min-h-[297mm] border-none pointer-events-none"
+                            style={{ height: 'calc(100% + 20px)' }}
                             title="Preview"
+                            onLoad={(e) => {
+                                const iframe = e.currentTarget;
+                                if (iframe.contentWindow) {
+                                    const h = iframe.contentWindow.document.body.scrollHeight;
+                                    iframe.style.height = `${h}px`;
+                                    iframe.parentElement!.style.height = `${h}px`;
+                                }
+                            }}
                         />
-                        <div className="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                            <Button size="lg" onClick={() => setStep('resume-editor')}>
-                                <Edit className="w-5 h-5 mr-2" />
+                        {/* Hover Overlay */}
+                        <div className="absolute inset-0 bg-purple-900/0 group-hover:bg-purple-900/5 transition-all flex items-center justify-center">
+                            <div className="bg-white/90 backdrop-blur text-purple-900 px-4 py-2 rounded-full shadow-lg opacity-0 group-hover:opacity-100 transform translate-y-2 group-hover:translate-y-0 transition-all font-medium flex items-center">
+                                <Edit className="w-4 h-4 mr-2" />
                                 Click to Edit
-                            </Button>
+                            </div>
                         </div>
                     </div>
+                    <p className="text-sm text-muted-foreground">Click the resume to make changes</p>
                 </div>
             </div>
         </div>

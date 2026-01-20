@@ -48,6 +48,12 @@ export interface CareerProfile {
     items: CareerProfileItem[];
     gaps: string[];
     missingInfo?: string[];
+    manualOverrides?: {
+        personal?: any;
+        contact?: any;
+        summary?: boolean;
+        items?: Record<string, boolean>; // Set of IDs that are manually edited
+    };
 }
 
 export interface ResumeBullet {

@@ -58,8 +58,22 @@ OUTPUT FORMAT (JSON)
               "description": { "value": "...", "evidence": [] }
           }
       ],
-      "upsert_certifications": [],
-      "upsert_awards": [],
+      "upsert_certifications": [
+          {
+              "id": "linkedin:cert:aws-sa",
+              "name": { "value": "AWS Solutions Architect", "evidence": [] },
+              "authority": { "value": "Amazon Web Services", "evidence": [] },
+              "date": { "value": "Issued Dec 2023", "evidence": [] }
+          }
+      ],
+      "upsert_awards": [
+          {
+              "id": "linkedin:award:employee-month",
+              "title": { "value": "Employee of the Month", "evidence": [] },
+              "issuer": { "value": "Company Inc", "evidence": [] },
+              "date": { "value": "2022", "evidence": [] }
+          }
+      ],
       "upsert_languages": [{ "id": "lang:mandarin", "name": "Mandarin", "category": "Language", "evidence": [] }],
       "upsert_languages": [{ "id": "lang:mandarin", "name": "Mandarin", "category": "Language", "evidence": [] }],
       "personal": { "name": "John Doe", "location": "Seattle, WA" },

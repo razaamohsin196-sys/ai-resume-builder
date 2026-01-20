@@ -7,7 +7,7 @@ import { Loader2, CheckCircle2, BrainCircuit } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 export function ProcessingView() {
-    const { rawMemory, intent, setProfile, setStep } = useCareer();
+    const { rawMemory, intent, profile, setProfile, setStep } = useCareer();
     const [error, setError] = useState<string | null>(null);
     const [status, setStatus] = useState<'ingesting' | 'understanding' | 'complete'>('ingesting');
     const [retryCount, setRetryCount] = useState(0);
@@ -28,10 +28,13 @@ export function ProcessingView() {
 
             try {
                 if (!intent) throw new Error("No intent found");
-                const profile = await processCareerProfile(rawMemory.inputs, intent);
+
+                // Get overrides from current profile state if available
+                const overrides = profile?.manualOverrides;
+                const newProfile = await processCareerProfile(rawMemory.inputs, intent, overrides);
 
                 if (!mounted) return;
-                setProfile(profile);
+                setProfile(newProfile);
                 setStatus('complete');
 
                 // Step 3: Transition
@@ -50,7 +53,7 @@ export function ProcessingView() {
         run();
 
         return () => { mounted = false; };
-    }, [rawMemory, intent, setProfile, setStep, retryCount]);
+    }, [rawMemory, intent, profile, setProfile, setStep, retryCount]);
 
     if (error) {
         return (

@@ -76,12 +76,12 @@ const MOCK_RESUME: ResumeDraft = {
 };
 
 
-export async function processCareerProfile(inputs: RawInput[], intent: CareerIntent) {
+export async function processCareerProfile(inputs: RawInput[], intent: CareerIntent, overrides?: any) {
     console.log("[BRIDGE] Delegating to Multi-Source Bridge...");
     // We try to use the bridge. If it handles it, great.
     // If it falls back (empty profile), we might want to run legacy?
     // For now, let's just use the bridge entirely as it has basic fallback logic inside.
-    return await processBridge(inputs, intent);
+    return await processBridge(inputs, intent, overrides);
 }
 
 // Renamed legacy function
@@ -154,13 +154,29 @@ async function processLegacy(inputs: RawInput[], intent: CareerIntent) {
     }
 }
 
-export async function generateResumeDraft(profile: CareerProfile, intent: CareerIntent) {
+export async function generateResumeDraft(profile: CareerProfile, intent: CareerIntent, options?: { fitToOnePage?: boolean }) {
     const profileContext = JSON.stringify(profile, null, 2);
-    const intentContext = `Target Role: ${intent.targetRole}\nTarget Location: ${intent.targetLocation}`;
+    const jobContext = intent.jobSearchIntent ? `TARGET JOB DESCRIPTION:\n${intent.jobSearchIntent}\n\n` : '';
+    const intentContext = `Target Role: ${intent.targetRole}\nTarget Location: ${intent.targetLocation}\n${jobContext}`;
+
+    let instruction = "";
+    if (options?.fitToOnePage) {
+        instruction = `
+        CRITICAL CONSTRAINT: FIT TO ONE PAGE.
+        - The user specifically requested a 1-page resume.
+        - You MUST be aggressive in cutting content.
+        - Prioritize: The most recent 3 roles and top 5 items relevant to ${intent.targetRole}.
+        - Drop: Old internships, irrelevant volunteering, generic soft skills.
+        - Consolidate: Merge "Certifications" and "Awards" if needed.
+        - Summarize: Shorten bullet points.
+        `;
+    }
 
     const prompt = `
     CONTEXT:
     ${intentContext}
+
+    ${instruction}
 
     CAREER PROFILE:
     ${profileContext}
@@ -175,7 +191,7 @@ export async function generateResumeDraft(profile: CareerProfile, intent: Career
     return result as ResumeDraft;
 }
 
-export async function generateHtmlResume(profile: CareerProfile, intent: CareerIntent, templateHtml: string): Promise<string> {
+export async function generateHtmlResume(profile: CareerProfile, intent: CareerIntent, templateHtml: string, options?: { fitToOnePage?: boolean }): Promise<string> {
     const { GoogleGenerativeAI } = require("@google/generative-ai");
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
     const model = genAI.getGenerativeModel({
@@ -186,37 +202,67 @@ export async function generateHtmlResume(profile: CareerProfile, intent: CareerI
     // Provide a simplified profile context to save tokens/reduce noise
     const profileContext = JSON.stringify(profile, null, 2);
 
+    let constraint = "";
+    if (options?.fitToOnePage) {
+        constraint = `
+        STRICT CONSTRAINT: FIT TO ONE PAGE.
+        - The output HTML MUST fit on a single A4 page (~450-500 words).
+        - OMIT older experience (older than 10 years or irrelevant).
+        - OMIT Volunteering if it pushes content to page 2.
+        - LIMIT bullets per role to 3-4 max.
+        - SHORTEN the summary to 2 lines max.
+        `;
+    }
+
     // We want to force the model to output HTML that matches the TEMPLATE structure but with CONTENT from PROFILE.
     const prompt = `
     TASK:
     Take the provided HTML TEMPLATE and replace the "Becky Shu" dummy content with the Candidate's actual data from the CAREER PROFLIE.
     
+    ${constraint}
+
     RULES:
     1. OUTPUT ONLY HTML. No markdown.
     2. STRICTLY PRESERVE the CSS (<style>) and class names.
     3. KEEP the layout EXACTLY the same.
     4. Replace:
         - Name, Locations, Links
-        - **EMAIL**: Use the email from the Candidate Profile. If the template contains "[email protected]" or any obfuscated email, REPLACE IT with the real email.
-        - Summary (Write a new professional summary based on profile)
-        - Experience Items (Map the candidate's roles to the .experience-item divs. Create more or fewer divs as needed to fit the candidate's history, but keep the HTML structure identical for each item.)
-        - Education (Map education)
-        - Skills (Map skills to .skills-list)
-        - **NEW SECTIONS**:
-            - Volunteering: Map to the Volunteering section (structure similar to Experience). REMOVE if empty.
-            - Certifications: Map to the Certifications list. REMOVE if empty.
-            - Awards: Map to awards list. REMOVE if empty.
-            - Languages: Map to language list. REMOVE if empty.
-    5. If the candidate has 2 jobs, generate 2 .experience-item blocks. If 3, generate 3. Same logic for Volunteering.
+        - **EMAIL**: Use the email from the Candidate Profile. WRAP IT in a <a href="mailto:..."> tag.
+        - **LINKEDIN / GITHUB**: 
+            - MUST BE CLICKABLE.
+            - Structure: '<span><a href="https://linkedin.com/..." target="_blank">linkedin.com/...</a></span>'
+            - Ensure the 'href' starts with "https://".
+            - The visible text should be clean(e.g. "linkedin.com/in/name").
+        - ** WEBSITE **: WRAP in <a href="..." target = "_blank" > tags.
+        - ** PROJECT LINKS **: If a project has a URL(e.g.in context or description), make it a clickable < a href = "..." target = "_blank" > link.
+        - ** Summary ** (Write a new professional summary based on profile)
+        - ** Experience Items ** (Map the candidate's roles to the .experience-item divs...)
+        - ** PROJECTS **: Map candidate's PROJECTS to the new Projects section.
+            - Use.experience - item class for structure.
+            - Format Title: "Project Name"
+            - Format Context: "Tech Stack" or "Project Link" in the subtitle.If it's a Link, make it clickable.
+                - REMOVE the section if the candidate has NO projects.
+        - Education(Map education items to.education - item class)
+                    - Skills(Map skills to.skills - list)
+                    - ** VOLUNTEERING **: Map to the Volunteering section.
+            - Use.experience - item class for structure.
+            - REMOVE if empty.
+        - ** CERTIFICATIONS & AWARDS **:
+            - Map Certifications to the "Certifications:" list.
+            - Map Awards to the "Awards:" list.
+            - REMOVE the entire section if BOTH are empty.
+        - ** LANGUAGES **: Map to the "Languages:" list in the Skills section.REMOVE if empty.
+    5. If the candidate has multiple items(jobs, projects, schools), generate multiple HTML blocks for them.Duplicate the structure as needed.
     
     CANDIDATE INTENT:
     Target Role: ${intent.targetRole}
     Target Location: ${intent.targetLocation}
+    ${intent.jobSearchIntent ? `\nTARGET JOB DESCRIPTION:\n${intent.jobSearchIntent}` : ''}
 
     CAREER PROFILE QUERY:
     ${profileContext}
 
-    HTML TEMPLATE (Use this structure):
+    HTML TEMPLATE(Use this structure):
     ${templateHtml}
     `;
 
@@ -255,19 +301,20 @@ export async function modifyResumeHtml(currentHtml: string, instruction: string)
         description: "Modified Resume Response",
         type: SchemaType.OBJECT,
         properties: {
-            html: { type: SchemaType.STRING, description: "The clean, modified HTML string." },
-            annotated_html: { type: SchemaType.STRING, description: "The modified HTML with changes wrapped in <mark> tags." },
+            css_content: { type: SchemaType.STRING, description: "The internal CSS styles (<style> content). Return null if no changes needed." },
+            body_content: { type: SchemaType.STRING, description: "The inner HTML content of the <body> tag." },
             summary: { type: SchemaType.STRING, description: "A summary of changes." },
             changes: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING }, description: "List of specific changes." }
         },
-        required: ["html", "summary", "changes"]
+        required: ["body_content", "summary", "changes"]
     };
 
     const model = genAI.getGenerativeModel({
         model: "gemini-2.0-flash-exp",
         generationConfig: {
             responseMimeType: "application/json",
-            responseSchema: schema
+            responseSchema: schema,
+            maxOutputTokens: 8192
         },
         systemInstruction: `
        You are an expert HTML Resume Editor. 
@@ -275,10 +322,13 @@ export async function modifyResumeHtml(currentHtml: string, instruction: string)
        
        RULES:
        1. Follow the JSON schema strictly.
-       2. Preserve the existing CSS and structure as much as possible unless asked to change it.
-       3. If the user asks to "Move Skills section to bottom", find the div with class="section" covering skills and move it to the end of the container.
-       4. If the user asks to "Edit the summary", find the summary div and rewrite the text professionally.
-       5. Provide "annotated_html" where ALL changes are wrapped in <mark style='background-color: #bbf7d0; border-bottom: 2px solid #22c55e;'>...</mark>.
+       2. **OUTPUT OPTIMIZATION**:
+          - Return the content of the \`<body>\` tag data in \`body_content\`. Do NOT include the \`<body>\` wrapper tags.
+          - Return the content of the \`style\` tag in \`css_content\` ONLY IF YOU CHANGE IT. Otherwise return null.
+       3. Preserve the existing CSS classes and structure as much as possible unless asked to change it.
+       4. If the user asks to "Move Skills section to bottom", find the div with class="section" covering skills and move it to the end of the container.
+       5. If the user asks to "Edit the summary", find the summary div and rewrite the text professionally.
+       6. Provide a clear summary of changes.
        `
     });
 
@@ -295,15 +345,53 @@ export async function modifyResumeHtml(currentHtml: string, instruction: string)
 
         // With Schema, text() is guaranteed to be valid JSON
         const text = result.response.text();
-        console.log("[AI RAW RESPONSE]:", text);
-        return JSON.parse(text) as ModifiedResumeResponse;
+        console.log("[AI RAW RESPONSE]:", text.substring(0, 500) + "..."); // Log start only
+
+        try {
+            const parsed = JSON.parse(text);
+
+            // Reconstruct HTML
+            let finalHtml = currentHtml;
+
+            // Regex to replace Body Content
+            // Matches <body [attrs]> ... </body>
+            // Case insensitive, multiline dotall
+            finalHtml = finalHtml.replace(/(<body[^>]*>)([\s\S]*?)(<\/body>)/i, (match, openTag, oldContent, closeTag) => {
+                return `${openTag}${parsed.body_content}${closeTag}`;
+            });
+
+            // Regex to replace CSS if provided
+            if (parsed.css_content) {
+                finalHtml = finalHtml.replace(/(<style[^>]*>)([\s\S]*?)(<\/style>)/i, (match, openTag, oldContent, closeTag) => {
+                    return `${openTag}${parsed.css_content}${closeTag}`;
+                });
+            }
+
+            return {
+                html: finalHtml,
+                summary: parsed.summary,
+                changes: parsed.changes
+            };
+
+        } catch (jsonErr) {
+            console.error("JSON Parse Failure - Response likely truncated", jsonErr);
+            return {
+                html: currentHtml,
+                summary: "⚠️ The AI response was too large and got cut off.",
+                changes: [
+                    "Resume is very long; try smaller edits.",
+                    "The model output limit was exceeded.",
+                    "No changes kept to prevent data loss."
+                ]
+            };
+        }
 
     } catch (error: any) {
         console.error("Gemini HTML Edit Error", error);
         // Return error as a response so user sees it
         return {
             html: currentHtml,
-            summary: `❌ SYSTEM ERROR: ${error.message || "Unknown error"}`,
+            summary: `❌ ERROR: ${error.message || "Unknown error"}`,
             changes: ["Check server console for details", "Ensure API Key is valid", String(error)]
         };
     }
@@ -544,3 +632,168 @@ export async function ingestSource(source: IngestionSource, intent: CareerIntent
     }
 }
 
+
+export interface ReviewSuggestion {
+    id: string;
+    type: 'grammar' | 'tailor';
+    originalText: string;
+    suggestion: string;
+    reason: string;
+    context: string; // Surrounding text to help locate
+    severity: 'critical' | 'suggestion';
+}
+
+export async function checkGrammar(html: string): Promise<ReviewSuggestion[]> {
+    if (!process.env.GEMINI_API_KEY) {
+        return [
+            {
+                id: "mock-err-1",
+                type: "grammar",
+                originalText: "specialized in",
+                suggestion: "specializing in",
+                reason: "Grammar: agreement with previous clause",
+                context: "experience in SaaS and Fintech. specialized in complex system design",
+                severity: "critical"
+            }
+        ];
+    }
+
+    const { GoogleGenerativeAI, SchemaType } = require("@google/generative-ai");
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+
+    const schema = {
+        description: "List of Grammar Issues",
+        type: SchemaType.ARRAY,
+        items: {
+            type: SchemaType.OBJECT,
+            properties: {
+                originalText: { type: SchemaType.STRING, description: "The exact text segment containing the error." },
+                suggestion: { type: SchemaType.STRING, description: "The corrected text." },
+                reason: { type: SchemaType.STRING, description: "Why this is an error." },
+                context: { type: SchemaType.STRING, description: "5-10 words of surrounding text to help identify location." },
+                severity: { type: SchemaType.STRING, enum: ["critical", "suggestion"], description: "Severity level." }
+            },
+            required: ["originalText", "suggestion", "reason", "context", "severity"]
+        }
+    };
+
+    const model = genAI.getGenerativeModel({
+        model: "gemini-2.0-flash-exp",
+        generationConfig: {
+            responseMimeType: "application/json",
+            responseSchema: schema
+        },
+        systemInstruction: `
+        You are an expert Copy Editor.
+        Your task is to review the text content of an HTML Resume for grammar, spelling, and style issues.
+        
+        RULES:
+        1. Ignore HTML tags, class names, and technical terms (e.g. React, PostgreSQL).
+        2. Focus on:
+            - Typox (Spelling)
+            - Grammar (Subject-verb agreement, tense consistency)
+            - Punctuation errors
+            - Weak or passive voice (suggestion)
+        3. For 'context', provide enough surrounding text (pure text, no tags) to uniquely identify the error location.
+        4. Return an empty array [] if the resume is perfect.
+        5. Be strict but reasonable. Don't flag stylistic choices as critical errors.
+        `
+    });
+
+    try {
+        const result = await model.generateContent({
+            contents: [{
+                role: "user",
+                parts: [{ text: `REVIEW THIS RESUME HTML FOR GRAMMAR ERRORS:\n${html}` }]
+            }]
+        });
+
+        const issues = JSON.parse(result.response.text()) as Omit<ReviewSuggestion, 'id' | 'type'>[];
+        // Add IDs and Type
+        return issues.map((issue, idx) => ({ ...issue, id: `gram-${Date.now()}-${idx}`, type: 'grammar' }));
+
+    } catch (e) {
+        console.error("Grammar Check Error", e);
+        return [];
+    }
+}
+
+export async function tailorResume(html: string, instruction: string): Promise<ReviewSuggestion[]> {
+    if (!process.env.GEMINI_API_KEY) {
+        return [
+            {
+                id: "mock-tailor-1",
+                type: "tailor",
+                originalText: "Led development of features",
+                suggestion: "Architected scalable cloud-native features for high-throughput data processing",
+                reason: "ATS Keyword Injection: 'Cloud-native', 'Scalable'. Strengthens impact.",
+                context: "Glacier restore throughput by 10x. Led development of features",
+                severity: "suggestion"
+            }
+        ];
+    }
+
+    const { GoogleGenerativeAI, SchemaType } = require("@google/generative-ai");
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+
+    const schema = {
+        description: "List of Tailoring Suggestions",
+        type: SchemaType.ARRAY,
+        items: {
+            type: SchemaType.OBJECT,
+            properties: {
+                originalText: { type: SchemaType.STRING, description: "The exact existing text segment to replace." },
+                suggestion: { type: SchemaType.STRING, description: "The new, tailored text." },
+                reason: { type: SchemaType.STRING, description: "Explanation of why this change helps (e.g. 'Added keyword X', 'Improved impact')." },
+                context: { type: SchemaType.STRING, description: "5-10 words of surrounding text to help identify location." }
+            },
+            required: ["originalText", "suggestion", "reason", "context"]
+        }
+    };
+
+    const model = genAI.getGenerativeModel({
+        model: "gemini-2.0-flash-exp",
+        generationConfig: {
+            responseMimeType: "application/json",
+            responseSchema: schema
+        },
+        systemInstruction: `
+        You are an expert ATS (Applicant Tracking System) Strategist.
+        Your task is to tailor a resume's HTML content based on a Job Description/Instruction.
+
+        RULES:
+        1. **Minimize Formatting Changes**: Only suggest changes to TEXT content within tags. Do not rewrite whole <div> structures.
+        2. **Focus on Quality**: Identify 3-5 high-impact improvements. Do not rewrite the whole document.
+        3. **Keywords**: Inject relevant keywords from the instruction naturally.
+        4. **Matching**: 'originalText' MUST match the existing text *exactly* (including whitespace if possible) so it can be found programmatically.
+        5. **Context**: Provide unique surrounding text to help locate the 'originalText'.
+        
+        OUTPUT:
+        Return a list of specific text replacements.
+        `
+    });
+
+    try {
+        const result = await model.generateContent({
+            contents: [{
+                role: "user",
+                parts: [
+                    { text: `INSTRUCTION/JOB DESCRIPTION: ${instruction}` },
+                    { text: `RESUME HTML:\n${html}` }
+                ]
+            }]
+        });
+
+        const suggestions = JSON.parse(result.response.text()) as Omit<ReviewSuggestion, 'id' | 'type' | 'severity'>[];
+        return suggestions.map((s, idx) => ({
+            ...s,
+            id: `tailor-${Date.now()}-${idx}`,
+            type: 'tailor',
+            severity: 'suggestion'
+        }));
+
+    } catch (e) {
+        console.error("Tailor Resume Error", e);
+        return [];
+    }
+}

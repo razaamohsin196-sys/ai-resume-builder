@@ -45,7 +45,7 @@ const html = `
             background: white;
             width: var(--page-width);
             min-height: var(--page-height);
-            max-height: var(--page-height);
+            /* max-height removed to allow expansion */
             margin: 0 auto;
             padding: var(--page-margin);
             position: relative;
@@ -620,6 +620,21 @@ const html = `
             <div class="company-location">Personal Project — github.com/beckyhsiung96/hue-pulse-app</div>
             <ul class="achievements">
                 <li>Developed Python-based logo voting application demonstrating technical proficiency in application development and software engineering</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- PROJECTS SECTION -->
+    <div class="section">
+        <div class="section-title">Projects</div>
+        <div class="experience-item">
+            <div class="job-header">
+                <div class="job-title">Project Name</div>
+                <div class="job-date">Year</div>
+            </div>
+            <div class="degree-info">Tech Stack / Context</div>
+            <ul class="achievements">
+                <li>Project description bullet...</li>
             </ul>
         </div>
     </div>
