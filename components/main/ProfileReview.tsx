@@ -144,7 +144,7 @@ export function ProfileReview() {
                 <AlertCircle className="w-16 h-16 text-muted-foreground opacity-50" />
                 <h2 className="text-xl font-semibold">We couldn't extract usable data from your inputs yet.</h2>
                 <p className="text-muted-foreground max-w-md">
-                    This can happen if the GitHub/LinkedIn profile was empty, private, or had no clear projects/roles.
+                    {profile.analysisReport || "This can happen if the GitHub/LinkedIn profile was empty, private, or had no clear projects/roles."}
                 </p>
                 <Button onClick={() => setStep('onboarding-inputs')} variant="outline">
                     Back to Inputs
