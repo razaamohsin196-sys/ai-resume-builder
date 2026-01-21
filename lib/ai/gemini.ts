@@ -9,7 +9,7 @@ export async function generateContent(systemPrompt: string, userContent: string)
         return null;
     }
 
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
     try {
         const result = await model.generateContent({
@@ -22,7 +22,13 @@ export async function generateContent(systemPrompt: string, userContent: string)
             }
         });
 
-        return JSON.parse(result.response.text());
+        const text = result.response.text();
+        try {
+            return JSON.parse(text);
+        } catch (e) {
+            console.error("Gemini JSON Parse Error. Raw output:", text.slice(0, 500) + "..." + text.slice(-500));
+            throw e;
+        }
     } catch (error) {
         console.error("Gemini API Error:", error);
         throw error;

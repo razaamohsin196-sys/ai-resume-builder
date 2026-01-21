@@ -241,7 +241,7 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
     const [selectionRect, setSelectionRect] = useState<{ top: number, left: number, width: number } | null>(null);
     const [blockRect, setBlockRect] = useState<{ top: number, left: number, width: number, height: number } | null>(null);
     const [activeBlockId, setActiveBlockId] = useState<string | null>(null);
-    const [formatting, setFormatting] = useState({ bold: false, italic: false, underline: false });
+    const [formatting, setFormatting] = useState<{ bold: boolean; italic: boolean; underline: boolean; fontSize: string }>({ bold: false, italic: false, underline: false, fontSize: '3' });
 
     const iframeRef = useRef<HTMLIFrameElement>(null);
 
@@ -314,6 +314,8 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
             return;
         }
 
+        // ISSUE FIX: If we undo/redo, we are here because isInternalUpdate is false.
+        // We MUST re-inject scripts because doc.write() wipes the window/document.
         if (iframeRef.current) {
             const doc = iframeRef.current.contentDocument;
 
@@ -342,6 +344,25 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
                                 const isBold = document.queryCommandState('bold');
                                 const isItalic = document.queryCommandState('italic');
                                 const isUnderline = document.queryCommandState('underline');
+                                // Calculate robust font size from computed style
+                                let fontSize = '3';
+                                try {
+                                    const parent = range.commonAncestorContainer;
+                                    const el = parent.nodeType === 1 ? parent : parent.parentElement;
+                                    if (el) {
+                                        const px = parseFloat(window.getComputedStyle(el).fontSize);
+                                        // Map px to 1-7 legacy sizes (Strict Mapping for 14px Base)
+                                        if (px <= 10) fontSize = '1';      // Tiny
+                                        else if (px <= 13) fontSize = '2'; // Small
+                                        else if (px < 16) fontSize = '3';  // Normal (14px falls here)
+                                        else if (px < 22) fontSize = '4';  // Large (18px falls here)
+                                        else if (px < 28) fontSize = '5';  // Huge (26px falls here)
+                                        else if (px < 40) fontSize = '6';  // Title
+                                        else fontSize = '7';
+                                    }
+                                } catch (e) {
+                                    fontSize = document.queryCommandValue('fontSize') || '3';
+                                }
 
                                 window.parent.postMessage({
                                     type: 'SELECTION_CHANGE',
@@ -351,7 +372,7 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
                                         left: rect.left,
                                         width: rect.width
                                     },
-                                    style: { bold: isBold, italic: isItalic, underline: isUnderline }
+                                    style: { bold: isBold, italic: isItalic, underline: isUnderline, fontSize }
                                 }, '*');
                             } else {
                                 window.parent.postMessage({ type: 'SELECTION_CHANGE', isCollapsed: true }, '*');
@@ -529,6 +550,15 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
                     doc.write(finalHtml);
                     doc.close();
                     lastWrittenHtml.current = currentHtml;
+
+                    // Re-apply contentEditable explicitly after write to ensure listeners attach to editable elements
+                    const sections = doc.querySelectorAll('.section, .summary, .experience-item, .skills-list, .education-item, .name, .contact-info, .school-name, .degree-info, .education-date, .job-header, .company-location, .achievements');
+                    sections.forEach(el => {
+                        if (isEditing) {
+                            el.setAttribute('contenteditable', 'true');
+                            (el as HTMLElement).style.outline = '1px dashed rgba(59, 130, 246, 0.3)';
+                        }
+                    });
                 } else {
                     // Update contentEditable state directly without rewriting (preserves selection)
                     const sections = doc.querySelectorAll('.section, .summary, .experience-item, .skills-list, .education-item, .name, .contact-info, .school-name, .degree-info, .education-date, .job-header, .company-location, .achievements');
@@ -809,12 +839,22 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
                             <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-white hover:bg-gray-700" onClick={() => execCmd('createLink')} title="Link">
                                 <LinkIcon className="w-4 h-4" />
                             </Button>
-                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-white hover:bg-gray-700" onClick={() => execCmd('fontSize', '4')} title="Large Text">
-                                <span className="text-xs font-bold">A+</span>
-                            </Button>
-                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-white hover:bg-gray-700" onClick={() => execCmd('fontSize', '2')} title="Small Text">
-                                <span className="text-xs font-bold">A-</span>
-                            </Button>
+                            <div className="relative flex items-center mx-1">
+                                <select
+                                    className="h-7 bg-transparent text-white text-xs border border-gray-600 rounded px-1 outline-none cursor-pointer hover:bg-gray-700"
+                                    onChange={(e) => execCmd('fontSize', e.target.value)}
+                                    value={formatting.fontSize}
+                                    title="Font Size"
+                                >
+                                    <option value="1" className="text-black">Tiny</option>
+                                    <option value="2" className="text-black">Small</option>
+                                    <option value="3" className="text-black">Normal</option>
+                                    <option value="4" className="text-black">Large</option>
+                                    <option value="5" className="text-black">Huge</option>
+                                    <option value="6" className="text-black">Title</option>
+                                    <option value="7" className="text-black">Max</option>
+                                </select>
+                            </div>
                             <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-white hover:bg-gray-700" onClick={() => execCmd('foreColor', '#3b82f6')} title="Blue Text">
                                 <div className="w-3 h-3 rounded-full bg-blue-500" />
                             </Button>

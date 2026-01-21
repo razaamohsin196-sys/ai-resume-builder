@@ -228,13 +228,12 @@ export async function generateHtmlResume(profile: CareerProfile, intent: CareerI
     4. Replace:
         - Name, Locations, Links
         - **EMAIL**: Use the email from the Candidate Profile. WRAP IT in a <a href="mailto:..."> tag.
-        - **LINKEDIN / GITHUB**: 
+        - **LINKEDIN / GITHUB / WEBSITE**: 
             - MUST BE CLICKABLE.
-            - Structure: '<span><a href="https://linkedin.com/..." target="_blank">linkedin.com/...</a></span>'
+            - Structure: '<span><a href="https://..." target="_blank">text</a></span>'
+            - DO NOT add 'text-decoration: none' or 'color: black'. Let them look like standard links (blue/underlined).
             - Ensure the 'href' starts with "https://".
-            - The visible text should be clean(e.g. "linkedin.com/in/name").
-        - ** WEBSITE **: WRAP in <a href="..." target = "_blank" > tags.
-        - ** PROJECT LINKS **: If a project has a URL(e.g.in context or description), make it a clickable < a href = "..." target = "_blank" > link.
+        - **PROJECT LINKS**: If a project has a URL, make it a clickable <a href="..." target="_blank"> link.
         - ** Summary ** (Write a new professional summary based on profile)
         - ** Experience Items ** (Map the candidate's roles to the .experience-item divs...)
         - ** PROJECTS **: Map candidate's PROJECTS to the new Projects section.

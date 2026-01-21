@@ -40,6 +40,15 @@ export class CareerProfileAggregator {
                     // This is because refinement agent is a "Post-Processing" step designed to overwrite bad text.
                     const isRefinement = patch.sourceId === 'refinement-agent';
 
+                    // Title Correction: If current title is generic and new title is specific, update it.
+                    const isGenericTitle = ["project name", "untitled", "new project"].includes(item.title.toLowerCase());
+                    const isNewTitleGeneric = ["project name", "untitled", "new project"].includes(p.name.toLowerCase());
+
+                    if (!isNewTitleGeneric && (isGenericTitle || isRefinement)) {
+                        console.log(`[Aggregator] Updating Project Title ${item.id}: "${item.title}" -> "${p.name}"`);
+                        item.title = p.name;
+                    }
+
                     if (isRefinement || p.description?.value && (!item.description || getEvidenceLevel(p.description) === 'strong')) {
                         console.log(`[Aggregator] Updating Project ${item.id} from ${patch.sourceId}`);
                         item.description = p.description?.value || item.description;

@@ -18,6 +18,10 @@ STABLE ID RULES
 - Certification: "linkedin:cert:<name_clean>"
 - Award: "linkedin:award:<title_clean>"
 
+PROJECT TITLES
+- NEVER use "Project Name", "Untitled", or "New Project" as a title.
+- If a project lacks a clear title, INFER a descriptive 2-4 word title from the description (e.g. "Hokuyo Sensor Simulation").
+
 OUTPUT FORMAT (JSON)
 {
   "chat_learnings": { "sourceType": "LinkedIn", "title": "LinkedIn Analysis", "sections": [{"heading": "Key Strengths", "bullets": ["..."]}] },
@@ -163,6 +167,14 @@ export const LinkedInIngestionAgent: IngestionAgent = {
         // Force sourceId on the patch to be consistent
         const patch = result.career_profile_patch;
         patch.sourceId = `linkedin:${profileData.publicIdentifier || 'profile'}`;
+
+        // SAFETY: Filter out generic "Project Name" entries that AI might still hallucinate
+        if (patch.upsert_projects) {
+            patch.upsert_projects = patch.upsert_projects.filter((p: any) => {
+                const title = p.name ? p.name.trim().toLowerCase() : '';
+                return !["project name", "untitled", "new project", "project"].includes(title);
+            });
+        }
 
         // [Checklist C] Verify patch content
         console.log("[LinkedIn Agent] Final Patch Check:");

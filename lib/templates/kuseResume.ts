@@ -34,7 +34,7 @@ const html = `
 
         @page {
             size: A4;
-            margin: 0mm; /* Set to 0 to hide browser headers/footers */
+            margin: var(--page-margin); /* Apply margin to all pages */
         }
 
         body {
@@ -47,7 +47,7 @@ const html = `
             min-height: var(--page-height);
             /* max-height removed to allow expansion */
             margin: 0 auto;
-            padding: var(--page-margin);
+            padding: var(--page-margin); /* Keep padding for screen view */
             position: relative;
             display: flex;
             flex-direction: column;
@@ -57,7 +57,7 @@ const html = `
             body {
                 width: 100%;
                 margin: 0;
-                padding: var(--page-margin);
+                padding: 0; /* Let @page handle margins so they repeat on page 2+ */
                 font-size: var(--body-font-size);
             }
             .section {
@@ -557,9 +557,9 @@ const html = `
         <div class="name">Becky Shu</div>
         <div class="contact-info">
             <span style="">Denver, CO</span> | 
-            <span><a href="mailto:beckyshu@example.com" style="color: #000000; text-decoration: none;">beckyshu@example.com</a></span> | 
-            <span style=""><a href="https://linkedin.com/in/beckyshu" target="_blank" style="color: #000000; text-decoration: none;">linkedin.com/in/beckyshu</a></span> | 
-            <span style="">github.com/beckyhsiung96</span>
+            <span><a href="mailto:beckyshu@example.com" target="_blank">beckyshu@example.com</a></span> | 
+            <span style=""><a href="https://linkedin.com/in/beckyshu" target="_blank">linkedin.com/in/beckyshu</a></span> | 
+            <span style=""><a href="https://github.com/beckyhsiung96" target="_blank">github.com/beckyhsiung96</a></span>
         </div>
     </div>
 
