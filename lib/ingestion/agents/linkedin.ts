@@ -96,10 +96,10 @@ export const LinkedInIngestionAgent: IngestionAgent = {
 
     process: async (source: IngestionSource, intent: CareerIntent) => {
         // 1. Get Apify Token
-        const token = process.env.APIFY_API_TOKEN;
+        const token = process.env.APIFY_API_TOKEN || process.env.APIFY_API_KEY;
         if (!token) {
-            console.warn("No APIFY_API_TOKEN found.");
-            throw new Error("Missing APIFY_API_TOKEN");
+            console.warn("No APIFY_API_TOKEN or APIFY_API_KEY found.");
+            throw new Error("Missing APIFY_API_KEY");
         }
 
         const client = new ApifyClient({ token });

@@ -3,7 +3,7 @@ import { ApifyClient } from 'apify-client';
 
 // Initialize Client (will use token from env)
 // format: APIFY_API_TOKEN=...
-const apifyToken = process.env.APIFY_API_TOKEN;
+const apifyToken = process.env.APIFY_API_TOKEN || process.env.APIFY_API_KEY;
 const client = apifyToken ? new ApifyClient({ token: apifyToken }) : null;
 
 export async function hydrateContext(url: string): Promise<string | null> {
