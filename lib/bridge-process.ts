@@ -1,9 +1,28 @@
 
 import { CareerProfileAggregator } from '@/lib/ingestion/aggregator';
-import { ingestSource } from '@/app/actions';
 import { RawInput, CareerIntent, CareerProfile } from '@/types/career';
-import { IngestionSource } from '@/lib/ingestion/types';
+import { IngestionSource, CareerProfilePatch, ChatLearning } from '@/lib/ingestion/types';
 import { refineProfile } from './ingestion/refinement';
+import { GitHubIngestionAgent } from "@/lib/ingestion/agents/github";
+import { LinkedInIngestionAgent } from "@/lib/ingestion/agents/linkedin";
+
+export async function ingestSource(source: IngestionSource, intent: CareerIntent): Promise<{ patch: CareerProfilePatch, learnings: ChatLearning }> {
+    console.log(`[ingestSource] Ingesting ${source.type} from ${source.url}`);
+
+    // Router Logic (Simple for now)
+    try {
+        if (GitHubIngestionAgent.accepts(source)) {
+            return await GitHubIngestionAgent.process(source, intent);
+        } else if (LinkedInIngestionAgent.accepts(source)) {
+            return await LinkedInIngestionAgent.process(source, intent);
+        } else {
+            throw new Error(`No agent found for source type: ${source.type}`);
+        }
+    } catch (e: any) {
+        console.error(`[ingestSource] Error processing ${source.type}:`, e);
+        throw new Error(`Ingestion failed: ${e.message}`);
+    }
+}
 
 export async function processCareerProfile(inputs: RawInput[], intent: CareerIntent, overrides?: any): Promise<CareerProfile> {
 
@@ -26,6 +45,9 @@ export async function processCareerProfile(inputs: RawInput[], intent: CareerInt
     let aggregateReports = "";
 
     // 2. Iterate and Ingest (Concurrent)
+    // 2. Iterate and Ingest (Concurrent)
+    const errors: string[] = [];
+
     const promises = sources.map(async (source) => {
         try {
             let patch: any = null;
@@ -52,8 +74,9 @@ export async function processCareerProfile(inputs: RawInput[], intent: CareerInt
 
             return { patch, learning, sourceId: source.id };
 
-        } catch (e) {
+        } catch (e: any) {
             console.error(`[Bridge] Failed to ingest source ${source.id}:`, e);
+            errors.push(`${source.type}: ${e.message}`);
             return null;
         }
     });
@@ -76,17 +99,11 @@ export async function processCareerProfile(inputs: RawInput[], intent: CareerInt
     }
 
     if (!currentProfile) {
-        // Fallback if no specialized agents ran (e.g. only files provided), use the old logic?
-        // For this task, we assume the user provides GitHub/LinkedIn as requested.
-        // But to be safe, we should probably run the old logic if currentProfile is still empty.
+        // Fallback if no specialized agents ran
+        const errorDetails = errors.length > 0 ? ` Errors: ${errors.join('; ')}` : "";
 
-        // OLD LOGIC FALLBACK (Simplified for brevity, assumes we imported the old function or kept it)
-        const { GoogleGenerativeAI } = require("@google/generative-ai");
-        const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
-        // ... (Logic from previous `processCareerProfile` to handle generic text/files)
-        // For now, let's just return a basic profile to avoid crashing if empty
         return {
-            analysisReport: "No specialized sources (GitHub/LinkedIn) processed. Please add a GitHub or LinkedIn URL.",
+            analysisReport: `Ingestion failed. ${errorDetails} Please check your URL or try again.`,
             summary: "",
             items: [],
             gaps: []

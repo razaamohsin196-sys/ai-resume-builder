@@ -11,6 +11,9 @@ export const metadata: Metadata = {
   description: "Reasoning-first career coach.",
 };
 
+// Allow up to 60 seconds for processing (Vercel Pro / Hobby Limit handling)
+export const maxDuration = 60;
+
 export default function RootLayout({
   children,
 }: Readonly<{

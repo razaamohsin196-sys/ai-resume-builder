@@ -6,10 +6,9 @@ import { RawInput, CareerIntent, CareerProfile, ResumeDraft, ResumeBullet } from
 import { hydrateContext } from "@/lib/context-hydrator";
 import { getTemplateById } from "@/lib/templates"; // Registry import
 import { IngestionSource, CareerProfilePatch, ChatLearning } from "@/lib/ingestion/types";
-import { GitHubIngestionAgent } from "@/lib/ingestion/agents/github";
-import { LinkedInIngestionAgent } from "@/lib/ingestion/agents/linkedin";
-// Import Bridge
 import { processCareerProfile as processBridge } from "@/lib/bridge-process";
+
+
 
 // Mock data for when API key is missing
 const MOCK_PROFILE: CareerProfile = {
@@ -613,23 +612,7 @@ export async function generateInterviewPrep(bullet: ResumeBullet, profile: Caree
     }
 }
 
-export async function ingestSource(source: IngestionSource, intent: CareerIntent): Promise<{ patch: CareerProfilePatch, learnings: ChatLearning }> {
-    console.log(`[ingestSource] Ingesting ${source.type} from ${source.url}`);
 
-    // Router Logic (Simple for now)
-    try {
-        if (GitHubIngestionAgent.accepts(source)) {
-            return await GitHubIngestionAgent.process(source, intent);
-        } else if (LinkedInIngestionAgent.accepts(source)) {
-            return await LinkedInIngestionAgent.process(source, intent);
-        } else {
-            throw new Error(`No agent found for source type: ${source.type}`);
-        }
-    } catch (e: any) {
-        console.error(`[ingestSource] Error processing ${source.type}:`, e);
-        throw new Error(`Ingestion failed: ${e.message}`);
-    }
-}
 
 
 export interface ReviewSuggestion {
