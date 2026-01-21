@@ -114,9 +114,32 @@ export async function processCareerProfile(inputs: RawInput[], intent: CareerInt
     currentProfile.analysisReport = aggregateReports || "Analysis complete.";
 
     // 5. Refine Profile (Resume-Language Layer)
+    // 5. Refine Profile (Resume-Language Layer) with Timeout Guard
     console.log("[Bridge] Running Profile Refinement...");
     // TODO: Pass actual user overrides when UI supports it
-    const refinedProfile = await refineProfile(currentProfile, intent, overrides || {});
 
-    return refinedProfile;
+    try {
+        const timeoutPromise = new Promise<CareerProfile>((resolve, reject) => {
+            const id = setTimeout(() => {
+                clearTimeout(id);
+                reject(new Error("Refinement timed out"));
+            }, 40000); // 40s Timeout (saving 20s for Apify + overhead)
+        });
+
+        const refinedProfile = await Promise.race([
+            refineProfile(currentProfile, intent, overrides || {}),
+            timeoutPromise
+        ]);
+
+        return refinedProfile;
+
+    } catch (e: any) {
+        if (e.message === "Refinement timed out") {
+            console.warn("[Bridge] Refinement skipped due to timeout.");
+            currentProfile.analysisReport += "\n\n**Note:** AI Refinement timed out, so we're showing the raw extracted data. You can manually refine it below.";
+        } else {
+            console.error("[Bridge] Refinement failed:", e);
+        }
+        return currentProfile;
+    }
 }
