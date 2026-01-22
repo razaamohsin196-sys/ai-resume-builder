@@ -36,8 +36,8 @@ export const PDFIngestionAgent = {
 
             // Use require to avoid ESM/Default export issues with this legacy lib
 
-            // DIRECT IMPORT: Bypass index.js which contains bugged !module.parent check causing ENOENT
-            const pdf = require('pdf-parse/lib/pdf-parse.js');
+            // DIRECT IMPORT: Use local vendored version to avoid 'dynamic expression' errors in Vercel
+            const pdf = require('@/lib/vendor/pdf-parse/index.js');
 
             // v1 API: Function based
             const pdfData = await pdf(buffer);
