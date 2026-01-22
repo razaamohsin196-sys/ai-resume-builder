@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useCareer } from '@/context/CareerContext';
-import { processCareerProfile } from '@/app/actions';
+import { ingestCareerProfile } from '@/app/actions';
 import { Loader2, CheckCircle2, BrainCircuit } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -31,7 +31,7 @@ export function ProcessingView() {
 
                 // Get overrides from current profile state if available
                 const overrides = profile?.manualOverrides;
-                const newProfile = await processCareerProfile(rawMemory.inputs, intent, overrides);
+                const newProfile = await ingestCareerProfile(rawMemory.inputs, intent, overrides);
 
                 if (!mounted) return;
                 setProfile(newProfile);

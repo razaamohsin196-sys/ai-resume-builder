@@ -59,6 +59,7 @@ const html = `
                 margin: 0;
                 padding: 0; /* Let @page handle margins so they repeat on page 2+ */
                 font-size: var(--body-font-size);
+                min-height: auto; /* Prevent forcing full A4 height which causes overflow with page margins */
             }
             .section {
                 page-break-inside: avoid;

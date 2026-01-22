@@ -77,10 +77,22 @@ const MOCK_RESUME: ResumeDraft = {
 
 export async function processCareerProfile(inputs: RawInput[], intent: CareerIntent, overrides?: any) {
     console.log("[BRIDGE] Delegating to Multi-Source Bridge...");
-    // We try to use the bridge. If it handles it, great.
-    // If it falls back (empty profile), we might want to run legacy?
-    // For now, let's just use the bridge entirely as it has basic fallback logic inside.
     return await processBridge(inputs, intent, overrides);
+}
+
+// NEW: Step 1 - Raw Ingestion (Fast)
+import { ingestRawProfile as ingestBridge } from '@/lib/bridge-process';
+import { refineProfile as refineBridge } from '@/lib/ingestion/refinement';
+
+export async function ingestCareerProfile(inputs: RawInput[], intent: CareerIntent, overrides?: any) {
+    console.log("[ACTION] Ingesting Raw Profile...");
+    return await ingestBridge(inputs, intent, overrides);
+}
+
+// NEW: Step 2 - Refinement (Slow)
+export async function refineCareerProfile(profile: CareerProfile, intent: CareerIntent, overrides?: any) {
+    console.log("[ACTION] Refining Profile...");
+    return await refineBridge(profile, intent, overrides || {});
 }
 
 // Renamed legacy function
@@ -150,6 +162,36 @@ async function processLegacy(inputs: RawInput[], intent: CareerIntent) {
     } catch (error: any) {
         console.error("Gemini Error", error);
         throw new Error(`AI Processing Failed: ${error.message || "Unknown Error"}`);
+    }
+}
+
+export async function generateProfileFromIntent(intent: CareerIntent): Promise<CareerProfile> {
+    const { GoogleGenerativeAI } = require("@google/generative-ai");
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
+    const model = genAI.getGenerativeModel({
+        model: "gemini-2.0-flash-exp",
+        systemInstruction: SYSTEM_PROMPTS.PROFILE_GENERATION
+    });
+
+    const prompt = `
+    GENERATE PROFILE FOR:
+    Target Role: ${intent.targetRole}
+    Target Location: ${intent.targetLocation}
+    Years of Experience: ${intent.yearsOfExperience}
+    Goal: ${intent.jobSearchIntent}
+    `;
+
+    try {
+        const result = await model.generateContent({
+            contents: [{ role: "user", parts: [{ text: prompt }] }],
+            generationConfig: { responseMimeType: "application/json" }
+        });
+
+        return JSON.parse(result.response.text()) as CareerProfile;
+    } catch (e) {
+        console.error("Profile Generation Error", e);
+        // Fallback or rethrow
+        throw new Error("Failed to generate profile from intent");
     }
 }
 
@@ -235,19 +277,24 @@ export async function generateHtmlResume(profile: CareerProfile, intent: CareerI
         - **PROJECT LINKS**: If a project has a URL, make it a clickable <a href="..." target="_blank"> link.
         - ** Summary ** (Write a new professional summary based on profile)
         - ** Experience Items ** (Map the candidate's roles to the .experience-item divs...)
+             - Use 'organization' field for Company Name.
+             - Use 'title' field for Job Title.
         - ** PROJECTS **: Map candidate's PROJECTS to the new Projects section.
             - Use.experience - item class for structure.
             - Format Title: "Project Name"
-            - Format Context: "Tech Stack" or "Project Link" in the subtitle.If it's a Link, make it clickable.
+            - Format Context: "Tech Stack" or "Project Link" or 'organization' field in the subtitle.If it's a Link, make it clickable.
                 - REMOVE the section if the candidate has NO projects.
         - Education(Map education items to.education - item class)
+            - Use 'organization' field for University Name.
+            - Use 'title' field for Degree.
                     - Skills(Map skills to.skills - list)
                     - ** VOLUNTEERING **: Map to the Volunteering section.
             - Use.experience - item class for structure.
+            - Use 'organization' for the Org Name.
             - REMOVE if empty.
         - ** CERTIFICATIONS & AWARDS **:
-            - Map Certifications to the "Certifications:" list.
-            - Map Awards to the "Awards:" list.
+            - Map Certifications to the "Certifications:" list. Use 'organization' for Issuer if available.
+            - Map Awards to the "Awards:" list. Use 'organization' for Issuer if available.
             - REMOVE the entire section if BOTH are empty.
         - ** LANGUAGES **: Map to the "Languages:" list in the Skills section.REMOVE if empty.
     5. If the candidate has multiple items(jobs, projects, schools), generate multiple HTML blocks for them.Duplicate the structure as needed.

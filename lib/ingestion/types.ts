@@ -14,6 +14,7 @@ export interface IngestionSource {
     type: 'github' | 'linkedin' | 'pdf' | 'text' | 'url';
     content?: string; // Raw text or filename
     url?: string; // The URL if applicable
+    data?: string; // Base64 data for files
     metadata?: Record<string, any>; // Extra metadata
 }
 
@@ -112,6 +113,8 @@ export interface GenericUpsert {
     evidence: Evidence[];
 }
 
+export type LanguageUpsert = GenericUpsert;
+
 export interface CareerProfilePatch {
     sourceId: string;
     // Atomic Upserts
@@ -127,10 +130,11 @@ export interface CareerProfilePatch {
     upsert_volunteering?: VolunteerUpsert[];
     upsert_certifications?: CertificationUpsert[];
     upsert_awards?: AwardUpsert[];
-    upsert_languages?: GenericUpsert[];
+    upsert_languages?: LanguageUpsert[];
 
     // Global fields
     professionalSummaryDraft?: EnrichedField<string>;
+    gaps?: string[];
 
     // Deletions (Rare)
     remove_project_ids?: string[];

@@ -118,11 +118,15 @@ export class CareerProfileAggregator {
                         console.log(`[Aggregator] Updating Role ${item.id} from ${patch.sourceId}`);
                         item.description = r.description.value;
                     }
+                    if (r.company?.value && !item.organization) {
+                        item.organization = r.company.value;
+                    }
                 } else {
                     mergedItems.push({
                         id: r.id, // STABLE ID
                         category: 'role',
-                        title: `${r.title.value} at ${r.company.value}`,
+                        title: r.title.value,
+                        organization: r.company.value,
                         description: r.description?.value || '',
                         sourceIds: [patch.sourceId],
                         evidenceStrength: getEvidenceLevel(r.title),
@@ -144,7 +148,8 @@ export class CareerProfileAggregator {
                     mergedItems.push({
                         id: e.id,
                         category: 'education',
-                        title: `${e.degree?.value || 'Degree'} at ${e.school.value}`,
+                        title: e.degree?.value || 'Degree',
+                        organization: e.school.value,
                         description: e.description?.value || '',
                         sourceIds: [patch.sourceId],
                         evidenceStrength: getEvidenceLevel(e.school),
@@ -165,7 +170,8 @@ export class CareerProfileAggregator {
                     mergedItems.push({
                         id: v.id,
                         category: 'volunteer',
-                        title: `${v.role.value} at ${v.organization.value}`,
+                        title: v.role.value,
+                        organization: v.organization.value,
                         description: v.description?.value || '',
                         sourceIds: [patch.sourceId],
                         evidenceStrength: getEvidenceLevel(v.role),
@@ -184,7 +190,8 @@ export class CareerProfileAggregator {
                         id: c.id,
                         category: 'certification',
                         title: c.name.value,
-                        description: `Issued by ${c.authority.value}`,
+                        organization: c.authority.value,
+                        description: '',
                         sourceIds: [patch.sourceId],
                         evidenceStrength: getEvidenceLevel(c.name),
                         dates: c.date?.value
@@ -202,7 +209,8 @@ export class CareerProfileAggregator {
                         id: a.id,
                         category: 'award',
                         title: a.title.value,
-                        description: a.description?.value || (a.issuer ? `Issued by ${a.issuer.value}` : ''),
+                        organization: a.issuer?.value,
+                        description: a.description?.value || '',
                         sourceIds: [patch.sourceId],
                         evidenceStrength: getEvidenceLevel(a.title),
                         dates: a.date?.value
@@ -228,25 +236,19 @@ export class CareerProfileAggregator {
 
                     // Merge
                     // For languages, title is name, description is category.
-                    // The user's provided snippet had `patchItem.description.value` which doesn't fit `l` (language).
-                    // Assuming the intent is to update sourceIds and potentially strength.
                     if (!existing.sourceIds.includes(patch.sourceId)) {
                         existing.sourceIds.push(patch.sourceId);
                     }
-                    // Language strength is currently always 'strong' on creation, so no upgrade logic needed here.
-                    // If we were to update description/title, it would be:
-                    // existing.title = l.name;
-                    // existing.description = l.category || 'Language';
-                    // But the instruction implies a merge, not a full overwrite, and the provided snippet
-                    // for description was `patchItem.description.value || existing.description`,
-                    // which for languages would be `l.category || existing.description`.
-                    // Given the strict lock, we'll just update sourceIds for now.
+                    if (l.category && !existing.organization) {
+                        existing.organization = l.category;
+                    }
                 } else {
                     mergedItems.push({
                         id: l.id,
                         category: 'language',
                         title: l.name,
-                        description: l.category || 'Language',
+                        organization: l.category || 'Proficiency',
+                        description: '',
                         sourceIds: [patch.sourceId],
                         evidenceStrength: 'strong'
                     });
@@ -284,6 +286,24 @@ export class CareerProfileAggregator {
                 website: cOverrides.website ? base.contact?.website : (patch.contact.website || base.contact?.website)
             };
         }
+
+        // 10. Sort Items by Date Descending
+        mergedItems.sort((a, b) => {
+            const getSortValue = (d?: string) => {
+                if (!d) return -Infinity; // No date -> Bottom
+                const lower = d.toLowerCase();
+                if (lower.includes('present') || lower.includes('current')) return Infinity; // Present -> Top
+
+                // Extract years
+                const years = d.match(/20\d{2}/g) || d.match(/19\d{2}/g);
+                if (years && years.length > 0) {
+                    // Return the max year found in the string
+                    return Math.max(...years.map(y => parseInt(y)));
+                }
+                return -Infinity;
+            };
+            return getSortValue(b.dates) - getSortValue(a.dates);
+        });
 
         return {
             ...base,

@@ -3,10 +3,12 @@ import { useCareer } from '@/context/CareerContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { RawInput } from '@/types/career';
-import { FileText, Link as LinkIcon, Plus, Trash2, Mic } from 'lucide-react';
+import { FileText, Link as LinkIcon, Plus, Trash2, Mic, Sparkles, Loader2 } from 'lucide-react';
+import { generateProfileFromIntent } from '@/app/actions';
 
 export function InputDropzone() {
-    const { addRawInput, removeRawInput, rawMemory, setStep, startProcessing } = useCareer();
+    const { addRawInput, removeRawInput, rawMemory, setStep, startProcessing, intent, setProfile } = useCareer();
+    const [isGenerating, setIsGenerating] = useState(false);
     const [textInput, setTextInput] = useState('');
     const [urlInput, setUrlInput] = useState('');
     const [activeTab, setActiveTab] = useState<'text' | 'url' | 'files'>('files');
@@ -73,8 +75,24 @@ export function InputDropzone() {
     };
 
     const handleProceed = () => {
-        setStep('processing');
-        startProcessing();
+        // Skip full-screen loader (ProcessingView) and go straight to review
+        // Ingestion will happen inside ProfileReview
+        setStep('profile-review');
+    };
+
+    const handleGenerate = async () => {
+        if (!intent) return;
+        setIsGenerating(true);
+        try {
+            const profile = await generateProfileFromIntent(intent);
+            setProfile(profile);
+            setStep('profile-review');
+        } catch (e) {
+            console.error(e);
+            alert("Failed to generate profile. Please try again.");
+        } finally {
+            setIsGenerating(false);
+        }
     };
 
     return (
@@ -173,12 +191,33 @@ export function InputDropzone() {
                 )}
             </div>
 
-            <div className="space-y-4 pt-4 border-t flex gap-3">
-                <Button onClick={() => setStep('onboarding-intent')} variant="outline" className="w-1/3">
-                    Back
-                </Button>
-                <Button onClick={handleProceed} className="w-2/3" disabled={rawMemory.inputs.length === 0}>
-                    Analyze Career & Suggest Resume
+            <div className="space-y-4 pt-4 border-t flex flex-col gap-3">
+                <div className="flex gap-3 w-full">
+                    <Button onClick={() => setStep('onboarding-intent')} variant="outline" className="w-1/3">
+                        Back
+                    </Button>
+                    <Button onClick={handleProceed} className="w-2/3" disabled={rawMemory.inputs.length === 0}>
+                        Analyze Career & Suggest Resume
+                    </Button>
+                </div>
+
+                <div className="relative py-2">
+                    <div className="absolute inset-0 flex items-center">
+                        <span className="w-full border-t" />
+                    </div>
+                    <div className="relative flex justify-center text-xs uppercase">
+                        <span className="bg-background px-2 text-muted-foreground">Or</span>
+                    </div>
+                </div>
+
+                <Button
+                    variant="secondary"
+                    className="w-full gap-2 text-primary"
+                    onClick={handleGenerate}
+                    disabled={isGenerating}
+                >
+                    {isGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                    {isGenerating ? "Generating Draft..." : "No Resume? Generate Profile from Scratch"}
                 </Button>
             </div>
         </div>

@@ -25,6 +25,7 @@ export interface CareerProfileItem {
     id: string;
     category: 'role' | 'project' | 'education' | 'skill' | 'certification' | 'award' | 'language' | 'volunteer' | 'publication';
     title: string;
+    organization?: string; // Company, University, Issuing Org
     description: string;
     sourceIds: string[];
     evidenceStrength: EvidenceStrength;

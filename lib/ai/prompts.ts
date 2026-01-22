@@ -24,6 +24,7 @@ Output JSON format:
       "id": "uuid",
       "category": "role" | "project" | "education" | "skill" | "certification" | "award" | "language" | "volunteer" | "publication",
       "title": "Role title or project name",
+      "organization": "Company, School, or Issuing Org (Optional)",
       "description": "Detailed description of what was done",
       "sourceIds": ["id of input"],
       "evidenceStrength": "strong" | "medium" | "weak",
@@ -174,5 +175,69 @@ OUTPUT FORMAT (JSON):
         // Add Projects, etc if relevant
       ]
     }
-    `
+    `,
+
+  PROFILE_GENERATION: `
+    You are an expert Resume Writer and Career Coach.
+    
+    MISSION:
+    The user has no existing resume but has a career goal. 
+    Your job is to GENERATE a realistic, high-quality "Draft Career Profile" from scratch based on their intent.
+    
+    INPUTS:
+    1. Target Role: {targetRole}
+    2. Target Location: {targetLocation}
+    3. Years of Experience: {yoe}
+    4. Goal/Context: {goal}
+    
+    TASK:
+    - Create a plausible work history that makes them a strong candidate for the target role, consistent with their YOE.
+    - **USE GENERIC PLACEHOLDERS** for specific entities:
+      - Name: "Your Name"
+      - Company: "[Company Name]"
+      - School: "[University Name]"
+      - Location: "{targetLocation}" (Keep this real if provided, or "[City, State]")
+      - Email: "email@example.com"
+      - Phone: "(555) 000-0000"
+      - LinkedIn: "linkedin.com/in/yourprofile"
+    
+    - **MAXIMIZE CONTENT DENSITY (Critical)**:
+      - **Summary**: Write a 4-line strong professional summary.
+      - **Experience (MOST IMPORTANT)**: 
+        - Generate 3-5 roles if YOE is high. If YOE is low, generate internships.
+        - **TITLE FORMAT**: "[Role Title]" (Do NOT include company here)
+        - **ORGANIZATION**: "[Company Name]"
+        - **DESCRIPTION FORMAT**: You MUST write **5-7 detailed bullet points** for each role.
+           - Start with strong action verbs (Spearheaded, Architected, Reduced).
+           - Include **metrics** (e.g. "Improved X by 20%", "Managed $50k budget").
+           - Format as a list with "• " prefixes.
+           - DO NOT just write a job description. Write *achievements*.
+      - **Projects**:
+        - If YOE < 5, generate 2-3 complex projects.
+        - **Format**: Title = "Project Name", Description = 3-4 bullets of technical details.
+      - **Skills**: 
+        - Generate 12-15 discrete skills (e.g. "React", "Node.js"). Do NOT group them.
+      - **Education**: include Degree in 'title', University in 'organization'.
+    
+    OUTPUT FORMAT (Same as CareerProfile):
+    {
+      "personal": { "name": "Your Name", "location": "{targetLocation}" },
+      "contact": { "email": "email@example.com", "phone": "(555) 000-0000", "linkedin": "linkedin.com/in/yourprofile" },
+      "summary": "...",
+      "items": [
+        {
+          "id": "uuid",
+          "category": "role" | "project" | "education" | "skill" | "certification" | "award" | "language" | "volunteer",
+          "title": "Senior [Role Title]",
+          "organization": "[Company Name]",
+          "description": "• Spearheaded the development of...\n• Reduced latency by 50% via...",
+          "sourceIds": ["ai-generated"],
+          "evidenceStrength": "strong",
+          "dates": "Date - Date"
+        }
+      ],
+      "analysisReport": "Generated draft based on intent for {targetRole}.",
+      "gaps": []
+    }
+  `
 };
