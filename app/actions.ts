@@ -21,7 +21,6 @@ const MOCK_PROFILE: CareerProfile = {
             title: "Senior Product Designer at Fintech Co",
             description: "Led the redesign of the core banking dashboard.",
             sourceIds: ["mock-source"],
-            evidenceStrength: "strong",
             dates: "2020 - Present"
         },
         {
@@ -29,8 +28,7 @@ const MOCK_PROFILE: CareerProfile = {
             category: "skill",
             title: "Figma",
             description: "Advanced prototyping",
-            sourceIds: ["mock-source"],
-            evidenceStrength: "strong"
+            sourceIds: ["mock-source"]
         }
     ],
     gaps: ["Missing specific metrics for the banking dashboard project"]
@@ -46,14 +44,12 @@ const MOCK_RESUME: ResumeDraft = {
                     id: "bullet-1",
                     text: "Spearheaded the redesign of the core banking dashboard, resulting in a 20% increase in user retention.",
                     sourceIds: ["mock-1"],
-                    evidenceStrength: "strong",
                     skills: ["UX Design", "Product Strategy"]
                 },
                 {
                     id: "bullet-2",
                     text: "Facilitated design workshops with cross-functional stakeholders to align on product vision.",
                     sourceIds: ["mock-1"],
-                    evidenceStrength: "medium",
                     skills: ["Workshop Facilitation"]
                 }
             ]
@@ -66,7 +62,6 @@ const MOCK_RESUME: ResumeDraft = {
                     id: "bullet-3",
                     text: "Figma, React, TypeScript, Tailwind CSS",
                     sourceIds: ["mock-skill-1"],
-                    evidenceStrength: "strong",
                     skills: []
                 }
             ]
@@ -262,6 +257,12 @@ export async function generateHtmlResume(profile: CareerProfile, intent: CareerI
     
     ${constraint}
 
+    STRICT NEGATIVE CONSTRAINTS:
+    - DO NOT change the CSS classes or ID names.
+    - DO NOT swap the template structure or layout.
+    - DO NOT remove the <style> block.
+    - The provided HTML TEMPLATE is the single source of truth for visual design.
+
     RULES:
     1. OUTPUT ONLY HTML. No markdown.
     2. STRICTLY PRESERVE the CSS (<style>) and class names.
@@ -269,6 +270,9 @@ export async function generateHtmlResume(profile: CareerProfile, intent: CareerI
     4. Replace:
         - Name, Locations, Links
         - **EMAIL**: Use the email from the Candidate Profile. WRAP IT in a <a href="mailto:..."> tag.
+        - **PROFILE PHOTO**: 
+            - If the candidate has a photo (in 'personal.photos' or 'upsert_personal.photos'), find the profile image tag (class='profile-photo', id='headshot', or generic img in header) and replace its 'src'.
+            - If no photo exists in profile, REMOVE the image tag entirely.
         - **LINKEDIN / GITHUB / WEBSITE**: 
             - MUST BE CLICKABLE.
             - Structure: '<span><a href="https://..." target="_blank">text</a></span>'
@@ -276,7 +280,8 @@ export async function generateHtmlResume(profile: CareerProfile, intent: CareerI
             - Ensure the 'href' starts with "https://".
         - **PROJECT LINKS**: If a project has a URL, make it a clickable <a href="..." target="_blank"> link.
         - ** Summary ** (Write a new professional summary based on profile)
-        - ** Experience Items ** (Map the candidate's roles to the .experience-item divs...)
+        - ** Experience Items ** (Map the candidate's roles to the experience item divs...)
+             - Look for classes like: .experience-item, .timeline-item, .job, .role-entry.
              - Use 'organization' field for Company Name.
              - Use 'title' field for Job Title.
         - ** PROJECTS **: Map candidate's PROJECTS to the new Projects section.

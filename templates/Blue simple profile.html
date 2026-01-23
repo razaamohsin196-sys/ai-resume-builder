@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8" data-cid="SBXqw1">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" data-cid="evTDn9">
+    <title data-cid="JBalDM">Howard Ong - Financial Analyst</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"
+        data-cid="6pVEP1">
+    <style data-cid="9SLvLU">
+        @import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;700&family=Inter:wght@400;700;800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@700&family=Noto+Sans:wght@400;500&display=swap');
+
+        body {
+            margin: 0;
+            padding: 2em 0;
+            font-family: 'Noto Sans', sans-serif;
+            background-color: #f0f0f0;
+            color: #333;
+            font-size: 11px;
+            min-width: 816px;
+        }
+
+        .page {
+            width: 816px;
+            height: 1056px;
+            margin: 0 auto;
+            margin-bottom: 0.2em;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+            background-color: #ffffff;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .header-bg {
+            background-color: #1237a9;
+            height: 180px;
+            width: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+
+        .footer-bg {
+            background-color: #1237a9;
+            height: 20px;
+            width: 100%;
+            position: absolute;
+            bottom: 0;
+            left: 0;
+        }
+
+        .main-content {
+            position: relative;
+            z-index: 1;
+            display: flex;
+            height: calc(100% - 70px);
+            width: calc(100% - 60px);
+            transform: translateY(70px) translateX(30px);
+        }
+
+        .left-column {
+            width: 250px;
+            padding-right: 30px;
+        }
+
+        .right-column {
+            width: 416px;
+            transform: translateY(-40px) translateX(30px);
+        }
+
+        .profile-pic {
+            width: 160px;
+            height: 160px;
+            border-radius: 50%;
+            display: block;
+            transform: translateY(60px) translateX(100px);
+        }
+
+        .header-text {
+            position: absolute;
+            top: 60px;
+            left: 350px;
+            color: #ffffff;
+        }
+
+        .header-text h1 {
+            font-family: 'Inter', sans-serif;
+            font-weight: 800;
+            font-size: 37px;
+            margin: 0;
+            letter-spacing: 1px;
+        }
+
+        .header-text p {
+            font-family: 'Inter', sans-serif;
+            font-size: 18px;
+            margin: 5px 0 0 2px;
+            font-weight: normal;
+        }
+
+        .section {
+            margin-bottom: 25px;
+        }
+
+        .section-title {
+            font-family: 'Inter', sans-serif;
+            font-size: 15.1px;
+            color: #1237a9;
+            font-weight: 800;
+            margin-bottom: 15px;
+            padding-bottom: 5px;
+            border-bottom: 2px solid #1237a9;
+            display: inline-block;
+        }
+
+        .right-column .section:not(:first-child) .section-title {
+            margin-top: 0;
+        }
+
+        .contact-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .contact-item i {
+            color: #1237a9;
+            width: 20px;
+            text-align: center;
+            margin-right: 10px;
+            font-size: 14px;
+        }
+
+        .contact-item span {
+            font-size: 11px;
+        }
+
+        .skills-list {
+            list-style: none;
+            padding-left: 60px;
+            margin: 0;
+        }
+
+        .skills-list li {
+            margin-bottom: 8px;
+            position: relative;
+        }
+
+        .skills-list li::before {
+            content: '•';
+            color: #1237a9;
+            font-weight: bold;
+            display: inline-block;
+            width: 1em;
+            margin-left: -1em;
+            font-size: 14px;
+            position: absolute;
+            top: -2px;
+        }
+
+        .education-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .education-item {
+            position: relative;
+            padding-left: 20px;
+            margin-bottom: 20px;
+        }
+
+        .education-item::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 4px;
+            width: 8px;
+            height: 8px;
+            background-color: #1237a9;
+            border-radius: 50%;
+        }
+
+        .education-item p {
+            margin: 0;
+            line-height: 1.5;
+        }
+
+        .education-item .school {
+            font-weight: bold;
+        }
+
+        .education-item .degree,
+        .education-item .completed {
+            font-size: 10px;
+        }
+
+        .about-me-text {
+            line-height: 1.6;
+            margin-top: 0;
+        }
+
+        .experience-item {
+            margin-bottom: 25px;
+        }
+
+        .experience-item h3 {
+            font-size: 12px;
+            font-weight: bold;
+            margin: 0 0 2px 0;
+        }
+
+        .experience-item .date {
+            font-size: 11px;
+            font-weight: bold;
+            margin: 0 0 8px 0;
+            font-style: italic;
+        }
+
+        .experience-item .responsibilities-title {
+            font-size: 11px;
+            margin: 0 0 8px 0;
+        }
+
+        .experience-item .responsibilities-list {
+            padding-left: 80px;
+        }
+
+        .experience-item ul {
+            list-style: none;
+            padding-left: 15px;
+            margin: 0;
+            font-size: 11px;
+            line-height: 1.6;
+        }
+
+        .experience-item ul li {
+            position: relative;
+            margin-bottom: 5px;
+        }
+
+        .experience-item ul li::before {
+            content: '•';
+            color: #1237a9;
+            font-weight: bold;
+            display: inline-block;
+            width: 1em;
+            margin-left: -1em;
+            position: absolute;
+            top: -1px;
+        }
+
+        .achievements-container {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .achievement-item {
+            display: flex;
+            align-items: flex-start;
+        }
+
+        .achievement-item .date {
+            font-weight: bold;
+            width: 80px;
+            flex-shrink: 0;
+        }
+
+        .achievement-item .description {
+            line-height: 1.5;
+        }
+    </style>
+
+</head>
+
+<body>
+
+    <div class="page" data-cid="tTnHlE">
+        <div class="header-bg editor-empty-block" data-cid="b0UicE"></div>
+        <div class="footer-bg editor-empty-block" data-cid="yA4HF7"></div>
+        <div class="header-text" data-cid="iIBw7T">
+            <h1 data-cid="HW2Lvv">HOWARD ONG</h1>
+            <p data-cid="poEDJz">Financial Analyst</p>
+        </div>
+        <img src="https://picture-search.skywork.ai/image/doc/d10f1d7c5833aacbc61e190e92eadd16.jpg" alt="Howard Ong"
+            class="profile-pic" data-cid="4yWbUH">
+        <div class="main-content" data-cid="uVknIm">
+            <div class="left-column" data-cid="kxSeAC">
+                <div class="section" data-cid="oGoF8K">
+                    <h2 class="section-title" data-cid="zWUazi">My Contact</h2>
+                    <div class="contact-item" data-cid="40Ous5">
+                        <i class="fas fa-envelope" data-cid="GiB29N"></i>
+                        <span data-cid="ZS6iOy">hello@reallygreatsite.com</span>
+                    </div>
+                    <div class="contact-item" data-cid="b0m7Ps">
+                        <i class="fas fa-phone-alt" data-cid="FQUs45"></i>
+                        <span data-cid="DPGXQ0">+123-456-7890</span>
+                    </div>
+                    <div class="contact-item" data-cid="ExFHRx">
+                        <i class="fas fa-map-marker-alt" data-cid="hwR745"></i>
+                        <span data-cid="EdZ3Cx">123 Anywhere St., Any City</span>
+                    </div>
+                    <div class="contact-item" data-cid="9K4MD0">
+                        <i class="fas fa-globe" data-cid="IYay0P"></i>
+                        <span data-cid="m8FRm4">www.reallygreatsite.com</span>
+                    </div>
+                </div>
+
+                <div class="section" data-cid="AhNK9x">
+                    <h2 class="section-title" data-cid="uOq3uy">Hard Skill</h2>
+                    <ul class="skills-list" data-cid="2TFC90">
+                        <li data-cid="5zz5er">Financial modeling and reporting</li>
+                        <li data-cid="CtDGqv">Data mining and analysis</li>
+                        <li data-cid="u8xdGY">Financial accounting</li>
+                        <li data-cid="YIBAUM">Business valuation</li>
+                        <li data-cid="vp4hvT">Advanced SAS proficiency</li>
+                    </ul>
+                </div>
+
+                <div class="section" data-cid="7yTRrl">
+                    <h2 class="section-title" data-cid="eQZlnl">Soft Skill</h2>
+                    <ul class="skills-list" data-cid="RhDwEx">
+                        <li data-cid="6aDSfB">Observation</li>
+                        <li data-cid="NstjG4">Decision making</li>
+                        <li data-cid="z7yEl8">Communication</li>
+                        <li data-cid="t2MGiM">Multi-tasking</li>
+                    </ul>
+                </div>
+
+                <div class="section" data-cid="sbpYgi">
+                    <h2 class="section-title" data-cid="nGWFm7">Education Background</h2>
+                    <ul class="education-list" data-cid="gz9346">
+                        <li class="education-item" data-cid="2dn7MA">
+                            <p class="school" data-cid="FFh1oq">Borcelle Business School</p>
+                            <p class="degree" data-cid="lp4PwP">Masters in Accounting</p>
+                            <p class="completed" data-cid="0sKNxo">Completed in 2016</p>
+                        </li>
+                        <li class="education-item" data-cid="XlHrYg">
+                            <p class="school" data-cid="FPLrIU">Larana Business School</p>
+                            <p class="degree" data-cid="VJwibw">Certificate in Financial Management, Financial Analysis,
+                                and Public
+                                Budgeting</p>
+                            <p class="completed" data-cid="UxBqeP">Completed in 2014</p>
+                        </li>
+                        <li class="education-item" data-cid="VKdEMJ">
+                            <p class="school" data-cid="PzTnhV">Borcelle Business School</p>
+                            <p class="degree" data-cid="eIErKx">Bachelor of Economics, Major in Finance, Minor in Data
+                                Analytics</p>
+                            <p class="completed" data-cid="NJHwoe">Completed in 2012</p>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="right-column" data-cid="AhZwAV">
+                <div class="section" data-cid="4kTmGT">
+                    <h2 class="section-title" data-cid="edjmUt">About Me</h2>
+                    <p class="about-me-text" data-cid="bQLshl">
+                        Dedicated and detail-oriented Financial Analyst with 10 years of experience. Eager to apply
+                        proven-budget maximization skills for Bank of Brocelle in monitoring, maintaining, and
+                        completing client billing and reconciliations. Special interest in achieving the millennial
+                        market and helping with retirement and general financial planning.
+                    </p>
+                </div>
+
+                <div class="section" data-cid="yxQVGA">
+                    <h2 class="section-title" data-cid="mzWsAo">Professional Experience</h2>
+                    <div class="experience-item" data-cid="ke5GCi">
+                        <h3 data-cid="NvVETd">Ginyard International Co. | Financial Analyst</h3>
+                        <p class="date" data-cid="OlAtSQ">2020 – Present</p>
+                        <p class="responsibilities-title" data-cid="kdTKHa">Key responsibilities:</p>
+                        <ul class="responsibilities-list" data-cid="8WVVO0">
+                            <li data-cid="Bf3DfH">Analyze current and past financial data</li>
+                            <li data-cid="onreNP">Look at recent financial performance and identify trends</li>
+                            <li data-cid="GEmB1a">Prepare reports on the above information and communicate the insights
+                                of these reports
+                                to the broader business</li>
+                            <li data-cid="alH96V">Consult with the management team to develop long-term commercial plans
+                            </li>
+                            <li data-cid="H0JXjD">Suggest budgets and improvements based on the above information</li>
+                        </ul>
+                    </div>
+                    <div class="experience-item" data-cid="K1ez6n">
+                        <h3 data-cid="spGKhd">Ingoude Company | Junior/Investment Analyst</h3>
+                        <p class="date" data-cid="bUAslV">2015 – 2020</p>
+                        <p class="responsibilities-title" data-cid="FtC1JI">Key responsibilities:</p>
+                        <ul class="responsibilities-list" data-cid="0v9zCe">
+                            <li data-cid="HIKQSG">Looked at financial performance and identified trends</li>
+                            <li data-cid="cGtQov">Explored various investment opportunities</li>
+                        </ul>
+                    </div>
+                    <div class="experience-item" data-cid="pXDj6r">
+                        <h3 data-cid="PPUAyC">Timmerman Industries | Financial Analyst Intern</h3>
+                        <p class="date" data-cid="8BSiDr">2012 – 2015</p>
+                        <p class="responsibilities-title" data-cid="pJV60t">Key responsibilities:</p>
+                        <ul data-cid="EfW3UL">
+                            <li data-cid="YuiNHP">Analyzed financial data</li>
+                            <li data-cid="ZWYKgw">Observed financial performance and identified trends</li>
+                            <li data-cid="3PSpbm">Prepared reports on the above information and reported the insights
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="section" data-cid="BDLtOO">
+                    <h2 class="section-title" data-cid="tcTBJj">Achievements</h2>
+                    <div class="achievements-container" data-cid="WHp0rY">
+                        <div class="achievement-item" data-cid="J7Katf">
+                            <span class="date" data-cid="li24RJ">2013 – 2015</span>
+                            <span class="description" data-cid="rCWqPW">Reduced the production cost by 20% in the second
+                                year of
+                                internship.</span>
+                        </div>
+                        <div class="achievement-item" data-cid="gQGNs8">
+                            <span class="date" data-cid="RG1oum">2015 – 2020</span>
+                            <span class="description" data-cid="LlL6Zv">Managed five projects worth over
+                                $100million.</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+
+
+</body>
+
+</html>

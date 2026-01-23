@@ -5,7 +5,6 @@ export interface CareerIntent {
     jobSearchIntent?: string;
 }
 
-export type EvidenceStrength = 'strong' | 'medium' | 'weak';
 
 export interface RawInput {
     id: string;
@@ -28,7 +27,6 @@ export interface CareerProfileItem {
     organization?: string; // Company, University, Issuing Org
     description: string;
     sourceIds: string[];
-    evidenceStrength: EvidenceStrength;
     dates?: string;
 }
 
@@ -36,6 +34,7 @@ export interface CareerProfile {
     personal?: {
         name: string;
         location?: string;
+        photos?: string[];
     };
     contact?: {
         email?: string;
@@ -61,7 +60,6 @@ export interface ResumeBullet {
     id: string;
     text: string;
     sourceIds: string[];
-    evidenceStrength: EvidenceStrength;
     skills: string[];
 }
 

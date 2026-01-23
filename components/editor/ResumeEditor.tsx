@@ -12,7 +12,13 @@ import { cn } from '@/lib/utils';
 import { useCareer } from '@/context/CareerContext';
 import { modifyResumeHtml, generateHtmlResume, generateResumeDraft, checkGrammar, tailorResume, ReviewSuggestion } from '@/app/actions';
 import { KUSE_RESUME_TEMPLATE } from '@/lib/templates/kuseResume';
+import { RESUME_TEMPLATES } from '@/lib/templates';
+import { ResumeTemplate } from '@/lib/templates/types';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Check, Settings, Layout } from 'lucide-react';
 import { Loader2 } from 'lucide-react';
+import { Slider } from '@/components/ui/slider';
+import { Label } from '@/components/ui/label';
 
 interface Message {
     id: string;
@@ -41,17 +47,153 @@ interface ResumeEditorProps {
     initialHtml?: string;
 }
 
+// Internal Component for Template Preview
+const TemplatePreviewCard = ({ template, isSelected, onClick }: { template: any, isSelected: boolean, onClick: () => void }) => {
+    // We render a scaled-down iframe
+    const scale = 0.25;
+    const baseWidth = 800; // Assumed internal width for A4 render
+    // A4 Ratio ~ 1.414. Height ~ 1131
+    const baseHeight = 1132;
+
+    const containerWidth = baseWidth * scale; // 200px
+    const containerHeight = baseHeight * scale; // 283px
+
+    return (
+        <button
+            onClick={onClick}
+            className={cn(
+                "group relative border-2 rounded-lg overflow-hidden transition-all shrink-0 hover:ring-2 hover:ring-primary hover:border-primary text-left bg-white",
+                isSelected ? "border-primary ring-2 ring-primary ring-offset-2" : "border-border/50 opacity-80 hover:opacity-100"
+            )}
+            style={{ width: containerWidth, height: containerHeight + 40 }} // Extra space for label
+        >
+            {/* Preview Area */}
+            <div className="relative bg-white overflow-hidden" style={{ width: containerWidth, height: containerHeight }}>
+                <iframe
+                    srcDoc={template.html}
+                    className="absolute top-0 left-0 border-none pointer-events-none select-none origin-top-left"
+                    tabIndex={-1}
+                    aria-hidden="true"
+                    loading="lazy"
+                    title={`Preview of ${template.name}`}
+                    style={{
+                        width: `${baseWidth}px`,
+                        height: `${baseHeight}px`,
+                        transform: `scale(${scale})`
+                    }}
+                />
+
+                {/* Overlay for selection/hover */}
+                <div className={cn(
+                    "absolute inset-0 bg-black/5 group-hover:bg-transparent transition-colors",
+                    isSelected ? "bg-transparent" : "bg-black/5"
+                )} />
+            </div>
+
+            {/* Footer Label */}
+            <div className="absolute bottom-0 left-0 right-0 h-10 bg-white border-t flex items-center justify-between px-3">
+                <span className="text-xs font-semibold truncate max-w-[150px]">{template.name}</span>
+                {isSelected && <div className="bg-primary text-white rounded-full p-0.5"><Check className="w-3 h-3" /></div>}
+            </div>
+        </button>
+    );
+};
+
+// Helper to detect template from HTML content
+const inferTemplateFromHtml = (html: string): ResumeTemplate | undefined => {
+    if (!html) return undefined;
+    // Classic uses CSS variables heavily in :root
+    if (html.includes('--page-margin') && html.includes('--name-font-size')) {
+        return RESUME_TEMPLATES.find(t => t.id === 'classic');
+    }
+    // Olive Green Modern has specific classes
+    if (html.includes('header-left') && html.includes('arrow-icon-wrapper')) {
+        return RESUME_TEMPLATES.find(t => t.id === 'olivegreenmodern');
+    }
+    // Add other detections as needed, or fallback
+    return undefined;
+};
+
+// COMPREHENSIVE LIST OF EDITABLE ELEMENTS ACROSS ALL TEMPLATES
+const EDITABLE_SELECTORS = [
+    '.section',
+    '.summary',
+    '.experience-item',
+    '.skills-list',
+    '.education-item',
+    '.name',
+    '.contact-info',
+    '.header-text',
+    '.about-me-text',
+    '.responsibilities-list',
+    '.achievements-container',
+    '.college',
+    '.degree',
+    '.date',
+    '.details',
+    '.subtitle',
+    '.expertise-list',
+    '.item-title',
+    '.item-subtitle',
+    '.item-description',
+    '.job',
+    '.reference-item',
+    '.title',
+    '.work-experience',
+    '.education',
+    '.skills',
+    '.certification',
+    '.language',
+    '.job-title',       // Added
+    '.section-title',   // Added
+    '.contact-item',     // Added
+    '.reference-name',   // Added
+    '.language-item',    // Added
+    'h1', 'h2', 'h3'     // Catch-all for headers
+].join(', ');
+
 export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
     const { setStep, resumeHtml, setResumeHtml, profile, intent, setResume } = useCareer();
+
+    // ... rest of component
 
     // --- HISTORY STATE ---
     const [history, setHistory] = useState<string[]>([]);
     const [historyIndex, setHistoryIndex] = useState(-1);
 
+    // --- TEMPLATE STATE ---
+    // Fix: Detect from HTML first, then fall back to Classic (correct ID), then first available
+    const [selectedTemplate, setSelectedTemplate] = useState<ResumeTemplate>(() => {
+        const detected = inferTemplateFromHtml(resumeHtml || initialHtml);
+        return detected || RESUME_TEMPLATES.find(t => t.id === 'classic') || RESUME_TEMPLATES[0];
+    });
+
+    const [isChangingTemplate, setIsChangingTemplate] = useState(false);
+    const [isTemplatePopoverOpen, setIsTemplatePopoverOpen] = useState(false);
+
     // Local copy of HTML
     const [currentHtml, setCurrentHtml] = useState<string>(resumeHtml || initialHtml);
     const [annotatedHtml, setAnnotatedHtml] = useState<string | null>(null);
     const [showHighlights, setShowHighlights] = useState(false);
+
+    // --- LAYOUT SETTINGS ---
+    const [layoutSettings, setLayoutSettings] = useState({
+        lineHeight: 1.08,
+        sectionSpacing: 10
+    });
+
+    const updateIframeLayout = (settings: typeof layoutSettings) => {
+        if (iframeRef.current && iframeRef.current.contentWindow) {
+            iframeRef.current.contentWindow.postMessage({
+                type: 'UPDATE_LAYOUT',
+                settings
+            }, '*');
+        }
+    };
+
+    useEffect(() => {
+        updateIframeLayout(layoutSettings);
+    }, [layoutSettings]);
 
     // undoing/redoing flag to prevent pushing to history during traversal
     const logHistory = (newHtml: string) => {
@@ -101,8 +243,41 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
 
 
     const handleDownload = () => {
-        if (iframeRef.current && iframeRef.current.contentWindow) {
+        if (iframeRef.current && iframeRef.current.contentWindow && iframeRef.current.contentDocument) {
+            const doc = iframeRef.current.contentDocument;
+
+            // 1. Inject Temporary Print Styles (The Nuclear Option)
+            // This guarantees we override any inline styles with !important
+            const style = doc.createElement('style');
+            style.id = 'temp-print-styles';
+            style.textContent = `
+                @page { margin: 0; }
+                body { margin: 0 !important; -webkit-print-color-adjust: exact; }
+                *[contenteditable] { outline: none !important; }
+                .review-issue { 
+                    text-decoration: none !important; 
+                    background-color: transparent !important; 
+                    border-bottom: none !important;
+                }
+                .review-issue[data-type="grammar"], .review-issue[data-type="tailor"] {
+                    text-decoration: none !important; 
+                    background-color: transparent !important; 
+                }
+            `;
+            doc.head.appendChild(style);
+
+            // 2. Print
+            // Note: In Chrome, this opens the preview. The DOM must remain clean during preview generation.
             iframeRef.current.contentWindow.print();
+
+            // 3. Cleanup after delay
+            // We wait to ensure the print preview has captured the clean state.
+            setTimeout(() => {
+                const tempStyle = doc.getElementById('temp-print-styles');
+                if (tempStyle) {
+                    tempStyle.remove();
+                }
+            }, 1000);
         }
     };
 
@@ -110,7 +285,7 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
     const [isFitToPage, setIsFitToPage] = useState(false);
     const [isRegenerating, setIsRegenerating] = useState(false);
     const [grammarIssues, setReviewIssues] = useState<ReviewSuggestion[]>([]);
-    const [activeIssue, setActiveIssue] = useState<ReviewSuggestion | null>(null);
+    const [activeIssue, setActiveIssue] = useState<{ issue: ReviewSuggestion, rect?: { top: number, left: number, height: number } } | null>(null);
 
     // Tailor Modal State
     const [isTailorModalOpen, setIsTailorModalOpen] = useState(false);
@@ -187,7 +362,7 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
 
         try {
             const [html, draft] = await Promise.all([
-                generateHtmlResume(profile!, intent!, KUSE_RESUME_TEMPLATE, { fitToOnePage: fitPage }),
+                generateHtmlResume(profile!, intent!, selectedTemplate.html, { fitToOnePage: fitPage }),
                 generateResumeDraft(profile!, intent!, { fitToOnePage: fitPage })
             ]);
 
@@ -227,9 +402,52 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
             }
         }
     }, [resumeHtml]);
+    const handleChangeTemplate = async (template: ResumeTemplate) => {
+        setIsChangingTemplate(true);
+        setIsTemplatePopoverOpen(false); // Close immediately for better UX
+        setSelectedTemplate(template);
+
+        // RESET LAYOUT SETTINGS ON TEMPLATE CHANGE
+        setLayoutSettings({ lineHeight: 1.15, sectionSpacing: 18 });
+
+        // Reset interactive state
+        setBlockRect(null);
+        setActiveBlockId(null);
+        setSelectionRect(null);
+
+        // Add User Message
+        const userMsgId = crypto.randomUUID();
+        setMessages(prev => [...prev, { id: userMsgId, role: 'user', content: `Switch template to: ${template.name}`, timestamp: Date.now() }]);
+
+        const tempId = crypto.randomUUID();
+        setMessages(prev => [...prev, { id: tempId, role: 'assistant', content: "Applying new template layout...", timestamp: Date.now() }]);
+
+        try {
+            const html = await generateHtmlResume(profile!, intent!, template.html, { fitToOnePage: isFitToPage });
+
+            setResumeHtml(html);
+            // setResume(draft); // Draft structure doesn't change, just HTML presentation
+            setCurrentHtml(html);
+            logHistory(html);
+
+            setMessages(prev => prev.map(m =>
+                m.id === tempId ? { ...m, content: `✅ Switched to **${template.name}** template.` } : m
+            ));
+        } catch (e) {
+            console.error(e);
+            setMessages(prev => prev.map(m =>
+                m.id === tempId ? { ...m, content: "❌ Error switching template." } : m
+            ));
+        } finally {
+            setIsChangingTemplate(false);
+            // setIsTemplatePopoverOpen(false); // Already closed
+        }
+    };
+
 
 
     const [isEditing, setIsEditing] = useState(true);
+    const [iframeHeight, setIframeHeight] = useState<number | null>(null);
     const [messages, setMessages] = useState<Message[]>([
         { id: '1', role: 'assistant', content: 'Hi Becky! I have generated your resume based on your profile. You can ask me to make changes like "Move Skills to bottom" or click "Edit" to type directly.', timestamp: Date.now() }
     ]);
@@ -238,7 +456,7 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
     const [isMobile, setIsMobile] = useState(false);
 
     // --- TOOLBAR STATE ---
-    const [selectionRect, setSelectionRect] = useState<{ top: number, left: number, width: number } | null>(null);
+    const [selectionRect, setSelectionRect] = useState<{ top: number, left: number, width: number, height: number } | null>(null);
     const [blockRect, setBlockRect] = useState<{ top: number, left: number, width: number, height: number } | null>(null);
     const [activeBlockId, setActiveBlockId] = useState<string | null>(null);
     const [formatting, setFormatting] = useState<{ bold: boolean; italic: boolean; underline: boolean; fontSize: string }>({ bold: false, italic: false, underline: false, fontSize: '3' });
@@ -286,6 +504,12 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
                 setBlockRect(event.data.rect);
                 setActiveBlockId(event.data.id);
             }
+            if (event.data.type === 'IFRAME_RESIZE') {
+                // Add a small buffer to prevent flicker? 297mm is ~1123px.
+                // Ensure min height 1123
+                const h = Math.max(event.data.height, 1123);
+                setIframeHeight(h);
+            }
         };
         window.addEventListener('message', handleMessage);
         return () => window.removeEventListener('message', handleMessage);
@@ -298,8 +522,27 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
                 console.log('[PARENT] Received GRAMMAR_CLICK', event.data);
                 const issueId = event.data.id;
                 const issue = grammarIssues.find(i => i.id === issueId);
-                console.log('[PARENT] Found issue:', issue);
-                if (issue) setActiveIssue(issue);
+
+                if (issue && event.data.rect && iframeRef.current) {
+                    const iframeRect = iframeRef.current.getBoundingClientRect();
+                    const rect = event.data.rect;
+
+                    // Allow for a robust fallback if rect is missing (though we patched script)
+                    const screenTop = iframeRect.top + rect.top;
+                    const screenLeft = iframeRect.left + rect.left;
+
+                    setActiveIssue({
+                        issue,
+                        rect: {
+                            top: screenTop,
+                            left: screenLeft,
+                            height: rect.height
+                        }
+                    });
+                } else if (issue) {
+                    // Fallback to center if no rect (e.g. old script cached?)
+                    setActiveIssue({ issue });
+                }
             }
         };
         window.addEventListener('message', handleGrammarClick);
@@ -323,6 +566,12 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
                     <script>
                         // --- 1. Content Sync ---
                         let debounceTimer;
+                        
+                        // --- 0. Initialize Layout Settings (From Parent State) ---
+                        // This ensures spacing is correct immediately upon load/template switch
+                        document.documentElement.style.setProperty('--line-height', '${layoutSettings.lineHeight}');
+                        document.documentElement.style.setProperty('--section-spacing', '${layoutSettings.sectionSpacing}px');
+
                         document.body.addEventListener('input', function(e) {
                             clearTimeout(debounceTimer);
                             debounceTimer = setTimeout(() => {
@@ -370,7 +619,8 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
                                     rect: {
                                         top: rect.top,
                                         left: rect.left,
-                                        width: rect.width
+                                        width: rect.width,
+                                        height: rect.height
                                     },
                                     style: { bold: isBold, italic: isItalic, underline: isUnderline, fontSize }
                                 }, '*');
@@ -382,7 +632,7 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
                         // --- 3. Block Hover (Drag/Move Controls) ---
                         document.body.addEventListener('mouseover', (e) => {
                              // Find the closest draggable block (section or experience-item)
-                             const block = e.target.closest('.section, .experience-item, .education-item, .skill-percentage');
+                             const block = e.target.closest('.section, .experience-item, .education-item, .skill-percentage, .timeline-item, .job, .reference-item, .contact-item');
                              if(block) {
                                  // Add an outline temporarily
                                  const rect = block.getBoundingClientRect();
@@ -409,7 +659,12 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
                         
                         // --- 4. Command Execution Listener ---
                         window.addEventListener('message', (event) => {
-                            const { type, cmd, val, blockId, direction } = event.data;
+                            const { type, cmd, val, blockId, direction, settings } = event.data;
+
+                            if (type === 'UPDATE_LAYOUT' && settings) {
+                                document.documentElement.style.setProperty('--line-height', settings.lineHeight);
+                                document.documentElement.style.setProperty('--section-spacing', settings.sectionSpacing + 'px');
+                            }
 
                             if (type === 'EXEC_COMMAND') {
                                 document.execCommand(cmd, false, val);
@@ -459,10 +714,21 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
                             }
                         });
 
-
+                        // --- 5. Content Height Sync (Auto-Resize) ---
+                        const resizeObserver = new ResizeObserver(entries => {
+                            const height = document.body.scrollHeight;
+                            window.parent.postMessage({
+                                type: 'IFRAME_RESIZE',
+                                height: height
+                            }, '*');
+                        });
+                        resizeObserver.observe(document.body);
+                        // Also trigger once on load
+                        window.parent.postMessage({ type: 'IFRAME_RESIZE', height: document.body.scrollHeight }, '*');
+                        
                         // Toggle Content Editable based on mode
                         const editable = ${isEditing};
-                        const sections = document.querySelectorAll('.section, .summary, .experience-item, .skills-list, .education-item, .name, .contact-info');
+                        const sections = document.querySelectorAll('${EDITABLE_SELECTORS}');
                         sections.forEach(el => {
                             if(editable) {
                                 el.setAttribute('contenteditable', 'true');
@@ -478,11 +744,44 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
                         style.textContent = \`
                             *[contenteditable]:focus { outline: 2px solid #3b82f6 !important; border-radius: 4px; }
                             ::selection { background-color: #bfdbfe; }
+                            
+                            /* Enforce Layout Settings Globally */
+                            .section { margin-bottom: var(--section-spacing, 20px) !important; }
+                            p, li, .item-description, .about-me-text, .item-subtitle, .date, .location { line-height: var(--line-height, 1.4) !important; }
+
+                            /* HIDE EDITOR ARTIFACTS IN PRINT/PDF */
+                            @media print {
+                                *[contenteditable] { outline: none !important; }
+                                .review-issue { 
+                                    text-decoration: none !important; 
+                                    background-color: transparent !important; 
+                                    border-bottom: none !important;
+                                }
+                                .review-issue[data-type="grammar"], .review-issue[data-type="tailor"] {
+                                    text-decoration: none !important; 
+                                    background-color: transparent !important; 
+                                }
+                            }
+                            /* FORCE HIDE CLASS (Parent-triggered) */
+                            .printing *[contenteditable] { outline: none !important; }
+                            .printing .review-issue { 
+                                text-decoration: none !important; 
+                                background-color: transparent !important; 
+                                border-bottom: none !important;
+                            }
                         \`;
                         if (!document.getElementById('editor-styles')) {
                             style.id = 'editor-styles';
                             document.head.appendChild(style);
                         }
+
+                        // JS Backup for Print (Keep as secondary)
+                        window.addEventListener('beforeprint', () => {
+                            document.body.classList.add('printing');
+                        });
+                        window.addEventListener('afterprint', () => {
+                            document.body.classList.remove('printing');
+                        });
                     </script>
                  `;
 
@@ -511,13 +810,25 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
                             console.log('[IFRAME] Review issue clicked', target);
                             e.preventDefault();
                             e.stopPropagation();
+                            
                             const id = target.getAttribute('data-id');
-                            console.log('[IFRAME] Posting message for id:', id);
-                            window.parent.postMessage({ type: 'GRAMMAR_CLICK', id }, '*');
+                            const rect = target.getBoundingClientRect();
+                            
+                            window.parent.postMessage({
+                                type: 'GRAMMAR_CLICK',
+                                id,
+                                rect: {
+                                    top: rect.top,
+                                    left: rect.left,
+                                    height: rect.height,
+                                    width: rect.width
+                                }
+                            }, '*');
                         }
-                    }, true); // Capture phase
+                    });
                 </script>
             `;
+
 
             // Apply Highlights
             let htmlToWrite = (showHighlights && annotatedHtml ? annotatedHtml : currentHtml);
@@ -528,7 +839,7 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
                 grammarIssues.forEach(issue => {
                     const typeClass = issue.type === 'tailor' ? 'tailor' : 'grammar';
                     // Careful with replacements. Only match exact text.
-                    if (htmlToWrite.includes(issue.originalText) && !htmlToWrite.includes(`data-id="${issue.id}"`)) {
+                    if (htmlToWrite.includes(issue.originalText) && !htmlToWrite.includes(`data - id="${issue.id}"`)) {
                         htmlToWrite = htmlToWrite.replace(issue.originalText, `<span class="review-issue" contenteditable="false" data-id="${issue.id}" data-type="${issue.type}">${issue.originalText}</span>`);
                     }
                 });
@@ -537,7 +848,7 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
             // Safe Write Logic - Inject BEFORE </body> to ensure valid DOM structure
             const combinedScripts = script + grammarScript;
             const finalHtml = htmlToWrite.includes('</body>')
-                ? htmlToWrite.replace('</body>', `${combinedScripts}</body>`)
+                ? htmlToWrite.replace('</body>', `${combinedScripts}</body > `)
                 : htmlToWrite + combinedScripts; // Fallback for partial fragments
 
             if (doc) {
@@ -552,7 +863,7 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
                     lastWrittenHtml.current = currentHtml;
 
                     // Re-apply contentEditable explicitly after write to ensure listeners attach to editable elements
-                    const sections = doc.querySelectorAll('.section, .summary, .experience-item, .skills-list, .education-item, .name, .contact-info, .school-name, .degree-info, .education-date, .job-header, .company-location, .achievements');
+                    const sections = doc.querySelectorAll(EDITABLE_SELECTORS);
                     sections.forEach(el => {
                         if (isEditing) {
                             el.setAttribute('contenteditable', 'true');
@@ -561,7 +872,7 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
                     });
                 } else {
                     // Update contentEditable state directly without rewriting (preserves selection)
-                    const sections = doc.querySelectorAll('.section, .summary, .experience-item, .skills-list, .education-item, .name, .contact-info, .school-name, .degree-info, .education-date, .job-header, .company-location, .achievements');
+                    const sections = doc.querySelectorAll(EDITABLE_SELECTORS);
                     sections.forEach(el => {
                         if (isEditing) {
                             el.setAttribute('contenteditable', 'true');
@@ -603,11 +914,11 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
             }
 
             const changeList = changes && changes.length > 0
-                ? `\n\n**Changes:**\n${changes.map(c => `- ${c}`).join('\n')}`
+                ? `\n\n ** Changes:**\n${changes.map(c => `- ${c}`).join('\n')} `
                 : '';
 
             setMessages(prev => prev.map(m =>
-                m.id === tempId ? { ...m, content: `${summary}${changeList}` } : m
+                m.id === tempId ? { ...m, content: `${summary}${changeList} ` } : m
             ));
         } catch (e) {
             setMessages(prev => prev.map(m =>
@@ -628,7 +939,7 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
                 // Show OLD
                 if (iframeRef.current && iframeRef.current.contentDocument) {
                     iframeRef.current.contentDocument.open();
-                    iframeRef.current.contentDocument.write(prevHtml + `<script>document.body.style.opacity = '0.7';</script>`);
+                    iframeRef.current.contentDocument.write(prevHtml + `< script > document.body.style.opacity = '0.7';</script > `);
                     iframeRef.current.contentDocument.close();
                 }
             } else {
@@ -777,6 +1088,79 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
 
                     <div className="h-4 w-px bg-border mx-2" />
 
+                    <Popover open={isTemplatePopoverOpen} onOpenChange={setIsTemplatePopoverOpen}>
+                        <PopoverTrigger asChild>
+                            <Button variant="outline" size="sm" className="h-8 gap-1 border-dashed" disabled={isChangingTemplate}>
+                                {isChangingTemplate ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <LayoutTemplate className="w-3.5 h-3.5" />}
+                                <span className="hidden sm:inline-block max-w-[100px] truncate">Template</span>
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[90vw] max-w-[1000px] p-0 overflow-hidden" align="start">
+                            <div className="p-4 border-b bg-muted/10">
+                                <h4 className="font-semibold text-sm">Choose Template</h4>
+                                <p className="text-xs text-muted-foreground">Select a layout to instantly update your resume style.</p>
+                            </div>
+                            <div className="p-6 overflow-x-auto bg-slate-50/50 dark:bg-slate-900/50">
+                                <div className="flex gap-6 pb-2">
+                                    {/* Sorted: Selected first */}
+                                    {[...RESUME_TEMPLATES].sort((a, b) => {
+                                        if (a.id === selectedTemplate.id) return -1;
+                                        if (b.id === selectedTemplate.id) return 1;
+                                        return 0;
+                                    }).map(t => (
+                                        <TemplatePreviewCard
+                                            key={t.id}
+                                            template={t}
+                                            isSelected={selectedTemplate.id === t.id}
+                                            onClick={() => handleChangeTemplate(t)}
+                                        />
+                                    ))}
+                                </div>
+                            </div>
+                        </PopoverContent>
+                    </Popover>
+
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <Button variant="ghost" size="sm" className="h-8 gap-1 ml-1">
+                                <Settings className="w-3.5 h-3.5" />
+                                Spacing
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-64 p-4 space-y-4">
+                            <div className="space-y-4">
+                                <div className="space-y-2">
+                                    <div className="flex justify-between">
+                                        <Label className="text-xs font-semibold">Line Height</Label>
+                                        <span className="text-xs text-muted-foreground">{layoutSettings.lineHeight.toFixed(2)}</span>
+                                    </div>
+                                    <Slider
+                                        value={[layoutSettings.lineHeight]}
+                                        min={1.0}
+                                        max={2.0}
+                                        step={0.01}
+                                        onValueChange={([val]) => setLayoutSettings(prev => ({ ...prev, lineHeight: val }))}
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <div className="flex justify-between">
+                                        <Label className="text-xs font-semibold">Section Spacing</Label>
+                                        <span className="text-xs text-muted-foreground">{layoutSettings.sectionSpacing}px</span>
+                                    </div>
+                                    <Slider
+                                        value={[layoutSettings.sectionSpacing]}
+                                        min={0}
+                                        max={40}
+                                        step={1}
+                                        onValueChange={([val]) => setLayoutSettings(prev => ({ ...prev, sectionSpacing: val }))}
+                                    />
+                                </div>
+                            </div>
+                        </PopoverContent>
+                    </Popover>
+
+                    <div className="h-4 w-px bg-border mx-2" />
+
                     <Button variant="ghost" size="icon" disabled={historyIndex <= 0} onClick={handleUndo}>
                         <Undo className="w-4 h-4" />
                     </Button>
@@ -792,20 +1176,28 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
 
             {/* Resume Canvas (Iframe) */}
             <div className="flex-1 overflow-auto p-4 md:p-8 flex justify-center bg-gray-500/5 relative">
-                <div className="bg-white shadow-xl w-[210mm] min-h-[297mm] overflow-hidden relative">
+                <div className="bg-white shadow-xl w-[210mm] overflow-hidden relative transition-all duration-200" style={{ minHeight: '297mm', height: iframeHeight ? `${iframeHeight} px` : '297mm' }}>
                     <iframe
                         ref={iframeRef}
                         title="Resume Preview"
-                        className="w-full h-[297mm] border-none"
+                        className="w-full h-full border-none"
+                        style={{ height: '100%', minHeight: '297mm' }}
                     />
 
                     {/* RICH TEXT OVERLAY */}
                     {isEditing && selectionRect && (
                         <div
-                            className="absolute z-50 flex items-center bg-gray-900 text-white p-1 rounded-lg shadow-xl -translate-y-full -translate-x-1/2 transition-all duration-200"
+                            className={cn(
+                                "absolute z-50 flex items-center bg-gray-900 text-white p-1 rounded-lg shadow-xl transition-all duration-200",
+                                // Conditional Transform based on position
+                                selectionRect.top < 60 ? "translate-y-2" : "-translate-y-full"
+                            )}
                             style={{
-                                top: selectionRect.top - 10,
-                                left: selectionRect.left + (selectionRect.width / 2)
+                                top: selectionRect.top < 60 ? selectionRect.top + selectionRect.height : selectionRect.top - 10,
+                                // Horizontal Snapping
+                                left: selectionRect.left < 250 ? 10 : (selectionRect.left > 550 ? 'auto' : selectionRect.left + (selectionRect.width / 2)),
+                                right: selectionRect.left > 550 ? 10 : 'auto',
+                                transform: selectionRect.left >= 250 && selectionRect.left <= 550 ? `translate(-50 %, ${selectionRect.top < 60 ? '0' : '0'})` : 'none'
                             }}
                         >
                             <Button
@@ -907,7 +1299,7 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
 
                     {/* TAILOR INPUT MODAL */}
                     {isTailorModalOpen && (
-                        <div className="absolute top-0 left-0 w-full h-full bg-black/50 z-[100] flex items-center justify-center p-4 animate-in fade-in duration-200">
+                        <div className="fixed inset-0 w-full h-full bg-black/50 z-[100] flex items-center justify-center p-4 animate-in fade-in duration-200">
                             <div className="bg-white dark:bg-card border shadow-2xl p-6 rounded-lg w-[500px] max-w-full space-y-4">
                                 <h3 className="font-semibold text-lg flex items-center gap-2">
                                     <span className="text-xl">✨</span> Tailor Resume
@@ -933,70 +1325,83 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
                     )}
 
                     {/* REVIEW ISSUE DIALOG */}
-                    {activeIssue && (
-                        <div className={cn(
-                            "absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white dark:bg-card border shadow-2xl p-6 rounded-lg z-[100] w-[500px] max-w-full animate-in fade-in zoom-in-95 duration-200",
-                            activeIssue.type === 'tailor' ? 'border-blue-500 ring-4 ring-blue-500/10' : 'border-red-500 ring-4 ring-red-500/10'
-                        )}>
-                            <div className="flex justify-between items-start mb-4">
-                                <h3 className="font-semibold text-lg flex items-center gap-2">
-                                    <span className="text-xl">{activeIssue.type === 'tailor' ? '✨' : '🔍'}</span>
-                                    {activeIssue.type === 'tailor' ? 'Tailoring Suggestion' : 'Grammar Issue'}
-                                </h3>
-                                <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => setActiveIssue(null)}>
-                                    <span className="sr-only">Close</span>
-                                    &times;
-                                </Button>
-                            </div>
+                    {/* REVIEW ISSUE DIALOG */}
+                    {/* REVIEW ISSUE DIALOG */}
+                    {activeIssue && (() => {
+                        // Safe derivation for Hot Reload: Handle both new structure and old legacy state
+                        const issue = activeIssue.issue || (activeIssue as unknown as ReviewSuggestion);
+                        const rect = activeIssue.rect;
 
-                            <div className="space-y-4">
-                                <div className="bg-red-50 dark:bg-red-900/20 p-3 rounded text-sm mb-2">
-                                    <span className="font-semibold text-red-600 dark:text-red-400">Original: </span>
-                                    <span className="line-through opacity-70 block mt-1 p-2 bg-white/50 rounded border border-red-100">{activeIssue.originalText}</span>
-                                </div>
+                        // Guard against bad state
+                        if (!issue || !issue.type) return null;
 
-                                <div className={cn("p-3 rounded text-sm", activeIssue.type === 'tailor' ? "bg-blue-50 dark:bg-blue-900/20" : "bg-green-50 dark:bg-green-900/20")}>
-                                    <span className={cn("font-semibold", activeIssue.type === 'tailor' ? "text-blue-600" : "text-green-600")}>Suggestion: </span>
-                                    <div className="font-medium mt-1 p-2 bg-white/50 rounded border border-blue-100">{activeIssue.suggestion}</div>
-                                </div>
-
-                                <div className="flex items-start gap-2 text-sm text-muted-foreground bg-muted p-3 rounded-md">
-                                    <span className="font-semibold shrink-0">Why:</span>
-                                    <span className="italic">"{activeIssue.reason}"</span>
-                                </div>
-
-                                <div className="flex gap-2 justify-end pt-2">
-                                    <Button variant="outline" size="sm" onClick={() => {
-                                        // Dismiss
-                                        setReviewIssues(prev => prev.filter(i => i.id !== activeIssue.id));
-                                        setActiveIssue(null);
-                                    }}>
-                                        Dismiss
-                                    </Button>
-                                    <Button size="sm" className={cn("text-white", activeIssue.type === 'tailor' ? "bg-blue-600 hover:bg-blue-700" : "bg-green-600 hover:bg-green-700")} onClick={() => {
-                                        // Accept Fix
-                                        // We use the exact string replacement. 
-                                        // TODO: Handle case where text might have been edited by user in meantime?
-                                        if (currentHtml.includes(activeIssue.originalText)) {
-                                            const newHtml = currentHtml.replace(activeIssue.originalText, activeIssue.suggestion);
-                                            setCurrentHtml(newHtml);
-                                            setResumeHtml(newHtml);
-                                            logHistory(newHtml);
-                                            setReviewIssues(prev => prev.filter(i => i.id !== activeIssue.id));
-                                            setActiveIssue(null);
-                                        } else {
-                                            alert("Could not find original text. It may have been edited.");
-                                            // Maybe remove the issue?
-                                            setReviewIssues(prev => prev.filter(i => i.id !== activeIssue.id));
-                                            setActiveIssue(null);
-                                        }
-                                    }}>
-                                        Accept {activeIssue.type === 'tailor' ? 'Change' : 'Fix'}
+                        return (
+                            <div
+                                className={cn(
+                                    "z-[100] bg-white dark:bg-card border shadow-2xl p-6 rounded-lg w-[500px] max-w-full max-h-[85vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-200",
+                                    issue.type === 'tailor' ? 'border-blue-500 ring-4 ring-blue-500/10' : 'border-red-500 ring-4 ring-red-500/10',
+                                    rect ? "fixed" : "absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2"
+                                )}
+                                style={rect ? {
+                                    top: Math.max(20, Math.min(window.innerHeight - 550, rect.top + rect.height + 10)),
+                                    left: Math.max(20, Math.min(window.innerWidth - 520, rect.left))
+                                } : {}}
+                            >
+                                <div className="flex justify-between items-start mb-4">
+                                    <h3 className="font-semibold text-lg flex items-center gap-2">
+                                        <span className="text-xl">{issue.type === 'tailor' ? '✨' : '🔍'}</span>
+                                        {issue.type === 'tailor' ? 'Tailoring Suggestion' : 'Grammar Issue'}
+                                    </h3>
+                                    <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => setActiveIssue(null)}>
+                                        <span className="sr-only">Close</span>
+                                        &times;
                                     </Button>
                                 </div>
+
+                                <div className="space-y-4">
+                                    <div className="bg-red-50 dark:bg-red-900/20 p-3 rounded text-sm mb-2">
+                                        <span className="font-semibold text-red-600 dark:text-red-400">Original: </span>
+                                        <span className="line-through opacity-70 block mt-1 p-2 bg-white/50 rounded border border-red-100">{issue.originalText}</span>
+                                    </div>
+
+                                    <div className={cn("p-3 rounded text-sm", issue.type === 'tailor' ? "bg-blue-50 dark:bg-blue-900/20" : "bg-green-50 dark:bg-green-900/20")}>
+                                        <span className={cn("font-semibold", issue.type === 'tailor' ? "text-blue-600" : "text-green-600")}>Suggestion: </span>
+                                        <div className="font-medium mt-1 p-2 bg-white/50 rounded border border-blue-100">{issue.suggestion}</div>
+                                    </div>
+
+                                    <div className="flex items-start gap-2 text-sm text-muted-foreground bg-muted p-3 rounded-md">
+                                        <span className="font-semibold shrink-0">Why:</span>
+                                        <span className="italic">"{issue.reason}"</span>
+                                    </div>
+
+                                    <div className="flex gap-2 justify-end pt-2">
+                                        <Button variant="outline" size="sm" onClick={() => {
+                                            setReviewIssues(prev => prev.filter(i => i.id !== issue.id));
+                                            setActiveIssue(null);
+                                        }}>
+                                            Dismiss
+                                        </Button>
+                                        <Button size="sm" className={cn("text-white", issue.type === 'tailor' ? "bg-blue-600 hover:bg-blue-700" : "bg-green-600 hover:bg-green-700")} onClick={() => {
+                                            if (currentHtml.includes(issue.originalText)) {
+                                                const newHtml = currentHtml.replace(issue.originalText, issue.suggestion);
+                                                setCurrentHtml(newHtml);
+                                                setResumeHtml(newHtml);
+                                                logHistory(newHtml);
+                                                setReviewIssues(prev => prev.filter(i => i.id !== issue.id));
+                                                setActiveIssue(null);
+                                            } else {
+                                                alert("Could not find original text. It may have been edited.");
+                                                setReviewIssues(prev => prev.filter(i => i.id !== issue.id));
+                                                setActiveIssue(null);
+                                            }
+                                        }}>
+                                            Accept {issue.type === 'tailor' ? 'Change' : 'Fix'}
+                                        </Button>
+                                    </div>
+                                </div>
                             </div>
-                        </div>
-                    )}
+                        );
+                    })()}
 
                 </div>
             </div>
@@ -1029,7 +1434,7 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
     }
 
     return (
-        <div className="h-screen max-h-screen flex overflow-hidden">
+        <div className="fixed inset-0 z-50 flex overflow-hidden bg-background">
             <div className="flex-[3] relative min-w-[600px] border-r">
                 {resumePreviewCmp}
             </div>

@@ -21,13 +21,11 @@ Output JSON format:
   "items": [
     {
       "id": "uuid",
-      "id": "uuid",
       "category": "role" | "project" | "education" | "skill" | "certification" | "award" | "language" | "volunteer" | "publication",
       "title": "Role title or project name",
       "organization": "Company, School, or Issuing Org (Optional)",
       "description": "Detailed description of what was done",
       "sourceIds": ["id of input"],
-      "evidenceStrength": "strong" | "medium" | "weak",
       "dates": "Date range if found"
     }
   ],
@@ -36,7 +34,6 @@ Output JSON format:
 
 Strict Rules:
 - Never fabricate roles or projects.
-- If evidence is weak, flag it as weak.
 - Reference the Source ID for every item.
 CRITICAL INSTRUCTIONS:
     - You must output a JSON object matching the \`CareerProfile\` interface.
@@ -75,7 +72,6 @@ CRITICAL INSTRUCTIONS:
           "title": "...", 
           "description": "...", 
           "sourceIds": ["1"],
-          "evidenceStrength": "strong",
           "dates": "..."
         }
       ],
@@ -110,6 +106,7 @@ TASKS:
    - DO NOT start with "I am a...". Start with the role/title.
 
 2. **REWRITE EXPERIENCE BULLETS (Aggressive & Impactful)**
+   - **CRITICAL**: You MUST rewrite the description for EVERY role in the profile. Do not leave any unchanged.
    - Transform "Responsible for..." into "Architected..." or "Engineered...".
    - INFER impact if missing (e.g., if "Senior", assume mentorship/code review).
    - INFER scale (e.g., if "AWS", assume "cloud-native scalable systems").
@@ -120,13 +117,24 @@ TASKS:
    - Identify 2-3 critical gaps that would hurt them for the {targetRole}.
    - Ask specific questions to fill these gaps.
 
+4. **ID MATCHING (CRITICAL)**
+   - You MUST use the **EXACT** \`id\` from the input JSON for the corresponding role/project.
+   - If you generate a new ID, the update will be ignored. COPY IDs EXACTLY.
+
 OUTPUT FORMAT (JSON):
 {
   "chat_learnings": { ... },
   "career_profile_patch": {
       "sourceId": "refinement-agent",
-      "professionalSummaryDraft": { "value": "Seasoned Backend Engineer with 8+ years of experience...", "evidence": [] },
-      "upsert_roles": [ { "id": "...", "description": { "value": "• Bullet 1\n• Bullet 2" } } ]
+      "professionalSummaryDraft": { "value": "Seasoned Backend Engineer..." },
+      "upsert_roles": [ 
+          { 
+              "id": "EXISTING_ID_FROM_INPUT", 
+              "description": { "value": "• Architected high-scale...\n• Reduced latency by..." },
+              "company": { "value": "..." }
+          } 
+      ],
+      "upsert_projects": [ ... ]
   },
   "missing_info_questions": [ ... ]
 }
@@ -161,13 +169,13 @@ OUTPUT FORMAT (JSON):
         {
           "id": "summary",
           "title": "Professional Summary",
-          "bullets": [ { "id": "sum-1", "text": "...", "sourceIds": [], "evidenceStrength": "strong", "skills": [] } ]
+          "bullets": [ { "id": "sum-1", "text": "...", "sourceIds": [], "skills": [] } ]
         },
         {
           "id": "experience",
           "title": "Experience",
           "bullets": [ 
-             { "id": "exp-1", "text": "Senior Engineer at Google (2020-Present)\n• Spearheaded...", "sourceIds": ["role-id"], "evidenceStrength": "strong", "skills": ["Go", "K8s"] }
+             { "id": "exp-1", "text": "Senior Engineer at Google (2020-Present)\n• Spearheaded...", "sourceIds": ["role-id"], "skills": ["Go", "K8s"] }
           ]
         },
         { "id": "education", "title": "Education", "bullets": [...] },
@@ -232,7 +240,6 @@ OUTPUT FORMAT (JSON):
           "organization": "[Company Name]",
           "description": "• Spearheaded the development of...\n• Reduced latency by 50% via...",
           "sourceIds": ["ai-generated"],
-          "evidenceStrength": "strong",
           "dates": "Date - Date"
         }
       ],

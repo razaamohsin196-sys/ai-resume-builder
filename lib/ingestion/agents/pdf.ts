@@ -72,8 +72,7 @@ export const PDFIngestionAgent = {
                     "organization": "string (The Company, School, Issuer, or Organization Name)",
                     "subtitle": "string (Optional: Credential ID, specific constraints, or degree type)",
                     "description": "string (bullet points. Use '• ' separators)", 
-                    "dates": "string", 
-                    "evidenceStrength": "strong" 
+                    "dates": "string"
                 }
             ],
             "summary": "string (professional summary)",
@@ -102,7 +101,7 @@ export const PDFIngestionAgent = {
 
             // 3. Map to Patch (Manual Mapping to Upserts)
             // Helper to clean descriptions
-            const toEnriched = (val: string) => ({ value: val || "", evidence: [{ sourceId: source.id, level: 'high' as const }] });
+            const toEnriched = (val: string) => ({ value: val || "" });
 
             const roles: RoleUpsert[] = items.filter((i: any) => i.category === 'role').map((i: any) => ({
                 id: `pdf:role:${crypto.randomUUID()}`,
@@ -115,8 +114,7 @@ export const PDFIngestionAgent = {
             const skills: SkillUpsert[] = items.filter((i: any) => i.category === 'skill').map((i: any) => ({
                 id: `pdf:skill:${i.title}`,
                 name: i.title,
-                category: i.description,
-                evidence: [{ sourceId: source.id, level: 'high' as const }]
+                category: i.description
             }));
 
             const education: EducationUpsert[] = items.filter((i: any) => i.category === 'education').map((i: any) => ({
@@ -132,7 +130,7 @@ export const PDFIngestionAgent = {
                 name: i.title,
                 description: toEnriched(i.description),
                 startDate: i.dates ? toEnriched(i.dates) : undefined,
-                url: i.subtitle // reuse subtitle field for URL if AI detects it
+                url: i.subtitle ? toEnriched(i.subtitle) : undefined // reuse subtitle field for URL if AI detects it
             }));
 
             const volunteering: VolunteerUpsert[] = items.filter((i: any) => i.category === 'volunteer').map((i: any) => ({

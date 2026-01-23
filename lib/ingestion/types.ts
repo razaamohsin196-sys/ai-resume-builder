@@ -1,13 +1,4 @@
 
-export type EvidenceLevel = 'high' | 'medium' | 'low';
-
-export interface Evidence {
-    sourceId: string; // e.g., "github:profile", "github:repo:owner/repo"
-    level: EvidenceLevel;
-    url?: string;
-    label?: string; // e.g., "GitHub API", "LinkedIn Scraper"
-    field?: string; // Specific field this evidence supports (e.g. "startDate")
-}
 
 export interface IngestionSource {
     id: string; // Internal ID for the source input (e.g. "source-1")
@@ -29,10 +20,9 @@ export interface ChatLearning {
     sections: ChatLearningSection[];
 }
 
-// Granular field with evidence
+// Granular field
 export interface EnrichedField<T> {
     value: T;
-    evidence: Evidence[];
 }
 
 // Project Patch (Upsert)
@@ -52,7 +42,6 @@ export interface SkillUpsert {
     id: string; // STABLE ID: "skill:typescript"
     name: string;
     category?: string; // "Language", "Framework"
-    evidence: Evidence[]; // Evidence of this skill existing
 }
 
 // Role Patch (Upsert)
@@ -110,7 +99,6 @@ export interface GenericUpsert {
     id: string;
     name: string;
     category?: string; // "Language"
-    evidence: Evidence[];
 }
 
 export type LanguageUpsert = GenericUpsert;
@@ -119,7 +107,7 @@ export interface CareerProfilePatch {
     sourceId: string;
     // Atomic Upserts
     // Personal & Contact (Optional overrides)
-    personal?: { name: string; location?: string };
+    personal?: { name: string; location?: string; headshot?: string };
     contact?: { email?: string; phone?: string; linkedin?: string; github?: string; website?: string };
 
     upsert_projects?: ProjectUpsert[];

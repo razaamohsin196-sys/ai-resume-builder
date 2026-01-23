@@ -3,4 +3,5 @@ export interface ResumeTemplate {
     name: string;
     thumbnail?: string;
     html: string; // The raw HTML/CSS string
+    hasPhoto?: boolean;
 }

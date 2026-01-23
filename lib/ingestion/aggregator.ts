@@ -1,4 +1,4 @@
-import { CareerProfile, CareerProfileItem, EvidenceStrength } from '@/types/career';
+import { CareerProfile, CareerProfileItem } from '@/types/career';
 import { CareerProfilePatch, ProjectUpsert, RoleUpsert, SkillUpsert, EnrichedField } from './types';
 
 export class CareerProfileAggregator {
@@ -12,14 +12,6 @@ export class CareerProfileAggregator {
         };
 
         const mergedItems = [...base.items];
-
-        const getEvidenceLevel = (obj?: { evidence?: any[] }): EvidenceStrength => {
-            if (!obj || !obj.evidence || obj.evidence.length === 0) return 'weak';
-            const levels = obj.evidence.map(e => e.level);
-            if (levels.includes('high')) return 'strong';
-            if (levels.includes('medium')) return 'medium';
-            return 'weak';
-        }
 
         // 1. Projects Upsert
         if (patch.upsert_projects) {
@@ -35,7 +27,7 @@ export class CareerProfileAggregator {
                         continue;
                     }
 
-                    // Prioritize description from patch if it has high evidence or if existing is empty
+                    // Prioritize description from patch if existing is empty or if it is a refinement
                     // SPECIAL RULE: If source is 'refinement-agent', It ALWAYS wins (unless locked by user)
                     // This is because refinement agent is a "Post-Processing" step designed to overwrite bad text.
                     const isRefinement = patch.sourceId === 'refinement-agent';
@@ -49,7 +41,7 @@ export class CareerProfileAggregator {
                         item.title = p.name;
                     }
 
-                    if (isRefinement || p.description?.value && (!item.description || getEvidenceLevel(p.description) === 'strong')) {
+                    if (isRefinement || p.description?.value && !item.description) {
                         console.log(`[Aggregator] Updating Project ${item.id} from ${patch.sourceId}`);
                         item.description = p.description?.value || item.description;
                     }
@@ -62,8 +54,6 @@ export class CareerProfileAggregator {
                         title: p.name,
                         description: p.description?.value || '',
                         sourceIds: [patch.sourceId],
-                        // For overall item strength, look at description or url
-                        evidenceStrength: getEvidenceLevel(p.description || p.url),
                         dates: (p.startDate?.value || '') + (p.endDate?.value ? ` - ${p.endDate.value}` : '')
                     });
                 }
@@ -78,12 +68,6 @@ export class CareerProfileAggregator {
                 if (existingIdx >= 0) {
                     const item = mergedItems[existingIdx];
                     if (!item.sourceIds.includes(patch.sourceId)) item.sourceIds.push(patch.sourceId);
-
-                    // Upgrade evidence strength if new source provides better evidence
-                    const newStrength = getEvidenceLevel(s);
-                    if (newStrength === 'strong' && item.evidenceStrength !== 'strong') {
-                        item.evidenceStrength = 'strong';
-                    }
                 } else {
                     mergedItems.push({
                         id: s.id, // STABLE ID
@@ -91,7 +75,6 @@ export class CareerProfileAggregator {
                         title: s.name,
                         description: s.category || '',
                         sourceIds: [patch.sourceId],
-                        evidenceStrength: 'strong' // If it exists in repo/linkedin, it's strong
                     });
                 }
             }
@@ -129,7 +112,6 @@ export class CareerProfileAggregator {
                         organization: r.company.value,
                         description: r.description?.value || '',
                         sourceIds: [patch.sourceId],
-                        evidenceStrength: getEvidenceLevel(r.title),
                         dates: (r.startDate?.value || '') + (r.endDate?.value ? ` - ${r.endDate.value}` : '')
                     });
                 }
@@ -152,7 +134,6 @@ export class CareerProfileAggregator {
                         organization: e.school.value,
                         description: e.description?.value || '',
                         sourceIds: [patch.sourceId],
-                        evidenceStrength: getEvidenceLevel(e.school),
                         dates: (e.startDate?.value || '') + (e.endDate?.value ? ` - ${e.endDate.value}` : '')
                     });
                 }
@@ -174,7 +155,6 @@ export class CareerProfileAggregator {
                         organization: v.organization.value,
                         description: v.description?.value || '',
                         sourceIds: [patch.sourceId],
-                        evidenceStrength: getEvidenceLevel(v.role),
                         dates: (v.startDate?.value || '') + (v.endDate?.value ? ` - ${v.endDate.value}` : '')
                     });
                 }
@@ -193,7 +173,6 @@ export class CareerProfileAggregator {
                         organization: c.authority.value,
                         description: '',
                         sourceIds: [patch.sourceId],
-                        evidenceStrength: getEvidenceLevel(c.name),
                         dates: c.date?.value
                     });
                 }
@@ -212,7 +191,6 @@ export class CareerProfileAggregator {
                         organization: a.issuer?.value,
                         description: a.description?.value || '',
                         sourceIds: [patch.sourceId],
-                        evidenceStrength: getEvidenceLevel(a.title),
                         dates: a.date?.value
                     });
                 }
@@ -250,7 +228,6 @@ export class CareerProfileAggregator {
                         organization: l.category || 'Proficiency',
                         description: '',
                         sourceIds: [patch.sourceId],
-                        evidenceStrength: 'strong'
                     });
                 }
             }
@@ -272,8 +249,18 @@ export class CareerProfileAggregator {
             const pOverrides = base.manualOverrides?.personal || {};
             base.personal = {
                 name: pOverrides.name ? (base.personal?.name || "") : (patch.personal.name || base.personal?.name || ""),
-                location: pOverrides.location ? base.personal?.location : (patch.personal.location || base.personal?.location)
+                location: pOverrides.location ? base.personal?.location : (patch.personal.location || base.personal?.location),
+                photos: base.personal?.photos || []
             };
+
+            if (patch.personal.headshot) {
+                // Add new photo to front (priority)
+                const newPhoto = patch.personal.headshot;
+                const existingPhotos = base.personal.photos || [];
+                // Filter out if already exists to avoid duplicates
+                const filtered = existingPhotos.filter(p => p !== newPhoto);
+                base.personal.photos = [newPhoto, ...filtered];
+            }
         }
 
         if (patch.contact) {

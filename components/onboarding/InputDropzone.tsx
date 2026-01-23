@@ -3,7 +3,7 @@ import { useCareer } from '@/context/CareerContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { RawInput } from '@/types/career';
-import { FileText, Link as LinkIcon, Plus, Trash2, Mic, Sparkles, Loader2 } from 'lucide-react';
+import { FileText, Link as LinkIcon, Plus, Trash2, Mic, Sparkles, Loader2, Image as ImageIcon } from 'lucide-react';
 import { generateProfileFromIntent } from '@/app/actions';
 
 export function InputDropzone() {
@@ -156,10 +156,10 @@ export function InputDropzone() {
                             <label htmlFor="dropzone-file" className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer bg-muted/20 hover:bg-muted/40 border-muted-foreground/30">
                                 <div className="flex flex-col items-center justify-center pt-5 pb-6">
                                     <FileText className="w-8 h-8 mb-2 text-muted-foreground" />
-                                    <p className="mb-2 text-sm text-muted-foreground"><span className="font-semibold">Click to upload</span> PDF or TXT</p>
-                                    <p className="text-xs text-muted-foreground">PDF, DOCX, TXT (MAX. 5MB)</p>
+                                    <p className="mb-2 text-sm text-muted-foreground"><span className="font-semibold">Click to upload</span> PDF, TXT or IMG</p>
+                                    <p className="text-xs text-muted-foreground">PDF, DOCX, TXT, PNG, JPG (MAX. 5MB)</p>
                                 </div>
-                                <input id="dropzone-file" type="file" className="hidden" accept=".pdf,.txt,.docx" onChange={handleFileSelect} />
+                                <input id="dropzone-file" type="file" className="hidden" accept=".pdf,.txt,.docx,.png,.jpg,.jpeg,.webp" onChange={handleFileSelect} />
                             </label>
                         </div>
                     </div>
@@ -177,7 +177,9 @@ export function InputDropzone() {
                         {rawMemory.inputs.map(input => (
                             <div key={input.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-md border">
                                 <div className="flex items-center space-x-3 overflow-hidden">
-                                    {input.type === 'url' ? <LinkIcon className="w-4 h-4 shrink-0" /> : <FileText className="w-4 h-4 shrink-0" />}
+                                    {input.type === 'url' ? <LinkIcon className="w-4 h-4 shrink-0" /> :
+                                        input.mimeType?.startsWith('image/') ? <ImageIcon className="w-4 h-4 shrink-0" /> :
+                                            <FileText className="w-4 h-4 shrink-0" />}
                                     <span className="text-sm truncate max-w-[250px] font-medium">
                                         {input.type === 'file' ? `[FILE] ${input.content}` : input.content.substring(0, 40) + '...'}
                                     </span>

@@ -76,10 +76,10 @@ export const GitHubIngestionAgent: IngestionAgent = {
         const projectUpserts: ProjectUpsert[] = data.repos.map((repo: any) => ({
             id: `github:${data.profile.login}/${repo.name}`,
             name: repo.name,
-            url: { value: repo.html_url, evidence: [{ sourceId, level: 'high', field: 'url' }] },
-            description: repo.description ? { value: repo.description, evidence: [{ sourceId, level: 'high', field: 'description' }] } : undefined,
-            metrics: { value: [`${repo.stargazers_count} stars`], evidence: [{ sourceId, level: 'high', field: 'metrics' }] },
-            startDate: { value: repo.updated_at, evidence: [{ sourceId, level: 'high', field: 'updated_at' }] }
+            url: { value: repo.html_url },
+            description: repo.description ? { value: repo.description } : undefined,
+            metrics: { value: [`${repo.stargazers_count} stars`] },
+            startDate: { value: repo.updated_at }
         }));
 
         // Extract Skills from languages
@@ -92,8 +92,7 @@ export const GitHubIngestionAgent: IngestionAgent = {
                 skillUpserts.push({
                     id: `skill:${repo.language.toLowerCase()}`,
                     name: repo.language,
-                    category: 'Language',
-                    evidence: [{ sourceId, level: 'high', field: 'language', url: repo.html_url }]
+                    category: 'Language'
                 });
             }
         });
@@ -136,8 +135,7 @@ export const GitHubIngestionAgent: IngestionAgent = {
                     // Enrich description if AI provides a better one
                     if (enr.one_liner) {
                         target.description = {
-                            value: enr.one_liner,
-                            evidence: [{ sourceId, level: 'medium', label: 'AI Synthesis' }]
+                            value: enr.one_liner
                         };
                     }
                 }
@@ -150,15 +148,15 @@ export const GitHubIngestionAgent: IngestionAgent = {
             upsert_skills: skillUpserts,
             personal: {
                 name: data.profile.name || data.profile.login,
-                location: data.profile.location
+                location: data.profile.location,
+                headshot: (data.profile as any).avatar_url
             },
             contact: {
                 github: data.profile.html_url,
                 website: data.profile.blog
             },
             professionalSummaryDraft: enrichment.professional_summary_draft ? {
-                value: enrichment.professional_summary_draft,
-                evidence: [{ sourceId, level: 'medium', label: 'AI Synthesis' }]
+                value: enrichment.professional_summary_draft
             } : undefined
         };
 

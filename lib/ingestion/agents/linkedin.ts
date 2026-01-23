@@ -30,59 +30,57 @@ OUTPUT FORMAT (JSON)
       "upsert_roles": [
           {
               "id": "linkedin:role:company:title",
-              "title": { "value": "Title", "evidence": [{ "sourceId": "linkedin:profile", "level": "high", "label": "Experience Section" }] },
-              "company": { "value": "Company", "evidence": [] },
-              "description": { "value": "...", "evidence": [] },
-              "startDate": { "value": "...", "evidence": [] },
-              "endDate": { "value": "...", "evidence": [] }
+              "title": { "value": "Title" },
+              "company": { "value": "Company" },
+              "description": { "value": "..." },
+              "startDate": { "value": "..." },
+              "endDate": { "value": "..." }
           }
       ],
       "upsert_skills": [
           { 
               "id": "skill:java", 
               "name": "Java", 
-              "category": "Language", 
-              "evidence": [{ "sourceId": "linkedin:profile", "level": "high" }] 
+              "category": "Language"
           }
       ],
       "upsert_education": [
           {
               "id": "linkedin:edu:ubc:bcs",
-              "school": { "value": "UBC", "evidence": [] },
-              "degree": { "value": "Bachelor of Computer Science", "evidence": [] },
-              "startDate": { "value": "2016", "evidence": [] },
-              "endDate": { "value": "2020", "evidence": [] }
+              "school": { "value": "UBC" },
+              "degree": { "value": "Bachelor of Computer Science" },
+              "startDate": { "value": "2016" },
+              "endDate": { "value": "2020" }
           }
       ],
       "upsert_volunteering": [
           {
               "id": "linkedin:vol:spca:walker",
-              "role": { "value": "Dog Walker", "evidence": [] },
-              "organization": { "value": "SPCA", "evidence": [] },
-              "description": { "value": "...", "evidence": [] }
+              "role": { "value": "Dog Walker" },
+              "organization": { "value": "SPCA" },
+              "description": { "value": "..." }
           }
       ],
       "upsert_certifications": [
           {
               "id": "linkedin:cert:aws-sa",
-              "name": { "value": "AWS Solutions Architect", "evidence": [] },
-              "authority": { "value": "Amazon Web Services", "evidence": [] },
-              "date": { "value": "Issued Dec 2023", "evidence": [] }
+              "name": { "value": "AWS Solutions Architect" },
+              "authority": { "value": "Amazon Web Services" },
+              "date": { "value": "Issued Dec 2023" }
           }
       ],
       "upsert_awards": [
           {
               "id": "linkedin:award:employee-month",
-              "title": { "value": "Employee of the Month", "evidence": [] },
-              "issuer": { "value": "Company Inc", "evidence": [] },
-              "date": { "value": "2022", "evidence": [] }
+              "title": { "value": "Employee of the Month" },
+              "issuer": { "value": "Company Inc" },
+              "date": { "value": "2022" }
           }
       ],
-      "upsert_languages": [{ "id": "lang:mandarin", "name": "Mandarin", "category": "Language", "evidence": [] }],
-      "upsert_languages": [{ "id": "lang:mandarin", "name": "Mandarin", "category": "Language", "evidence": [] }],
+      "upsert_languages": [{ "id": "lang:mandarin", "name": "Mandarin", "category": "Language" }],
       "personal": { "name": "John Doe", "location": "Seattle, WA" },
       "contact": { "linkedin": "https://linkedin.com/in/johndoe", "email": "john@example.com" },
-      "professionalSummaryDraft": { "value": "...", "evidence": [] }
+      "professionalSummaryDraft": { "value": "..." }
   }
 }
 `;
@@ -157,7 +155,9 @@ export const LinkedInIngestionAgent: IngestionAgent = {
                 honorsAndAwards: profileData.honorsAndAwards || profileData.awards,
                 languages: profileData.languages,
                 publications: profileData.publications,
-                projects: profileData.projects
+                projects: profileData.projects,
+                // Image extraction
+                profilePic: profileData.profilePic || profileData.profileImgURL || profileData.pictureUrl || profileData.photo
             }
         });
 
@@ -167,6 +167,15 @@ export const LinkedInIngestionAgent: IngestionAgent = {
         // Force sourceId on the patch to be consistent
         const patch = result.career_profile_patch;
         patch.sourceId = `linkedin:${profileData.publicIdentifier || 'profile'}`;
+
+        // Add extracted image to personal section of patch
+        const imageUrl = profileData.profilePic || profileData.profileImgURL || profileData.pictureUrl || profileData.photo;
+        if (imageUrl && !patch.personal) {
+            patch.personal = { name: profileData.fullName || profileData.firstName + ' ' + profileData.lastName };
+        }
+        if (imageUrl && patch.personal) {
+            patch.personal.headshot = imageUrl;
+        }
 
         // SAFETY: Filter out generic "Project Name" entries that AI might still hallucinate
         if (patch.upsert_projects) {
