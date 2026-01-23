@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { CareerState, CareerIntent, RawInput, AppStep, CareerProfile, ResumeDraft } from '@/types/career';
+import { CareerState, CareerIntent, RawInput, AppStep, CareerProfile, ResumeDraft, AiMessage } from '@/types/career';
 
 import { modifyResumeHtml } from "@/app/actions";
 
@@ -16,6 +16,7 @@ interface CareerContextType extends CareerState {
     startProcessing: () => void;
     finishProcessing: () => void;
     resetSession: () => void;
+    setAiMessages: (messagesOrUpdater: AiMessage[] | ((prev: AiMessage[]) => AiMessage[])) => void;
 }
 
 const initialState: CareerState = {
@@ -26,6 +27,7 @@ const initialState: CareerState = {
     resume: null,
     resumeHtml: '',
     isProcessing: false,
+    aiMessages: [],
 };
 
 const CareerContext = createContext<CareerContextType | undefined>(undefined);
@@ -81,6 +83,13 @@ export function CareerProvider({ children }: { children: React.ReactNode }) {
         localStorage.removeItem('career_agent_session');
     };
 
+    const setAiMessages = (messagesOrUpdater: AiMessage[] | ((prev: AiMessage[]) => AiMessage[])) => {
+        setState((prev) => ({
+            ...prev,
+            aiMessages: typeof messagesOrUpdater === 'function' ? messagesOrUpdater(prev.aiMessages) : messagesOrUpdater
+        }));
+    };
+
     return (
         <CareerContext.Provider
             value={{
@@ -95,6 +104,7 @@ export function CareerProvider({ children }: { children: React.ReactNode }) {
                 startProcessing,
                 finishProcessing,
                 resetSession,
+                setAiMessages,
             }}
         >
             {children}

@@ -227,7 +227,7 @@ export async function generateResumeDraft(profile: CareerProfile, intent: Career
     return result as ResumeDraft;
 }
 
-export async function generateHtmlResume(profile: CareerProfile, intent: CareerIntent, templateHtml: string, options?: { fitToOnePage?: boolean }): Promise<string> {
+export async function generateHtmlResume(profile: CareerProfile, intent: CareerIntent, templateHtml: string, options?: { fitToOnePage?: boolean; hasPhoto?: boolean }): Promise<string> {
     const { GoogleGenerativeAI } = require("@google/generative-ai");
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
     const model = genAI.getGenerativeModel({
@@ -271,8 +271,11 @@ export async function generateHtmlResume(profile: CareerProfile, intent: CareerI
         - Name, Locations, Links
         - **EMAIL**: Use the email from the Candidate Profile. WRAP IT in a <a href="mailto:..."> tag.
         - **PROFILE PHOTO**: 
-            - If the candidate has a photo (in 'personal.photos' or 'upsert_personal.photos'), find the profile image tag (class='profile-photo', id='headshot', or generic img in header) and replace its 'src'.
-            - If no photo exists in profile, REMOVE the image tag entirely.
+            ${options?.hasPhoto !== false
+            ? `- If the candidate has a photo (in 'personal.photos' or 'upsert_personal.photos'), find the profile image tag (class='profile-photo', id='headshot', or generic img in header) and replace its 'src'.
+            - If no photo exists in profile, REMOVE the image tag entirely.`
+            : `- This template does NOT support profile photos. REMOVE any profile image tags entirely (class='profile-photo', id='headshot', or img in header).`
+        }
         - **LINKEDIN / GITHUB / WEBSITE**: 
             - MUST BE CLICKABLE.
             - Structure: '<span><a href="https://..." target="_blank">text</a></span>'

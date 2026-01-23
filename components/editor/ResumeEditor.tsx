@@ -153,7 +153,7 @@ const EDITABLE_SELECTORS = [
 ].join(', ');
 
 export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
-    const { setStep, resumeHtml, setResumeHtml, profile, intent, setResume } = useCareer();
+    const { setStep, resumeHtml, setResumeHtml, profile, intent, setResume, aiMessages, setAiMessages } = useCareer();
 
     // ... rest of component
 
@@ -251,8 +251,17 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
             const style = doc.createElement('style');
             style.id = 'temp-print-styles';
             style.textContent = `
-                @page { margin: 0; }
-                body { margin: 0 !important; -webkit-print-color-adjust: exact; }
+                /* REMOVED @page override to respect template defaults */
+                body {
+                    margin: 0 !important;
+                    background-color: white !important;
+                }
+                /* Only clean up artifacts, don't force width */
+                .page, .resume-container {
+                    /* margin: 0 !important; */
+                    box-shadow: none !important;
+                    min-height: 100vh !important;
+                }
                 *[contenteditable] { outline: none !important; }
                 .review-issue { 
                     text-decoration: none !important; 
@@ -260,10 +269,10 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
                     border-bottom: none !important;
                 }
                 .review-issue[data-type="grammar"], .review-issue[data-type="tailor"] {
-                    text-decoration: none !important; 
-                    background-color: transparent !important; 
+                    text-decoration: none !important;
+                    background-color: transparent !important;
                 }
-            `;
+    `;
             doc.head.appendChild(style);
 
             // 2. Print
@@ -293,22 +302,22 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
 
     const handleCheckGrammar = async () => {
         setIsRegenerating(true);
-        setMessages(prev => [...prev, { id: crypto.randomUUID(), role: 'user', content: 'Check for grammar errors.', timestamp: Date.now() }]);
+        setAiMessages(prev => [...prev, { id: crypto.randomUUID(), role: 'user', content: 'Check for grammar errors.', timestamp: Date.now() }]);
         const tempId = crypto.randomUUID();
-        setMessages(prev => [...prev, { id: tempId, role: 'assistant', content: 'Scanning your resume...', timestamp: Date.now() }]);
+        setAiMessages(prev => [...prev, { id: tempId, role: 'assistant', content: 'Scanning your resume...', timestamp: Date.now() }]);
 
         try {
             const issues = await checkGrammar(currentHtml);
             setReviewIssues(prev => [...prev.filter(i => i.type !== 'grammar'), ...issues]);
 
             if (issues.length === 0) {
-                setMessages(prev => prev.map(m => m.id === tempId ? { ...m, content: '✅ Great news! I didn\'t find any grammar or spelling issues.' } : m));
+                setAiMessages(prev => prev.map(m => m.id === tempId ? { ...m, content: '✅ Great news! I didn\'t find any grammar or spelling issues.' } : m));
             } else {
-                setMessages(prev => prev.map(m => m.id === tempId ? { ...m, content: `Found ${issues.length} potential issues. They are highlighted in red. Click on them to review.` } : m));
+                setAiMessages(prev => prev.map(m => m.id === tempId ? { ...m, content: `Found ${issues.length} potential issues.They are highlighted in red.Click on them to review.` } : m));
             }
         } catch (e) {
             console.error(e);
-            setMessages(prev => prev.map(m => m.id === tempId ? { ...m, content: '❌ Error running grammar check.' } : m));
+            setAiMessages(prev => prev.map(m => m.id === tempId ? { ...m, content: '❌ Error running grammar check.' } : m));
         } finally {
             setIsRegenerating(false);
         }
@@ -320,22 +329,22 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
 
         setIsTailorModalOpen(false); // Close modal
         setIsRegenerating(true);
-        setMessages(prev => [...prev, { id: crypto.randomUUID(), role: 'user', content: `Tailor for Job: ${jobDescription.substring(0, 50)}...`, timestamp: Date.now() }]);
+        setAiMessages(prev => [...prev, { id: crypto.randomUUID(), role: 'user', content: `Tailor for Job: ${jobDescription.substring(0, 50)}...`, timestamp: Date.now() }]);
         const tempId = crypto.randomUUID();
-        setMessages(prev => [...prev, { id: tempId, role: 'assistant', content: 'Analyzing resume against job description and generating suggestions...', timestamp: Date.now() }]);
+        setAiMessages(prev => [...prev, { id: tempId, role: 'assistant', content: 'Analyzing resume against job description and generating suggestions...', timestamp: Date.now() }]);
 
         try {
             const suggestions = await tailorResume(currentHtml, jobDescription);
             setReviewIssues(prev => [...prev.filter(i => i.type !== 'tailor'), ...suggestions]);
 
             if (suggestions.length === 0) {
-                setMessages(prev => prev.map(m => m.id === tempId ? { ...m, content: '✅ Your resume already looks well-tailored for this role based on my analysis.' } : m));
+                setAiMessages(prev => prev.map(m => m.id === tempId ? { ...m, content: '✅ Your resume already looks well-tailored for this role based on my analysis.' } : m));
             } else {
-                setMessages(prev => prev.map(m => m.id === tempId ? { ...m, content: `Found ${suggestions.length} opportunities for tailoring. They are highlighted in blue. Click to review.` } : m));
+                setAiMessages(prev => prev.map(m => m.id === tempId ? { ...m, content: `Found ${suggestions.length} opportunities for tailoring.They are highlighted in blue.Click to review.` } : m));
             }
         } catch (e) {
             console.error(e);
-            setMessages(prev => prev.map(m => m.id === tempId ? { ...m, content: '❌ Error generating tailoring suggestions.' } : m));
+            setAiMessages(prev => prev.map(m => m.id === tempId ? { ...m, content: '❌ Error generating tailoring suggestions.' } : m));
         } finally {
             setIsRegenerating(false);
             setTailorInput(""); // Reset
@@ -354,11 +363,11 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
         // Add User Message
         const userMsgId = crypto.randomUUID();
         const actionText = fitPage ? "Fit to 1 Page" : "Disable 1-Page Mode";
-        setMessages(prev => [...prev, { id: userMsgId, role: 'user', content: actionText, timestamp: Date.now() }]);
+        setAiMessages(prev => [...prev, { id: userMsgId, role: 'user', content: actionText, timestamp: Date.now() }]);
 
         // Add Assistant processing message
         const tempId = crypto.randomUUID();
-        setMessages(prev => [...prev, { id: tempId, role: 'assistant', content: fitPage ? "Optimizing layout to fit everything on one page..." : "Reverting to standard layout...", timestamp: Date.now() }]);
+        setAiMessages(prev => [...prev, { id: tempId, role: 'assistant', content: fitPage ? "Optimizing layout to fit everything on one page..." : "Reverting to standard layout...", timestamp: Date.now() }]);
 
         try {
             const [html, draft] = await Promise.all([
@@ -372,7 +381,7 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
             logHistory(html); // Explicitly log history for AI actions
 
             // Update Assistant Message
-            setMessages(prev => prev.map(m =>
+            setAiMessages(prev => prev.map(m =>
                 m.id === tempId ? {
                     ...m,
                     content: fitPage
@@ -383,7 +392,7 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
 
         } catch (e) {
             console.error(e);
-            setMessages(prev => prev.map(m =>
+            setAiMessages(prev => prev.map(m =>
                 m.id === tempId ? { ...m, content: "❌ Sorry, I encountered an error while regenerating the resume." } : m
             ));
         } finally {
@@ -417,25 +426,25 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
 
         // Add User Message
         const userMsgId = crypto.randomUUID();
-        setMessages(prev => [...prev, { id: userMsgId, role: 'user', content: `Switch template to: ${template.name}`, timestamp: Date.now() }]);
+        setAiMessages(prev => [...prev, { id: userMsgId, role: 'user', content: `Switch template to: ${template.name} `, timestamp: Date.now() }]);
 
         const tempId = crypto.randomUUID();
-        setMessages(prev => [...prev, { id: tempId, role: 'assistant', content: "Applying new template layout...", timestamp: Date.now() }]);
+        setAiMessages(prev => [...prev, { id: tempId, role: 'assistant', content: "Applying new template layout...", timestamp: Date.now() }]);
 
         try {
-            const html = await generateHtmlResume(profile!, intent!, template.html, { fitToOnePage: isFitToPage });
+            const html = await generateHtmlResume(profile!, intent!, template.html, { fitToOnePage: isFitToPage, hasPhoto: template.hasPhoto });
 
             setResumeHtml(html);
             // setResume(draft); // Draft structure doesn't change, just HTML presentation
             setCurrentHtml(html);
             logHistory(html);
 
-            setMessages(prev => prev.map(m =>
-                m.id === tempId ? { ...m, content: `✅ Switched to **${template.name}** template.` } : m
+            setAiMessages(prev => prev.map(m =>
+                m.id === tempId ? { ...m, content: `✅ Switched to ** ${template.name}** template.` } : m
             ));
         } catch (e) {
             console.error(e);
-            setMessages(prev => prev.map(m =>
+            setAiMessages(prev => prev.map(m =>
                 m.id === tempId ? { ...m, content: "❌ Error switching template." } : m
             ));
         } finally {
@@ -448,12 +457,37 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
 
     const [isEditing, setIsEditing] = useState(true);
     const [iframeHeight, setIframeHeight] = useState<number | null>(null);
-    const [messages, setMessages] = useState<Message[]>([
-        { id: '1', role: 'assistant', content: 'Hi Becky! I have generated your resume based on your profile. You can ask me to make changes like "Move Skills to bottom" or click "Edit" to type directly.', timestamp: Date.now() }
-    ]);
+
+    // Initialize messages if empty (first time)
+    useEffect(() => {
+        if (aiMessages.length === 0) {
+            setAiMessages([{
+                id: '1',
+                role: 'assistant',
+                content: `Hi${profile?.personal?.name ? ` ${profile.personal.name.split(' ')[0]}` : ''} ! 👋 Welcome to the Resume Editor.I've generated your resume based on your profile.\n\nYou can ask me to make changes, or try one of these popular actions:\n• "Move Skills to bottom"\n• "Make it fit on one page"\n• "Check for grammar errors"\n• "Switch to a different template"\n\nOr click "Edit" to type directly in the resume.`,
+                timestamp: Date.now()
+            }]);
+        }
+    }, []);
     const [input, setInput] = useState('');
     const [activeTab, setActiveTab] = useState<'resume' | 'chat'>('resume');
     const [isMobile, setIsMobile] = useState(false);
+    const [isStreaming, setIsStreaming] = useState(false);
+    const abortControllerRef = useRef<AbortController | null>(null);
+    const [panelWidth, setPanelWidth] = useState<number>(() => {
+        if (typeof window !== 'undefined') {
+            const saved = localStorage.getItem('aiPanelWidth');
+            return saved ? parseInt(saved) : 400;
+        }
+        return 400;
+    });
+    const [isPanelCollapsed, setIsPanelCollapsed] = useState<boolean>(() => {
+        if (typeof window !== 'undefined') {
+            const saved = localStorage.getItem('aiPanelCollapsed');
+            return saved === 'true';
+        }
+        return false;
+    });
 
     // --- TOOLBAR STATE ---
     const [selectionRect, setSelectionRect] = useState<{ top: number, left: number, width: number, height: number } | null>(null);
@@ -470,6 +504,12 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
         window.addEventListener('resize', checkMobile);
         return () => window.removeEventListener('resize', checkMobile);
     }, []);
+
+    // Persist panel state
+    useEffect(() => {
+        localStorage.setItem('aiPanelWidth', panelWidth.toString());
+        localStorage.setItem('aiPanelCollapsed', isPanelCollapsed.toString());
+    }, [panelWidth, isPanelCollapsed]);
 
     // --- REF TO TRACK SOURCE OF UPDATES ---
     const isInternalUpdate = useRef(false);
@@ -885,7 +925,7 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
                 }
             }
         }
-    }, [isEditing, currentHtml, showHighlights, annotatedHtml, grammarIssues]);
+    }, [isEditing, currentHtml, showHighlights, annotatedHtml, grammarIssues, layoutSettings]);
 
 
     const [showComparison, setShowComparison] = useState(false);
@@ -894,11 +934,11 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
         if (!input.trim()) return;
 
         const userMsg: Message = { id: crypto.randomUUID(), role: 'user', content: input, timestamp: Date.now() };
-        setMessages(prev => [...prev, userMsg]);
+        setAiMessages(prev => [...prev, userMsg]);
         setInput('');
 
         const tempId = crypto.randomUUID();
-        setMessages(prev => [...prev, { id: tempId, role: 'assistant', content: 'Working on it...', timestamp: Date.now() }]);
+        setAiMessages(prev => [...prev, { id: tempId, role: 'assistant', content: 'Working on it...', timestamp: Date.now() }]);
 
         try {
             const result = await modifyResumeHtml(currentHtml, userMsg.content);
@@ -917,11 +957,11 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
                 ? `\n\n ** Changes:**\n${changes.map(c => `- ${c}`).join('\n')} `
                 : '';
 
-            setMessages(prev => prev.map(m =>
+            setAiMessages(prev => prev.map(m =>
                 m.id === tempId ? { ...m, content: `${summary}${changeList} ` } : m
             ));
         } catch (e) {
-            setMessages(prev => prev.map(m =>
+            setAiMessages(prev => prev.map(m =>
                 m.id === tempId ? { ...m, content: 'Sorry, something went wrong while editing.' } : m
             ));
         }
@@ -979,12 +1019,12 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
                     <Sparkles className="w-4 h-4 mr-2" />
                     AI Assistant
                 </h3>
-                <Button variant="ghost" size="sm" onClick={() => setMessages([])} className="text-xs h-6 px-2">Reset Session</Button>
+                <Button variant="ghost" size="sm" onClick={() => setAiMessages([])} className="text-xs h-6 px-2">Reset Session</Button>
             </div>
 
             <ScrollArea className="flex-1 p-4">
                 <div className="space-y-4">
-                    {messages.map(m => (
+                    {aiMessages.map(m => (
                         <div key={m.id} className={cn("flex w-full mb-4", m.role === 'user' ? 'justify-end' : 'justify-start')}>
                             <div className={cn(
                                 "max-w-[85%] rounded-lg px-4 py-3 text-sm",
@@ -1435,12 +1475,67 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
 
     return (
         <div className="fixed inset-0 z-50 flex overflow-hidden bg-background">
-            <div className="flex-[3] relative min-w-[600px] border-r">
+            <div className="flex-1 relative min-w-[600px] border-r">
                 {resumePreviewCmp}
             </div>
-            <div className="flex-[2] min-w-[320px] max-w-[600px] bg-background">
-                {chatInterfaceCmp}
-            </div>
+            {!isPanelCollapsed && (
+                <div
+                    className="relative bg-background border-l flex flex-col"
+                    style={{ width: `${panelWidth}px`, minWidth: '320px', maxWidth: '800px' }}
+                >
+                    {/* Resize Handle */}
+                    <div
+                        className="absolute left-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-blue-500 transition-colors group"
+                        onMouseDown={(e) => {
+                            e.preventDefault();
+                            const startX = e.clientX;
+                            const startWidth = panelWidth;
+
+                            const handleMouseMove = (e: MouseEvent) => {
+                                const delta = startX - e.clientX;
+                                const newWidth = Math.max(320, Math.min(800, startWidth + delta));
+                                setPanelWidth(newWidth);
+                            };
+
+                            const handleMouseUp = () => {
+                                document.removeEventListener('mousemove', handleMouseMove);
+                                document.removeEventListener('mouseup', handleMouseUp);
+                            };
+
+                            document.addEventListener('mousemove', handleMouseMove);
+                            document.addEventListener('mouseup', handleMouseUp);
+                        }}
+                    >
+                        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-12 bg-border group-hover:bg-blue-500 rounded-r transition-colors" />
+                    </div>
+
+                    {/* Collapse Button */}
+                    <button
+                        onClick={() => setIsPanelCollapsed(true)}
+                        className="absolute right-2 top-2 z-10 p-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+                        title="Collapse panel"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="m9 18 6-6-6-6" />
+                        </svg>
+                    </button>
+
+                    {chatInterfaceCmp}
+                </div>
+            )}
+
+            {/* Collapsed Panel - Show Expand Button */}
+            {isPanelCollapsed && (
+                <button
+                    onClick={() => setIsPanelCollapsed(false)}
+                    className="fixed right-0 top-1/2 -translate-y-1/2 p-2 bg-background border border-r-0 rounded-l-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors shadow-lg z-50"
+                    title="Expand AI Assistant"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="m15 18-6-6 6-6" />
+                    </svg>
+                </button>
+            )}
         </div>
     );
 }

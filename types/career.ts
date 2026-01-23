@@ -73,6 +73,13 @@ export interface ResumeDraft {
     sections: ResumeSection[];
 }
 
+export interface AiMessage {
+    id: string;
+    role: 'user' | 'assistant';
+    content: string;
+    timestamp: number;
+}
+
 export type AppStep = 'onboarding-intent' | 'onboarding-inputs' | 'processing' | 'profile-review' | 'resume-draft' | 'resume-editor' | 'interview-prep';
 
 export interface CareerState {
@@ -83,4 +90,5 @@ export interface CareerState {
     resume: ResumeDraft | null;
     resumeHtml?: string;
     isProcessing: boolean;
+    aiMessages: AiMessage[];
 }

@@ -146,6 +146,14 @@ export async function processCareerProfile(inputs: RawInput[], intent: CareerInt
     // If raw profile is empty (failed), return it immediately
     if (rawProfile.items.length === 0) return rawProfile;
 
+    // OPTIMIZATION: Skip refinement for LinkedIn sources (already well-structured)
+    const hasLinkedIn = inputs.some(i => i.type === 'linkedin' || i.content?.includes('linkedin.com'));
+    if (hasLinkedIn) {
+        console.log("[Bridge] Skipping refinement for LinkedIn source (already structured)");
+        rawProfile.analysisReport += "\n\n✨ Profile loaded from LinkedIn - ready to review!";
+        return rawProfile;
+    }
+
     // 5. Refine Profile (Resume-Language Layer) with Timeout Guard
     console.log("[Bridge] Running Profile Refinement...");
     // TODO: Pass actual user overrides when UI supports it
