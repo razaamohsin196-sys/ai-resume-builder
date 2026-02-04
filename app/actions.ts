@@ -71,6 +71,7 @@ const MOCK_RESUME: ResumeDraft = {
 
 
 export async function processCareerProfile(inputs: RawInput[], intent: CareerIntent, overrides?: any) {
+    console.log("[BRIDGE] Delegating to Multi-Source Bridge...");
     return await processBridge(inputs, intent, overrides);
 }
 
@@ -79,11 +80,13 @@ import { ingestRawProfile as ingestBridge } from '@/lib/bridge-process';
 import { refineProfile as refineBridge } from '@/lib/ingestion/refinement';
 
 export async function ingestCareerProfile(inputs: RawInput[], intent: CareerIntent, overrides?: any) {
+    console.log("[ACTION] Ingesting Raw Profile...");
     return await ingestBridge(inputs, intent, overrides);
 }
 
 // NEW: Step 2 - Refinement (Slow)
 export async function refineCareerProfile(profile: CareerProfile, intent: CareerIntent, overrides?: any) {
+    console.log("[ACTION] Refining Profile...");
     return await refineBridge(profile, intent, overrides || {});
 }
 
@@ -96,6 +99,9 @@ async function processLegacy(inputs: RawInput[], intent: CareerIntent) {
     // Add System Context
     const intentContext = `Target Role: ${intent.targetRole}\nTarget Location: ${intent.targetLocation}\nYOE: ${intent.yearsOfExperience}\nGoal: ${intent.jobSearchIntent}`;
     parts.push({ text: `CONTEXT:\n${intentContext}` });
+
+    console.log(`[processCareerProfile] Received ${inputs.length} inputs`);
+    inputs.forEach((inp, idx) => console.log(`Input ${idx}: type=${inp.type} content_preview=${inp.content.substring(0, 50)}...`));
 
     // Add Inputs
     // We explicitly map the inputs to simple, 1-indexed integers so the model can easily cite them.
@@ -392,6 +398,7 @@ export async function modifyResumeHtml(currentHtml: string, instruction: string)
 
         // With Schema, text() is guaranteed to be valid JSON
         const text = result.response.text();
+        console.log("[AI RAW RESPONSE]:", text.substring(0, 500) + "..."); // Log start only
 
         try {
             const parsed = JSON.parse(text);
@@ -456,6 +463,7 @@ export async function modifyCareerProfile(currentProfile: CareerProfile, instruc
     let additionalContext = "";
     const urls = extractUrls(instruction);
     if (urls.length > 0) {
+        console.log(`[AI Coach] Detected URLs: ${urls.join(', ')}`);
         const hydratedContents = await Promise.all(urls.map(url => hydrateContext(url)));
         additionalContext = `\n\nEXTERNAL RESOURCES PROVIDED BY USER:\n${hydratedContents.filter(Boolean).join('\n\n')}`;
     }

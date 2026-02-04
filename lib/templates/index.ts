@@ -13,7 +13,7 @@ import { Template2ColumnTimelineTemplate } from './Template2ColumnTimeline';
 import { Template2ColumnStylishBlocksTemplate } from './Template2ColumnStylishBlocks';
 
 export const RESUME_TEMPLATES: ResumeTemplate[] = [
-    // OliveGreenModernTemplate, // Temporarily disabled due to pagination issues with absolutely positioned footer
+    OliveGreenModernTemplate, // Temporarily disabled due to pagination issues with absolutely positioned footer
     ModernProfessionalTemplate,
     MinimalistSimplePhotoTemplate,
     ColorfulBlocksTemplate,
