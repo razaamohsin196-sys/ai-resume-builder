@@ -409,7 +409,10 @@ export function ProfileReview() {
                                 "max-w-[85%] rounded-lg px-4 py-3 text-sm",
                                 m.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted'
                             )}>
-                                <div className="prose prose-sm dark:prose-invert max-w-none">
+                                <div className={cn(
+                                    "prose prose-sm max-w-none",
+                                    m.role === 'user' ? 'prose-invert text-white' : 'dark:prose-invert'
+                                )}>
                                     <ReactMarkdown>{m.content}</ReactMarkdown>
                                 </div>
 
@@ -479,7 +482,7 @@ export function ProfileReview() {
 
                             {/* Left: Nav & Title */}
                             <div className="flex items-center gap-4 shrink-0">
-                                <Button variant="ghost" size="sm" className="gap-2 pl-0 hover:pl-2 transition-all p-0 h-auto font-normal text-muted-foreground hover:text-foreground" onClick={() => setStep('onboarding-inputs')}>
+                                <Button variant="ghost" size="sm" className="gap-2 pl-2 hover:pl-3 transition-all h-auto font-normal text-muted-foreground hover:text-foreground" onClick={() => setStep('onboarding-inputs')}>
                                     &larr; Back
                                 </Button>
                                 <div className="h-4 w-px bg-border" />

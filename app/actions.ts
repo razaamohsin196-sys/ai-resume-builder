@@ -71,7 +71,6 @@ const MOCK_RESUME: ResumeDraft = {
 
 
 export async function processCareerProfile(inputs: RawInput[], intent: CareerIntent, overrides?: any) {
-    console.log("[BRIDGE] Delegating to Multi-Source Bridge...");
     return await processBridge(inputs, intent, overrides);
 }
 
@@ -80,13 +79,11 @@ import { ingestRawProfile as ingestBridge } from '@/lib/bridge-process';
 import { refineProfile as refineBridge } from '@/lib/ingestion/refinement';
 
 export async function ingestCareerProfile(inputs: RawInput[], intent: CareerIntent, overrides?: any) {
-    console.log("[ACTION] Ingesting Raw Profile...");
     return await ingestBridge(inputs, intent, overrides);
 }
 
 // NEW: Step 2 - Refinement (Slow)
 export async function refineCareerProfile(profile: CareerProfile, intent: CareerIntent, overrides?: any) {
-    console.log("[ACTION] Refining Profile...");
     return await refineBridge(profile, intent, overrides || {});
 }
 
@@ -99,9 +96,6 @@ async function processLegacy(inputs: RawInput[], intent: CareerIntent) {
     // Add System Context
     const intentContext = `Target Role: ${intent.targetRole}\nTarget Location: ${intent.targetLocation}\nYOE: ${intent.yearsOfExperience}\nGoal: ${intent.jobSearchIntent}`;
     parts.push({ text: `CONTEXT:\n${intentContext}` });
-
-    console.log(`[processCareerProfile] Received ${inputs.length} inputs`);
-    inputs.forEach((inp, idx) => console.log(`Input ${idx}: type=${inp.type} content_preview=${inp.content.substring(0, 50)}...`));
 
     // Add Inputs
     // We explicitly map the inputs to simple, 1-indexed integers so the model can easily cite them.
@@ -398,7 +392,6 @@ export async function modifyResumeHtml(currentHtml: string, instruction: string)
 
         // With Schema, text() is guaranteed to be valid JSON
         const text = result.response.text();
-        console.log("[AI RAW RESPONSE]:", text.substring(0, 500) + "..."); // Log start only
 
         try {
             const parsed = JSON.parse(text);
@@ -463,7 +456,6 @@ export async function modifyCareerProfile(currentProfile: CareerProfile, instruc
     let additionalContext = "";
     const urls = extractUrls(instruction);
     if (urls.length > 0) {
-        console.log(`[AI Coach] Detected URLs: ${urls.join(', ')}`);
         const hydratedContents = await Promise.all(urls.map(url => hydrateContext(url)));
         additionalContext = `\n\nEXTERNAL RESOURCES PROVIDED BY USER:\n${hydratedContents.filter(Boolean).join('\n\n')}`;
     }
@@ -752,6 +744,54 @@ export async function checkGrammar(html: string): Promise<ReviewSuggestion[]> {
     } catch (e) {
         console.error("Grammar Check Error", e);
         return [];
+    }
+}
+
+export async function exportResumeAsDocx(html: string): Promise<{ success: boolean; data?: string; error?: string }> {
+    try {
+        // For DOCX export, we'll convert HTML to a simplified format
+        // In a production app, you'd use a library like html-docx-js or similar
+        // For now, we'll return a base64 encoded HTML that can be opened in Word
+        
+        // Clean HTML for Word compatibility
+        let cleanHtml = html;
+        
+        // Remove contenteditable attributes
+        cleanHtml = cleanHtml.replace(/contenteditable="[^"]*"/g, '');
+        
+        // Remove review issue spans
+        cleanHtml = cleanHtml.replace(/<span class="review-issue"[^>]*>/g, '');
+        cleanHtml = cleanHtml.replace(/<\/span>/g, '');
+        
+        // Wrap in proper Word HTML structure
+        const wordHtml = `
+<!DOCTYPE html>
+<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+<head>
+    <meta charset='utf-8'>
+    <title>Resume</title>
+    <!--[if gte mso 9]>
+    <xml>
+        <w:WordDocument>
+            <w:View>Print</w:View>
+            <w:Zoom>90</w:Zoom>
+            <w:DoNotOptimizeForBrowser/>
+        </w:WordDocument>
+    </xml>
+    <![endif]-->
+</head>
+<body>
+${cleanHtml}
+</body>
+</html>`;
+        
+        // Convert to base64
+        const base64 = Buffer.from(wordHtml).toString('base64');
+        
+        return { success: true, data: base64 };
+    } catch (error: any) {
+        console.error('DOCX Export Error:', error);
+        return { success: false, error: error.message || 'Failed to export as DOCX' };
     }
 }
 

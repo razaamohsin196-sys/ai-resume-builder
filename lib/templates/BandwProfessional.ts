@@ -359,5 +359,13 @@ export const BandwProfessionalTemplate: ResumeTemplate = {
     id: 'bandwprofessional',
     name: 'B&W professional',
     html: html,
-    hasPhoto: true
+    hasPhoto: true,
+    supportedSections: ['profile', 'summary', 'experience', 'education', 'skills', 'projects', 'languages', 'certifications'],
+    sectionOrder: ['profile', 'summary', 'experience', 'education', 'skills'],
+    pageSize: 'A4',
+    metadata: {
+        layout: 'two-column',
+        photoPosition: 'sidebar',
+        maxBulletsPerJob: 5
+    }
 };

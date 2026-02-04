@@ -691,5 +691,26 @@ const html = `<style>
 export const ClassicTemplate: ResumeTemplate = {
     id: 'classic',
     name: 'Classic',
-    html: html
+    html: html,
+    hasPhoto: false,
+    supportedSections: ['profile', 'summary', 'experience', 'education', 'skills', 'projects', 'languages', 'certifications'],
+    sectionOrder: ['profile', 'summary', 'experience', 'education', 'skills'],
+    pageSize: 'A4',
+    metadata: {
+        layout: 'single-column',
+        photoPosition: 'none',
+        maxBulletsPerJob: 5,
+        selectors: {
+            name: ['.name', 'h1'],
+            title: ['.job-title', '.title'],
+            contact: ['.contact-info', '.contact'],
+            summary: ['.summary'],
+            experienceSection: ['.section:has(.section-title:contains("Experience"))'],
+            experienceItem: ['.experience-item'],
+            educationSection: ['.section:has(.section-title:contains("Education"))'],
+            educationItem: ['.education-item'],
+            skillsSection: ['.section:has(.section-title:contains("Skills"))'],
+            projectsSection: ['.section:has(.section-title:contains("Projects"))'],
+        }
+    }
 };

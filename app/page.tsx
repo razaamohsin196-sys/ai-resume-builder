@@ -13,18 +13,18 @@ import { ResumeEditor } from "@/components/editor/ResumeEditor";
 import { KUSE_RESUME_TEMPLATE } from "@/lib/templates/kuseResume";
 
 export default function Home() {
-  const { step, resetSession } = useCareer();
+  const { step, resetSession, resumeHtml } = useCareer();
 
   return (
     <main className="min-h-screen bg-background text-foreground relative">
-      <div className="absolute top-4 right-4 z-50">
+      <div className="fixed bottom-4 left-4 z-[100]">
         <button
           onClick={() => {
             if (confirm("Start over? This will clear your session.")) {
               resetSession();
             }
           }}
-          className="text-xs text-muted-foreground hover:text-destructive underline"
+          className="text-xs text-muted-foreground hover:text-destructive underline bg-background/80 backdrop-blur-sm px-2 py-1 rounded"
         >
           Reset Session
         </button>
@@ -50,7 +50,7 @@ export default function Home() {
       {step === 'processing' && <ProcessingView />}
       {step === 'profile-review' && <ProfileReview />}
       {step === 'resume-draft' && <ResumeDraftView />}
-      {step === 'resume-editor' && <ResumeEditor initialHtml={KUSE_RESUME_TEMPLATE} />}
+      {step === 'resume-editor' && <ResumeEditor initialHtml={resumeHtml || KUSE_RESUME_TEMPLATE} />}
       {step === 'interview-prep' && <InterviewPrepView />}
     </main>
   );

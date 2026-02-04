@@ -437,5 +437,14 @@ const html = `<style>
 export const OliveGreenModernTemplate: ResumeTemplate = {
     id: 'olivegreenmodern',
     name: 'Olive green modern',
-    html: html
+    html: html,
+    hasPhoto: true,
+    supportedSections: ['profile', 'summary', 'experience', 'education', 'skills', 'projects', 'languages', 'certifications'],
+    sectionOrder: ['profile', 'summary', 'experience', 'education', 'skills'],
+    pageSize: 'A4',
+    metadata: {
+        layout: 'single-column',
+        photoPosition: 'header',
+        maxBulletsPerJob: 5
+    }
 };
