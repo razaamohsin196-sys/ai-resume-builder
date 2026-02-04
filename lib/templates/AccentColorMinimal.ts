@@ -494,5 +494,13 @@ export const AccentColorMinimalTemplate: ResumeTemplate = {
     id: 'accentcolorminimal',
     name: 'Accent color minimal',
     html: html,
-    hasPhoto: true
+    hasPhoto: true,
+    supportedSections: ['profile', 'summary', 'experience', 'education', 'skills', 'projects', 'languages', 'certifications'],
+    sectionOrder: ['profile', 'summary', 'experience', 'education', 'skills'],
+    pageSize: 'A4',
+    metadata: {
+        layout: 'single-column',
+        photoPosition: 'header',
+        maxBulletsPerJob: 5
+    }
 };

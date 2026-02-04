@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Send, Edit2, Download, Save, Undo, Redo, LayoutTemplate, RotateCw, Sparkles, Bold, Italic, Underline, Link as LinkIcon, Trash2, ArrowUp, ArrowDown, GripVertical, AlignLeft, AlignCenter, AlignRight, AlignJustify } from 'lucide-react';
+import { Send, Edit2, Download, Save, Undo, Redo, LayoutTemplate, RotateCw, Sparkles, Bold, Italic, Underline, Link as LinkIcon, Trash2, ArrowUp, ArrowDown, GripVertical, AlignLeft, AlignCenter, AlignRight, AlignJustify, FileText, Image, Code, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useCareer } from '@/context/CareerContext';
 import { modifyResumeHtml, generateHtmlResume, generateResumeDraft, checkGrammar, tailorResume, ReviewSuggestion } from '@/app/actions';
@@ -19,6 +19,15 @@ import { Check, Settings, Layout } from 'lucide-react';
 import { Loader2 } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
 import { Label } from '@/components/ui/label';
+import { SectionManager } from './SectionManager';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 interface Message {
     id: string;
@@ -47,16 +56,30 @@ interface ResumeEditorProps {
     initialHtml?: string;
 }
 
+// Helper to strip injected scripts from HTML
+function cleanHtmlScripts(html: string): string {
+    if (!html) return html;
+    let cleaned = html;
+    cleaned = cleaned.replace(/<script>[\s\S]*?<\/script>/gi, '');
+    cleaned = cleaned.replace(/<style[^>]*>[\s\S]*?\.review-issue[\s\S]*?<\/style>/gi, '');
+    cleaned = cleaned.replace(/<style[^>]*>[\s\S]*?\.page-break-gap[\s\S]*?<\/style>/gi, '');
+    cleaned = cleaned.replace(/<style[^>]*id="page-size-override"[\s\S]*?<\/style>/gi, '');
+    return cleaned;
+}
+
 // Internal Component for Template Preview
 const TemplatePreviewCard = ({ template, isSelected, onClick }: { template: any, isSelected: boolean, onClick: () => void }) => {
     // We render a scaled-down iframe
     const scale = 0.25;
-    const baseWidth = 800; // Assumed internal width for A4 render
-    // A4 Ratio ~ 1.414. Height ~ 1131
-    const baseHeight = 1132;
+    // Use the template's pageSize to determine dimensions
+    // A4: 210mm x 297mm = 794px x 1123px @ 96dpi
+    // Letter: 8.5in x 11in = 816px x 1056px @ 96dpi
+    const pageSize = template.pageSize || 'A4';
+    const baseWidth = pageSize === 'Letter' ? 816 : 794;
+    const baseHeight = pageSize === 'Letter' ? 1056 : 1123;
 
-    const containerWidth = baseWidth * scale; // 200px
-    const containerHeight = baseHeight * scale; // 283px
+    const containerWidth = baseWidth * scale; // ~200px
+    const containerHeight = baseHeight * scale; // ~280px
 
     return (
         <button
@@ -125,8 +148,10 @@ const EDITABLE_SELECTORS = [
     '.contact-info',
     '.header-text',
     '.about-me-text',
+    '.about-me',        // Added for some templates
     '.responsibilities-list',
     '.achievements-container',
+    '.achievements',    // Added
     '.college',
     '.degree',
     '.date',
@@ -144,12 +169,25 @@ const EDITABLE_SELECTORS = [
     '.skills',
     '.certification',
     '.language',
-    '.job-title',       // Added
-    '.section-title',   // Added
-    '.contact-item',     // Added
-    '.reference-name',   // Added
-    '.language-item',    // Added
-    'h1', 'h2', 'h3'     // Catch-all for headers
+    '.job-title',
+    '.section-title',
+    '.contact-item',
+    '.reference-name',
+    '.language-item',
+    '.company-location', // Added
+    '.degree-info',      // Added
+    '.school-name',      // Added
+    '.skills-category',  // Added
+    '.skills-group',     // Added
+    '.header-title',     // Added for some templates
+    '.header-left',      // Added for some templates
+    '.right-content',    // Added for some templates
+    '.left-column',      // Added for some templates
+    '.right-column',     // Added for some templates
+    'p',                 // All paragraphs
+    'ul',                // All lists
+    'li',                // All list items
+    'h1', 'h2', 'h3', 'h4' // All headers
 ].join(', ');
 
 export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
@@ -171,8 +209,8 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
     const [isChangingTemplate, setIsChangingTemplate] = useState(false);
     const [isTemplatePopoverOpen, setIsTemplatePopoverOpen] = useState(false);
 
-    // Local copy of HTML
-    const [currentHtml, setCurrentHtml] = useState<string>(resumeHtml || initialHtml);
+    // Local copy of HTML (cleaned of any injected scripts)
+    const [currentHtml, setCurrentHtml] = useState<string>(() => cleanHtmlScripts(resumeHtml || initialHtml));
     const [annotatedHtml, setAnnotatedHtml] = useState<string | null>(null);
     const [showHighlights, setShowHighlights] = useState(false);
 
@@ -181,6 +219,17 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
         lineHeight: 1.08,
         sectionSpacing: 10
     });
+    
+    // --- PAGE SIZE SETTINGS ---
+    // Initialize page size from template metadata
+    const [pageSize, setPageSize] = useState<'A4' | 'Letter'>(() => {
+        return selectedTemplate?.pageSize || 'A4';
+    });
+    
+    // --- PAGINATION STATE ---
+    const [pageCount, setPageCount] = useState(1);
+    const [currentPage, setCurrentPage] = useState(1);
+    const scrollContainerRef = useRef<HTMLDivElement>(null);
 
     const updateIframeLayout = (settings: typeof layoutSettings) => {
         if (iframeRef.current && iframeRef.current.contentWindow) {
@@ -194,6 +243,16 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
     useEffect(() => {
         updateIframeLayout(layoutSettings);
     }, [layoutSettings]);
+    
+    // Update page size
+    useEffect(() => {
+        if (iframeRef.current && iframeRef.current.contentWindow) {
+            iframeRef.current.contentWindow.postMessage({
+                type: 'UPDATE_PAGE_SIZE',
+                pageSize
+            }, '*');
+        }
+    }, [pageSize]);
 
     // undoing/redoing flag to prevent pushing to history during traversal
     const logHistory = (newHtml: string) => {
@@ -242,25 +301,71 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
 
 
 
-    const handleDownload = () => {
+    // Get clean HTML for export (removes editor artifacts)
+    const getCleanHtmlForExport = (): string => {
+        if (!iframeRef.current?.contentDocument) return currentHtml;
+        
+        const doc = iframeRef.current.contentDocument;
+        const clonedDoc = doc.cloneNode(true) as Document;
+        
+        // Remove contenteditable attributes
+        clonedDoc.querySelectorAll('[contenteditable]').forEach(el => {
+            el.removeAttribute('contenteditable');
+        });
+        
+        // Remove review issue highlights
+        clonedDoc.querySelectorAll('.review-issue').forEach(el => {
+            const parent = el.parentNode;
+            while (el.firstChild) {
+                parent?.insertBefore(el.firstChild, el);
+            }
+            el.remove();
+        });
+        
+        // Remove pagination UI elements
+        clonedDoc.querySelectorAll('.page-break-gap, .page-margin-spacer, .page-break-indicator, .page-number-footer').forEach(el => {
+            el.remove();
+        });
+        
+        // Remove temp styles
+        clonedDoc.querySelectorAll('#temp-print-styles, #editor-styles').forEach(el => {
+            el.remove();
+        });
+        
+        return clonedDoc.documentElement.outerHTML;
+    };
+
+    const handleDownloadPDF = () => {
         if (iframeRef.current && iframeRef.current.contentWindow && iframeRef.current.contentDocument) {
             const doc = iframeRef.current.contentDocument;
 
-            // 1. Inject Temporary Print Styles (The Nuclear Option)
-            // This guarantees we override any inline styles with !important
+            // 1. Inject Temporary Print Styles for multi-page support
             const style = doc.createElement('style');
             style.id = 'temp-print-styles';
+            const pageDimensions = pageSize === 'Letter' 
+                ? { width: '8.5in', height: '11in' }
+                : { width: '210mm', height: '297mm' };
+            
             style.textContent = `
-                /* REMOVED @page override to respect template defaults */
-                body {
-                    margin: 0 !important;
-                    background-color: white !important;
+                @page {
+                    size: ${pageDimensions.width} ${pageDimensions.height};
+                    margin: 0;
                 }
-                /* Only clean up artifacts, don't force width */
+                /* CRITICAL: Force browsers to preserve colors when printing/exporting to PDF */
+                * {
+                    -webkit-print-color-adjust: exact !important;
+                    print-color-adjust: exact !important;
+                    color-adjust: exact !important;
+                }
+                body {
+                    background-color: white !important;
+                    -webkit-print-color-adjust: exact !important;
+                    print-color-adjust: exact !important;
+                    /* Don't override template's own padding - it's intentional */
+                }
+                /* Clean up visual artifacts */
                 .page, .resume-container {
-                    /* margin: 0 !important; */
                     box-shadow: none !important;
-                    min-height: 100vh !important;
                 }
                 *[contenteditable] { outline: none !important; }
                 .review-issue { 
@@ -272,7 +377,31 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
                     text-decoration: none !important;
                     background-color: transparent !important;
                 }
-    `;
+                /* Hide pagination UI visual elements but preserve spacing */
+                .page-break-gap {
+                    background: transparent !important;
+                    border: none !important;
+                }
+                .page-break-gap * {
+                    opacity: 0 !important;
+                }
+                .page-margin-spacer,
+                .page-break-indicator,
+                .page-number-footer {
+                    display: none !important;
+                }
+                /* PRESERVE pagination-pushed margins - they create the page breaks! */
+                .pagination-pushed {
+                    /* Keep the margin-top intact for proper page breaks */
+                }
+                /* Ensure proper page breaks */
+                .section {
+                    page-break-inside: avoid;
+                }
+                .experience-item, .education-item, .job, .timeline-item, .skill-item, .reference-item {
+                    page-break-inside: avoid;
+                }
+            `;
             doc.head.appendChild(style);
 
             // 2. Print
@@ -288,6 +417,161 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
                 }
             }, 1000);
         }
+    };
+
+    const handleDownloadHTML = () => {
+        const cleanHtml = getCleanHtmlForExport();
+        const blob = new Blob([cleanHtml], { type: 'text/html' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'resume.html';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    };
+
+    const handleDownloadPNG = async () => {
+        if (!iframeRef.current?.contentDocument) return;
+        
+        const doc = iframeRef.current.contentDocument;
+        const body = doc.body;
+        
+        // Use html2canvas dynamically loaded
+        const html2canvasScript = document.createElement('script');
+        html2canvasScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+        
+        // Check if already loaded
+        if (!(window as unknown as { html2canvas?: unknown }).html2canvas) {
+            await new Promise<void>((resolve, reject) => {
+                html2canvasScript.onload = () => resolve();
+                html2canvasScript.onerror = () => reject(new Error('Failed to load html2canvas'));
+                document.head.appendChild(html2canvasScript);
+            });
+        }
+        
+        try {
+            // Get html2canvas from window
+            const html2canvas = (window as unknown as { html2canvas: (element: HTMLElement, options?: object) => Promise<HTMLCanvasElement> }).html2canvas;
+            
+            const canvas = await html2canvas(body, {
+                scale: 2,
+                useCORS: true,
+                allowTaint: true,
+                backgroundColor: '#ffffff',
+            });
+            
+            const url = canvas.toDataURL('image/png');
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'resume.png';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        } catch (error) {
+            console.error('Error generating PNG:', error);
+            alert('Failed to generate PNG. Please try the PDF option instead.');
+        }
+    };
+
+    const handleDownloadDOCX = async () => {
+        // For DOCX, we'll create a simple HTML-based Word document
+        // Word can open HTML files saved with .doc extension
+        const cleanHtml = getCleanHtmlForExport();
+        
+        // Wrap in Word-compatible HTML structure
+        const wordHtml = `
+<!DOCTYPE html>
+<html xmlns:o="urn:schemas-microsoft-com:office:office" 
+      xmlns:w="urn:schemas-microsoft-com:office:word" 
+      xmlns="http://www.w3.org/TR/REC-html40">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <!--[if gte mso 9]>
+    <xml>
+        <w:WordDocument>
+            <w:View>Print</w:View>
+            <w:Zoom>100</w:Zoom>
+        </w:WordDocument>
+    </xml>
+    <![endif]-->
+    <style>
+        @page { size: ${pageSize === 'Letter' ? '8.5in 11in' : '210mm 297mm'}; margin: 0.5in; }
+        body { font-family: Arial, sans-serif; }
+    </style>
+</head>
+<body>
+${cleanHtml}
+</body>
+</html>`;
+        
+        const blob = new Blob([wordHtml], { type: 'application/msword' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'resume.doc';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    };
+
+    const handleDownloadTXT = () => {
+        if (!iframeRef.current?.contentDocument) return;
+        
+        const doc = iframeRef.current.contentDocument;
+        const body = doc.body;
+        
+        // Extract text content with basic formatting
+        const extractText = (element: Element, depth = 0): string => {
+            let text = '';
+            const children = element.childNodes;
+            
+            for (const child of children) {
+                if (child.nodeType === Node.TEXT_NODE) {
+                    const content = child.textContent?.trim();
+                    if (content) {
+                        text += content + ' ';
+                    }
+                } else if (child.nodeType === Node.ELEMENT_NODE) {
+                    const el = child as Element;
+                    const tagName = el.tagName.toLowerCase();
+                    
+                    // Add line breaks for block elements
+                    if (['h1', 'h2', 'h3', 'h4', 'h5', 'h6'].includes(tagName)) {
+                        text += '\n\n' + '='.repeat(40) + '\n';
+                        text += extractText(el, depth);
+                        text += '\n' + '='.repeat(40) + '\n';
+                    } else if (['p', 'div', 'section', 'article'].includes(tagName)) {
+                        text += '\n' + extractText(el, depth) + '\n';
+                    } else if (tagName === 'li') {
+                        text += '\n• ' + extractText(el, depth);
+                    } else if (tagName === 'br') {
+                        text += '\n';
+                    } else {
+                        text += extractText(el, depth);
+                    }
+                }
+            }
+            
+            return text;
+        };
+        
+        let plainText = extractText(body);
+        // Clean up excessive whitespace
+        plainText = plainText.replace(/\n{3,}/g, '\n\n').trim();
+        
+        const blob = new Blob([plainText], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'resume.txt';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
     };
 
     // --- REGEN STATE ---
@@ -307,7 +591,7 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
         setAiMessages(prev => [...prev, { id: tempId, role: 'assistant', content: 'Scanning your resume...', timestamp: Date.now() }]);
 
         try {
-            const issues = await checkGrammar(currentHtml);
+            const issues = await checkGrammar(getLatestHtmlFromIframe());
             setReviewIssues(prev => [...prev.filter(i => i.type !== 'grammar'), ...issues]);
 
             if (issues.length === 0) {
@@ -334,7 +618,7 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
         setAiMessages(prev => [...prev, { id: tempId, role: 'assistant', content: 'Analyzing resume against job description and generating suggestions...', timestamp: Date.now() }]);
 
         try {
-            const suggestions = await tailorResume(currentHtml, jobDescription);
+            const suggestions = await tailorResume(getLatestHtmlFromIframe(), jobDescription);
             setReviewIssues(prev => [...prev.filter(i => i.type !== 'tailor'), ...suggestions]);
 
             if (suggestions.length === 0) {
@@ -399,15 +683,19 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
             setIsRegenerating(false);
         }
     };
+    // Sync resumeHtml from context (e.g., after localStorage load) to currentHtml
     useEffect(() => {
         if (resumeHtml && resumeHtml !== currentHtml) {
-            // Check if this is a NEW distinct update (not just a loop)
+            // Check if this is a NEW distinct update (not just an echo of our own change)
             if (history[historyIndex] !== resumeHtml) {
                 // It came from outside (e.g. initial load or reset)
-                setCurrentHtml(resumeHtml);
-                // We should probably reset history if it's a totally new resume? 
-                // For now, let's treat it as a new step.
-                // logHistory(resumeHtml); // Be careful with loops here
+                // Clean scripts before setting
+                setCurrentHtml(cleanHtmlScripts(resumeHtml));
+                // Initialize history if empty
+                if (history.length === 0) {
+                    setHistory([resumeHtml]);
+                    setHistoryIndex(0);
+                }
             }
         }
     }, [resumeHtml]);
@@ -418,38 +706,49 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
 
         // RESET LAYOUT SETTINGS ON TEMPLATE CHANGE
         setLayoutSettings({ lineHeight: 1.15, sectionSpacing: 18 });
+        
+        // Update page size from template metadata
+        setPageSize(template.pageSize || 'A4');
 
         // Reset interactive state
         setBlockRect(null);
         setActiveBlockId(null);
         setSelectionRect(null);
+        
+        // Reset pagination state to avoid stale page counts
+        setIframeHeight(null);
+        setPageCount(1);
 
         // Add User Message
         const userMsgId = crypto.randomUUID();
-        setAiMessages(prev => [...prev, { id: userMsgId, role: 'user', content: `Switch template to: ${template.name} `, timestamp: Date.now() }]);
+        setAiMessages(prev => [...prev, { id: userMsgId, role: 'user', content: `Switch template to: ${template.name}`, timestamp: Date.now() }]);
 
         const tempId = crypto.randomUUID();
         setAiMessages(prev => [...prev, { id: tempId, role: 'assistant', content: "Applying new template layout...", timestamp: Date.now() }]);
 
         try {
-            const html = await generateHtmlResume(profile!, intent!, template.html, { fitToOnePage: isFitToPage, hasPhoto: template.hasPhoto });
+            // Use deterministic template swapping (no LLM calls)
+            // getLatestHtmlFromIframe() ensures any pending edits are captured
+            const latestHtml = getLatestHtmlFromIframe();
+            
+            const { swapTemplate } = await import('@/lib/resume-data');
+            
+            const html = swapTemplate(latestHtml, template);
 
             setResumeHtml(html);
-            // setResume(draft); // Draft structure doesn't change, just HTML presentation
             setCurrentHtml(html);
             logHistory(html);
 
             setAiMessages(prev => prev.map(m =>
-                m.id === tempId ? { ...m, content: `✅ Switched to ** ${template.name}** template.` } : m
+                m.id === tempId ? { ...m, content: `✅ Switched to **${template.name}** template.` } : m
             ));
         } catch (e) {
-            console.error(e);
+            console.error('Error switching template:', e);
             setAiMessages(prev => prev.map(m =>
                 m.id === tempId ? { ...m, content: "❌ Error switching template." } : m
             ));
         } finally {
             setIsChangingTemplate(false);
-            // setIsTemplatePopoverOpen(false); // Already closed
         }
     };
 
@@ -496,6 +795,15 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
     const [formatting, setFormatting] = useState<{ bold: boolean; italic: boolean; underline: boolean; fontSize: string }>({ bold: false, italic: false, underline: false, fontSize: '3' });
 
     const iframeRef = useRef<HTMLIFrameElement>(null);
+
+    // Helper: Get the latest HTML from iframe (bypasses debounce)
+    // This ensures user edits are not lost when performing operations
+    const getLatestHtmlFromIframe = (): string => {
+        if (iframeRef.current && iframeRef.current.contentDocument) {
+            return iframeRef.current.contentDocument.documentElement.outerHTML;
+        }
+        return currentHtml;
+    };
 
     // Detect mobile view
     useEffect(() => {
@@ -550,16 +858,34 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
                 const h = Math.max(event.data.height, 1123);
                 setIframeHeight(h);
             }
+            if (event.data.type === 'PAGE_COUNT') {
+                setPageCount(event.data.count || 1);
+            }
         };
         window.addEventListener('message', handleMessage);
         return () => window.removeEventListener('message', handleMessage);
     }, [setResumeHtml, currentHtml, history, historyIndex, logHistory]); // Added logHistory to dep array
+    
+    // Track current page based on scroll position
+    useEffect(() => {
+        const container = scrollContainerRef.current;
+        if (!container) return;
+        
+        const handleScroll = () => {
+            const pageHeight = pageSize === 'Letter' ? 1056 : 1123; // px at 96dpi
+            const scrollTop = container.scrollTop;
+            const currentPageNum = Math.floor(scrollTop / (pageHeight + 24)) + 1; // 24px gap between pages
+            setCurrentPage(Math.min(Math.max(1, currentPageNum), pageCount));
+        };
+        
+        container.addEventListener('scroll', handleScroll);
+        return () => container.removeEventListener('scroll', handleScroll);
+    }, [pageSize, pageCount]);
 
     // LISTEN FOR GRAMMAR CLICKS FROM IFRAME
     useEffect(() => {
         const handleGrammarClick = (event: MessageEvent) => {
             if (event.data.type === 'GRAMMAR_CLICK') {
-                console.log('[PARENT] Received GRAMMAR_CLICK', event.data);
                 const issueId = event.data.id;
                 const issue = grammarIssues.find(i => i.id === issueId);
 
@@ -604,6 +930,7 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
 
             const script = `
                     <script>
+                        (function() {
                         // --- 1. Content Sync ---
                         let debounceTimer;
                         
@@ -611,6 +938,35 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
                         // This ensures spacing is correct immediately upon load/template switch
                         document.documentElement.style.setProperty('--line-height', '${layoutSettings.lineHeight}');
                         document.documentElement.style.setProperty('--section-spacing', '${layoutSettings.sectionSpacing}px');
+                        
+                        // Set page size
+                        const pageSize = '${pageSize}';
+                        const pageWidth = pageSize === 'Letter' ? '8.5in' : '210mm';
+                        const pageHeight = pageSize === 'Letter' ? '11in' : '297mm';
+                        const pageWidthPx = pageSize === 'Letter' ? 816 : 794;
+                        const pageHeightPx = pageSize === 'Letter' ? 1056 : 1123;
+                        
+                        document.documentElement.style.setProperty('--page-width', pageWidth);
+                        document.documentElement.style.setProperty('--page-height', pageHeight);
+                        document.body.style.width = pageWidth;
+                        document.body.style.minHeight = pageHeight;
+                        
+                        // Override hardcoded template dimensions with !important
+                        // This ensures templates auto-fit to the selected page size
+                        let pageSizeStyleEl = document.getElementById('page-size-override');
+                        if (!pageSizeStyleEl) {
+                            pageSizeStyleEl = document.createElement('style');
+                            pageSizeStyleEl.id = 'page-size-override';
+                            document.head.appendChild(pageSizeStyleEl);
+                        }
+                        pageSizeStyleEl.textContent = \`
+                            .page, body {
+                                width: \${pageWidth} !important;
+                                min-width: \${pageWidth} !important;
+                                max-width: \${pageWidth} !important;
+                                min-height: \${pageHeight} !important;
+                            }
+                        \`;
 
                         document.body.addEventListener('input', function(e) {
                             clearTimeout(debounceTimer);
@@ -625,45 +981,55 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
                         // --- 2. Selection Tracking (Rich Text) ---
                         document.addEventListener('selectionchange', () => {
                             const sel = window.getSelection();
-                            if (sel.rangeCount > 0 && !sel.isCollapsed) {
-                                const range = sel.getRangeAt(0);
-                                const rect = range.getBoundingClientRect();
-                                
-                                // Check formatting state
-                                const isBold = document.queryCommandState('bold');
-                                const isItalic = document.queryCommandState('italic');
-                                const isUnderline = document.queryCommandState('underline');
-                                // Calculate robust font size from computed style
-                                let fontSize = '3';
+                            if (sel && sel.rangeCount > 0 && !sel.isCollapsed) {
                                 try {
-                                    const parent = range.commonAncestorContainer;
-                                    const el = parent.nodeType === 1 ? parent : parent.parentElement;
-                                    if (el) {
-                                        const px = parseFloat(window.getComputedStyle(el).fontSize);
-                                        // Map px to 1-7 legacy sizes (Strict Mapping for 14px Base)
-                                        if (px <= 10) fontSize = '1';      // Tiny
-                                        else if (px <= 13) fontSize = '2'; // Small
-                                        else if (px < 16) fontSize = '3';  // Normal (14px falls here)
-                                        else if (px < 22) fontSize = '4';  // Large (18px falls here)
-                                        else if (px < 28) fontSize = '5';  // Huge (26px falls here)
-                                        else if (px < 40) fontSize = '6';  // Title
-                                        else fontSize = '7';
+                                    const range = sel.getRangeAt(0);
+                                    const rect = range.getBoundingClientRect();
+                                    
+                                    // Only track if we have a valid rect with content
+                                    if (rect.width > 0 && rect.height > 0) {
+                                        // Check formatting state
+                                        const isBold = document.queryCommandState('bold');
+                                        const isItalic = document.queryCommandState('italic');
+                                        const isUnderline = document.queryCommandState('underline');
+                                        // Calculate robust font size from computed style
+                                        let fontSize = '3';
+                                        try {
+                                            const parent = range.commonAncestorContainer;
+                                            const el = parent.nodeType === 1 ? parent : parent.parentElement;
+                                            if (el) {
+                                                const px = parseFloat(window.getComputedStyle(el).fontSize);
+                                                // Map px to 1-7 legacy sizes (Strict Mapping for 14px Base)
+                                                if (px <= 10) fontSize = '1';      // Tiny
+                                                else if (px <= 13) fontSize = '2'; // Small
+                                                else if (px < 16) fontSize = '3';  // Normal (14px falls here)
+                                                else if (px < 22) fontSize = '4';  // Large (18px falls here)
+                                                else if (px < 28) fontSize = '5';  // Huge (26px falls here)
+                                                else if (px < 40) fontSize = '6';  // Title
+                                                else fontSize = '7';
+                                            }
+                                        } catch (e) {
+                                            fontSize = document.queryCommandValue('fontSize') || '3';
+                                        }
+
+                                        window.parent.postMessage({
+                                            type: 'SELECTION_CHANGE',
+                                            isCollapsed: false,
+                                            rect: {
+                                                top: rect.top,
+                                                left: rect.left,
+                                                width: rect.width,
+                                                height: rect.height
+                                            },
+                                            style: { bold: isBold, italic: isItalic, underline: isUnderline, fontSize }
+                                        }, '*');
+                                    } else {
+                                        window.parent.postMessage({ type: 'SELECTION_CHANGE', isCollapsed: true }, '*');
                                     }
                                 } catch (e) {
-                                    fontSize = document.queryCommandValue('fontSize') || '3';
+                                    console.warn('[Selection] Error tracking selection:', e);
+                                    window.parent.postMessage({ type: 'SELECTION_CHANGE', isCollapsed: true }, '*');
                                 }
-
-                                window.parent.postMessage({
-                                    type: 'SELECTION_CHANGE',
-                                    isCollapsed: false,
-                                    rect: {
-                                        top: rect.top,
-                                        left: rect.left,
-                                        width: rect.width,
-                                        height: rect.height
-                                    },
-                                    style: { bold: isBold, italic: isItalic, underline: isUnderline, fontSize }
-                                }, '*');
                             } else {
                                 window.parent.postMessage({ type: 'SELECTION_CHANGE', isCollapsed: true }, '*');
                             }
@@ -671,9 +1037,12 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
 
                         // --- 3. Block Hover (Drag/Move Controls) ---
                         document.body.addEventListener('mouseover', (e) => {
+                             // Ignore pagination elements
+                             if (e.target.closest('.page-break-gap, .page-margin-spacer')) return;
+                             
                              // Find the closest draggable block (section or experience-item)
                              const block = e.target.closest('.section, .experience-item, .education-item, .skill-percentage, .timeline-item, .job, .reference-item, .contact-item');
-                             if(block) {
+                             if(block && !block.classList.contains('page-break-gap') && !block.classList.contains('page-margin-spacer')) {
                                  // Add an outline temporarily
                                  const rect = block.getBoundingClientRect();
                                  
@@ -705,6 +1074,33 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
                                 document.documentElement.style.setProperty('--line-height', settings.lineHeight);
                                 document.documentElement.style.setProperty('--section-spacing', settings.sectionSpacing + 'px');
                             }
+                            
+                            if (type === 'UPDATE_PAGE_SIZE' && event.data.pageSize) {
+                                const pageSize = event.data.pageSize;
+                                const pageWidth = pageSize === 'Letter' ? '8.5in' : '210mm';
+                                const pageHeight = pageSize === 'Letter' ? '11in' : '297mm';
+                                
+                                document.documentElement.style.setProperty('--page-width', pageWidth);
+                                document.documentElement.style.setProperty('--page-height', pageHeight);
+                                document.body.style.width = pageWidth;
+                                document.body.style.minHeight = pageHeight;
+                                
+                                // Override hardcoded template dimensions with !important
+                                let pageSizeStyleEl = document.getElementById('page-size-override');
+                                if (!pageSizeStyleEl) {
+                                    pageSizeStyleEl = document.createElement('style');
+                                    pageSizeStyleEl.id = 'page-size-override';
+                                    document.head.appendChild(pageSizeStyleEl);
+                                }
+                                pageSizeStyleEl.textContent = \`
+                                    .page, body {
+                                        width: \${pageWidth} !important;
+                                        min-width: \${pageWidth} !important;
+                                        max-width: \${pageWidth} !important;
+                                        min-height: \${pageHeight} !important;
+                                    }
+                                \`;
+                            }
 
                             if (type === 'EXEC_COMMAND') {
                                 document.execCommand(cmd, false, val);
@@ -721,16 +1117,38 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
 
                                 if (direction === 'delete') {
                                     el.remove();
-                                } else if (direction === 'up') {
-                                    const prev = el.previousElementSibling;
-                                    if (prev) {
-                                        el.parentNode.insertBefore(el, prev);
+                                } else if (direction === 'up' || direction === 'down') {
+                                    // Determine if this is a section-level or item-level block
+                                    const isSection = el.classList.contains('section');
+                                    
+                                    // For sections, move among other sections
+                                    // For items, move among siblings within same parent first, then allow cross-section
+                                    let siblings;
+                                    if (isSection) {
+                                        // Get all top-level sections
+                                        siblings = Array.from(el.parentNode.querySelectorAll(':scope > .section'));
+                                    } else {
+                                        // Get siblings at same level (items within a section)
+                                        const parent = el.parentNode;
+                                        siblings = Array.from(parent.children).filter(child => 
+                                            child.classList && !child.classList.contains('page-break-gap') && 
+                                            !child.classList.contains('section-title') && !child.classList.contains('page-margin-spacer') &&
+                                            child.nodeType === 1
+                                        );
                                     }
-                                } else if (direction === 'down') {
-                                    const next = el.nextElementSibling;
-                                    if (next) {
-                                        // Insert before the element *after* next
-                                        el.parentNode.insertBefore(el, next.nextElementSibling);
+                                    
+                                    const currentIndex = siblings.indexOf(el);
+                                    
+                                    if (direction === 'up' && currentIndex > 0) {
+                                        const prevSibling = siblings[currentIndex - 1];
+                                        el.parentNode.insertBefore(el, prevSibling);
+                                    } else if (direction === 'down' && currentIndex < siblings.length - 1) {
+                                        const nextSibling = siblings[currentIndex + 1];
+                                        if (nextSibling.nextElementSibling) {
+                                            el.parentNode.insertBefore(el, nextSibling.nextElementSibling);
+                                        } else {
+                                            el.parentNode.appendChild(el);
+                                        }
                                     }
                                 }
                                 
@@ -822,6 +1240,7 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
                         window.addEventListener('afterprint', () => {
                             document.body.classList.remove('printing');
                         });
+                        })(); // End IIFE
                     </script>
                  `;
 
@@ -843,11 +1262,9 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
                     }
                 </style>
                 <script>
-                    console.log('[IFRAME] Review script loaded');
                     document.body.addEventListener('click', (e) => {
                         const target = e.target.closest('.review-issue');
                         if (target) {
-                            console.log('[IFRAME] Review issue clicked', target);
                             e.preventDefault();
                             e.stopPropagation();
                             
@@ -869,9 +1286,253 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
                 </script>
             `;
 
+            // PAGINATION SCRIPT - Google Docs style multi-page view with full pages
+            const paginationScript = `
+                <style>
+                    /* Page break gap - creates visual separation between pages */
+                    .page-break-gap {
+                        position: absolute;
+                        left: -30px;
+                        right: -30px;
+                        height: 28px;
+                        background: #d1d5db;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        z-index: 1000;
+                        pointer-events: none;
+                    }
+                    .page-break-label {
+                        font-size: 10px;
+                        color: #6b7280;
+                        background: #e5e7eb;
+                        padding: 2px 10px;
+                        border-radius: 10px;
+                        z-index: 1;
+                        font-family: system-ui, -apple-system, sans-serif;
+                        white-space: nowrap;
+                        font-weight: 500;
+                    }
+                    /* Elements pushed down by pagination */
+                    .pagination-pushed {
+                        /* Marker class for elements that have been pushed */
+                    }
+                    @media print {
+                        .page-break-gap {
+                            display: none !important;
+                        }
+                        body {
+                            min-height: auto !important;
+                        }
+                        .pagination-pushed {
+                            margin-top: 0 !important;
+                        }
+                    }
+                </style>
+                <script>
+                    (function() {
+                        const pageSize = '${pageSize}';
+                        // Page heights at 96dpi - A4: 297mm = 1123px, Letter: 11in = 1056px
+                        const pageHeight = pageSize === 'Letter' ? 1056 : 1123;
+                        const pageGapHeight = 28; // Height of visual gap between pages
+                        
+                        function updatePagination() {
+                            // Remove existing pagination elements
+                            document.querySelectorAll('.page-break-gap').forEach(el => el.remove());
+                            
+                            // Reset any previously pushed elements
+                            document.querySelectorAll('.pagination-pushed').forEach(el => {
+                                el.style.marginTop = '';
+                                el.classList.remove('pagination-pushed');
+                            });
+                            
+                            // Ensure body has relative positioning
+                            document.body.style.position = 'relative';
+                            
+                            // Check if template uses .page containers (like Blue Simple Profile)
+                            const pageContainer = document.querySelector('.page');
+                            const hasPageContainer = pageContainer !== null;
+                            
+                            // For templates with fixed-height .page containers, remove the fixed height
+                            // to allow content to flow naturally across multiple pages
+                            if (hasPageContainer && pageContainer) {
+                                const pageStyle = window.getComputedStyle(pageContainer);
+                                const hasFixedHeight = pageStyle.height && pageStyle.height !== 'auto' && !pageStyle.height.includes('%');
+                                
+                                if (hasFixedHeight) {
+                                    pageContainer.style.height = 'auto';
+                                    pageContainer.style.minHeight = pageHeight + 'px';
+                                }
+                            }
+                            
+                            // Get all content elements (sections and major blocks)
+                            // Explicitly exclude footer elements with absolute positioning
+                            const contentElements = Array.from(document.body.querySelectorAll('.section, .header, .resume-header, .header-text, .main-content, .main-content > *, .left-column > *, .right-column > *, .about-me, .work-experience, .education'))
+                                .filter(el => {
+                                    // Exclude pagination elements
+                                    if (el.classList.contains('page-break-gap') || el.tagName === 'SCRIPT' || el.tagName === 'STYLE') {
+                                        return false;
+                                    }
+                                    // Exclude footer elements (check tag name too)
+                                    if (el.classList.contains('footer') || el.tagName === 'FOOTER') {
+                                        return false;
+                                    }
+                                    // Exclude decorative background elements
+                                    if (el.classList.contains('header-bg') || el.classList.contains('footer-bg')) {
+                                        return false;
+                                    }
+                                    return true;
+                                });
+                            
+                            // Always use content elements, never the .page container itself
+                            // The .page container is just a wrapper and shouldn't be used for pagination
+                            let elements = contentElements.length > 0 ? contentElements : 
+                                Array.from(document.body.children).filter(el => {
+                                    if (el.classList.contains('page-break-gap') || el.tagName === 'SCRIPT' || el.tagName === 'STYLE') {
+                                        return false;
+                                    }
+                                    if (el.classList.contains('header-bg') || el.classList.contains('footer-bg')) {
+                                        return false;
+                                    }
+                                    // Exclude all footer elements
+                                    if (el.classList.contains('footer') || el.tagName === 'FOOTER') {
+                                        return false;
+                                    }
+                                    // Exclude the .page container itself
+                                    if (el.classList.contains('page')) {
+                                        return false;
+                                    }
+                                    return true;
+                                });
+                            
+                            // Calculate content height
+                            let maxBottom = 0;
+                            elements.forEach(el => {
+                                const rect = el.getBoundingClientRect();
+                                const bottom = rect.top + window.scrollY + rect.height;
+                                if (bottom > maxBottom) maxBottom = bottom;
+                            });
+                            
+                            const contentHeight = maxBottom > 0 ? maxBottom : document.body.scrollHeight;
+                            
+                            // Safety check: Cap maximum content height to prevent infinite loops
+                            // Increased to 10 pages to support longer resumes
+                            const maxReasonableHeight = pageHeight * 10;
+                            const cappedContentHeight = Math.min(contentHeight, maxReasonableHeight);
+                            
+                            // Only show multiple pages if content CLEARLY exceeds one page
+                            // Add a generous buffer (50px) - content must exceed pageHeight + 50px
+                            const pageThreshold = pageHeight + 50; // Must exceed by at least 50px
+                            const exceedsOnePage = cappedContentHeight > pageThreshold;
+                            const pageCount = exceedsOnePage ? Math.ceil(cappedContentHeight / pageHeight) : 1;
+                            
+                            // Only add page breaks if content truly exceeds the threshold
+                            if (pageCount > 1 && cappedContentHeight > pageThreshold) {
+                                let cumulativeOffset = 0;
+                                
+                                for (let pageNum = 1; pageNum < pageCount; pageNum++) {
+                                    const pageBreakY = pageNum * pageHeight + cumulativeOffset;
+                                    
+                                    // Find elements that cross this page boundary and push them down
+                                    const topPadding = 30; // Add 30px padding at start of each new page
+                                    let maxPushInThisIteration = 0;
+                                    
+                                    elements.forEach(el => {
+                                        // Recalculate position after previous pushes
+                                        const rect = el.getBoundingClientRect();
+                                        const elTop = rect.top + window.scrollY;
+                                        const elBottom = elTop + rect.height;
+                                        
+                                        // If element starts before page break but ends after
+                                        // OR if element starts very close to the break (within 10px)
+                                        const proximityThreshold = 10;
+                                        if ((elTop < pageBreakY && elBottom > pageBreakY) || 
+                                            (Math.abs(elTop - pageBreakY) < proximityThreshold && elTop < pageBreakY)) {
+                                            // Element crosses the page break - add margin to push it to next page with padding
+                                            const pushAmount = pageBreakY - elTop + pageGapHeight + topPadding;
+                                            const currentMargin = parseInt(getComputedStyle(el).marginTop) || 0;
+                                            el.style.marginTop = (currentMargin + pushAmount) + 'px';
+                                            el.classList.add('pagination-pushed');
+                                            
+                                            // Track the maximum push to adjust cumulative offset
+                                            if (pushAmount > maxPushInThisIteration) {
+                                                maxPushInThisIteration = pushAmount;
+                                            }
+                                        }
+                                    });
+                                    
+                                    // Add the page break indicator
+                                    const gap = document.createElement('div');
+                                    gap.className = 'page-break-gap';
+                                    gap.style.top = pageBreakY + 'px';
+                                    gap.innerHTML = '<span class="page-break-label">Page ' + pageNum + ' / ' + pageCount + '</span>';
+                                    document.body.appendChild(gap);
+                                    
+                                    cumulativeOffset += pageGapHeight;
+                                }
+                            }
+                            
+                            // Calculate final height
+                            let totalHeight;
+                            if (pageCount === 1) {
+                                // Single page - use exactly one page height
+                                totalHeight = pageHeight;
+                            } else {
+                                // Multiple pages - recalculate after adjustments
+                                let finalHeight = 0;
+                                elements.forEach(el => {
+                                    const rect = el.getBoundingClientRect();
+                                    const bottom = rect.bottom + window.scrollY;
+                                    if (bottom > finalHeight) finalHeight = bottom;
+                                });
+                                totalHeight = Math.max(pageCount * pageHeight, finalHeight + 20);
+                            }
+                            
+                            document.body.style.minHeight = totalHeight + 'px';
+                            
+                            // Notify parent
+                            window.parent.postMessage({ type: 'PAGE_COUNT', count: pageCount }, '*');
+                            window.parent.postMessage({ type: 'IFRAME_RESIZE', height: totalHeight }, '*');
+                        }
+                        
+                        // Run pagination after DOM is ready
+                        if (document.readyState === 'complete') {
+                            setTimeout(updatePagination, 150);
+                        } else {
+                            window.addEventListener('load', () => setTimeout(updatePagination, 150));
+                        }
+                        
+                        // Re-run on content changes (debounced)
+                        let paginationTimer;
+                        const paginationObserver = new MutationObserver((mutations) => {
+                            // Ignore mutations from our own pagination elements
+                            const isOwnMutation = mutations.every(m => 
+                                m.target.classList && (
+                                    m.target.classList.contains('page-break-gap') || 
+                                    m.target.classList.contains('page-margin-spacer')
+                                )
+                            );
+                            if (isOwnMutation) return;
+                            
+                            clearTimeout(paginationTimer);
+                            paginationTimer = setTimeout(updatePagination, 300);
+                        });
+                        paginationObserver.observe(document.body, { childList: true, subtree: true, characterData: true });
+                        
+                        // Also update on resize
+                        window.addEventListener('resize', () => {
+                            clearTimeout(paginationTimer);
+                            paginationTimer = setTimeout(updatePagination, 300);
+                        });
+                    })();
+                </script>
+            `;
 
             // Apply Highlights
             let htmlToWrite = (showHighlights && annotatedHtml ? annotatedHtml : currentHtml);
+            
+            // IMPORTANT: Remove any existing injected scripts to prevent duplicate declarations
+            htmlToWrite = cleanHtmlScripts(htmlToWrite);
 
             if (grammarIssues.length > 0) {
                 // Sort by length desc to prevent nested replacement issues? 
@@ -886,7 +1547,7 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
             }
 
             // Safe Write Logic - Inject BEFORE </body> to ensure valid DOM structure
-            const combinedScripts = script + grammarScript;
+            const combinedScripts = script + grammarScript + paginationScript;
             const finalHtml = htmlToWrite.includes('</body>')
                 ? htmlToWrite.replace('</body>', `${combinedScripts}</body > `)
                 : htmlToWrite + combinedScripts; // Fallback for partial fragments
@@ -925,7 +1586,7 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
                 }
             }
         }
-    }, [isEditing, currentHtml, showHighlights, annotatedHtml, grammarIssues, layoutSettings]);
+    }, [isEditing, currentHtml, showHighlights, annotatedHtml, grammarIssues, layoutSettings, pageSize]);
 
 
     const [showComparison, setShowComparison] = useState(false);
@@ -941,7 +1602,8 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
         setAiMessages(prev => [...prev, { id: tempId, role: 'assistant', content: 'Working on it...', timestamp: Date.now() }]);
 
         try {
-            const result = await modifyResumeHtml(currentHtml, userMsg.content);
+            // getLatestHtmlFromIframe() ensures any pending edits are captured
+            const result = await modifyResumeHtml(getLatestHtmlFromIframe(), userMsg.content);
             const { html, summary, changes, annotated_html } = result;
 
             setCurrentHtml(html);
@@ -1199,6 +1861,62 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
                         </PopoverContent>
                     </Popover>
 
+                    <SectionManager
+                        currentHtml={currentHtml}
+                        template={selectedTemplate}
+                        onHtmlChange={(html) => {
+                            setCurrentHtml(html);
+                            setResumeHtml(html);
+                            logHistory(html);
+                        }}
+                        iframeRef={iframeRef}
+                    />
+                    
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <Button variant="ghost" size="sm" className="h-8 gap-1">
+                                <Layout className="w-3.5 h-3.5" />
+                                {pageSize}
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-48 p-2" align="start">
+                            <div className="space-y-1">
+                                <div className="px-2 py-1.5 text-sm font-semibold text-muted-foreground">
+                                    Page Size
+                                </div>
+                                <Button
+                                    variant={pageSize === 'A4' ? 'secondary' : 'ghost'}
+                                    size="sm"
+                                    className="w-full justify-start h-8 px-2"
+                                    onClick={() => setPageSize('A4')}
+                                >
+                                    A4 (210mm × 297mm)
+                                </Button>
+                                <Button
+                                    variant={pageSize === 'Letter' ? 'secondary' : 'ghost'}
+                                    size="sm"
+                                    className="w-full justify-start h-8 px-2"
+                                    onClick={() => setPageSize('Letter')}
+                                >
+                                    US Letter (8.5" × 11")
+                                </Button>
+                            </div>
+                        </PopoverContent>
+                    </Popover>
+
+                    {/* Page Indicator */}
+                    {pageCount > 1 && (
+                        <>
+                            <div className="h-4 w-px bg-border mx-2" />
+                            <div className="flex items-center gap-1 text-xs text-muted-foreground bg-muted/50 px-2 py-1 rounded">
+                                <span className="font-medium">{currentPage}</span>
+                                <span>/</span>
+                                <span>{pageCount}</span>
+                                <span className="hidden sm:inline ml-1">pages</span>
+                            </div>
+                        </>
+                    )}
+
                     <div className="h-4 w-px bg-border mx-2" />
 
                     <Button variant="ghost" size="icon" disabled={historyIndex <= 0} onClick={handleUndo}>
@@ -1209,19 +1927,64 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
                     </Button>
                 </div>
 
-                <Button variant="default" size="sm" onClick={handleDownload} className="bg-purple-600 hover:bg-purple-700">
-                    <Download className="w-4 h-4 mr-2" /> Download PDF
-                </Button>
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="default" size="sm" className="bg-purple-600 hover:bg-purple-700">
+                            <Download className="w-4 h-4 mr-2" /> Download
+                            <ChevronDown className="w-3 h-3 ml-1" />
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-48">
+                        <DropdownMenuLabel>Export Format</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={handleDownloadPDF} className="cursor-pointer">
+                            <FileText className="w-4 h-4 mr-2 text-red-500" />
+                            PDF Document
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={handleDownloadDOCX} className="cursor-pointer">
+                            <FileText className="w-4 h-4 mr-2 text-blue-500" />
+                            Word Document (.doc)
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={handleDownloadPNG} className="cursor-pointer">
+                            <Image className="w-4 h-4 mr-2 text-green-500" />
+                            PNG Image
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={handleDownloadHTML} className="cursor-pointer">
+                            <Code className="w-4 h-4 mr-2 text-orange-500" />
+                            HTML File
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={handleDownloadTXT} className="cursor-pointer">
+                            <FileText className="w-4 h-4 mr-2 text-gray-500" />
+                            Plain Text (.txt)
+                        </DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
             </div>
 
-            {/* Resume Canvas (Iframe) */}
-            <div className="flex-1 overflow-auto p-4 md:p-8 flex justify-center bg-gray-500/5 relative">
-                <div className="bg-white shadow-xl w-[210mm] overflow-hidden relative transition-all duration-200" style={{ minHeight: '297mm', height: iframeHeight ? `${iframeHeight} px` : '297mm' }}>
+            {/* Resume Canvas (Iframe) - Multi-page Google Docs style */}
+            <div 
+                ref={scrollContainerRef}
+                className="flex-1 overflow-auto p-4 md:p-8 flex flex-col items-center bg-gray-500/10 relative"
+                style={{ gap: '24px' }}
+            >
+                <div 
+                    className="bg-white shadow-xl overflow-hidden relative transition-all duration-200"
+                    style={{ 
+                        width: pageSize === 'Letter' ? '8.5in' : '210mm',
+                        minHeight: iframeHeight ? `${iframeHeight}px` : (pageSize === 'Letter' ? '11in' : '297mm'),
+                        height: iframeHeight ? `${iframeHeight}px` : 'auto'
+                    }}
+                >
                     <iframe
                         ref={iframeRef}
                         title="Resume Preview"
-                        className="w-full h-full border-none"
-                        style={{ height: '100%', minHeight: '297mm' }}
+                        className="w-full border-none"
+                        style={{ 
+                            height: iframeHeight ? `${iframeHeight}px` : (pageSize === 'Letter' ? '11in' : '297mm'),
+                            minHeight: pageSize === 'Letter' ? '11in' : '297mm'
+                        }}
                     />
 
                     {/* RICH TEXT OVERLAY */}

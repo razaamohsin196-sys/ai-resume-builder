@@ -755,6 +755,54 @@ export async function checkGrammar(html: string): Promise<ReviewSuggestion[]> {
     }
 }
 
+export async function exportResumeAsDocx(html: string): Promise<{ success: boolean; data?: string; error?: string }> {
+    try {
+        // For DOCX export, we'll convert HTML to a simplified format
+        // In a production app, you'd use a library like html-docx-js or similar
+        // For now, we'll return a base64 encoded HTML that can be opened in Word
+        
+        // Clean HTML for Word compatibility
+        let cleanHtml = html;
+        
+        // Remove contenteditable attributes
+        cleanHtml = cleanHtml.replace(/contenteditable="[^"]*"/g, '');
+        
+        // Remove review issue spans
+        cleanHtml = cleanHtml.replace(/<span class="review-issue"[^>]*>/g, '');
+        cleanHtml = cleanHtml.replace(/<\/span>/g, '');
+        
+        // Wrap in proper Word HTML structure
+        const wordHtml = `
+<!DOCTYPE html>
+<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+<head>
+    <meta charset='utf-8'>
+    <title>Resume</title>
+    <!--[if gte mso 9]>
+    <xml>
+        <w:WordDocument>
+            <w:View>Print</w:View>
+            <w:Zoom>90</w:Zoom>
+            <w:DoNotOptimizeForBrowser/>
+        </w:WordDocument>
+    </xml>
+    <![endif]-->
+</head>
+<body>
+${cleanHtml}
+</body>
+</html>`;
+        
+        // Convert to base64
+        const base64 = Buffer.from(wordHtml).toString('base64');
+        
+        return { success: true, data: base64 };
+    } catch (error: any) {
+        console.error('DOCX Export Error:', error);
+        return { success: false, error: error.message || 'Failed to export as DOCX' };
+    }
+}
+
 export async function tailorResume(html: string, instruction: string): Promise<ReviewSuggestion[]> {
     if (!process.env.GEMINI_API_KEY) {
         return [

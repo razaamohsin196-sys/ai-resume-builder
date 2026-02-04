@@ -378,5 +378,13 @@ export const ColorfulBlocksTemplate: ResumeTemplate = {
     id: 'colorfulblocks',
     name: 'Colorful blocks',
     html: html,
-    hasPhoto: true
+    hasPhoto: true,
+    supportedSections: ['profile', 'summary', 'experience', 'education', 'skills', 'projects', 'languages', 'certifications'],
+    sectionOrder: ['profile', 'summary', 'experience', 'education', 'skills'],
+    pageSize: 'A4',
+    metadata: {
+        layout: 'two-column',
+        photoPosition: 'sidebar',
+        maxBulletsPerJob: 5
+    }
 };

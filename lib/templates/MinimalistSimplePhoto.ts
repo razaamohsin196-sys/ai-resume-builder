@@ -297,5 +297,14 @@ const html = `<style>
 export const MinimalistSimplePhotoTemplate: ResumeTemplate = {
     id: 'minimalistsimplephoto',
     name: 'Minimalist simple photo',
-    html: html
+    html: html,
+    hasPhoto: true,
+    supportedSections: ['profile', 'summary', 'experience', 'education', 'skills', 'projects', 'languages', 'certifications'],
+    sectionOrder: ['profile', 'summary', 'experience', 'education', 'skills'],
+    pageSize: 'A4',
+    metadata: {
+        layout: 'single-column',
+        photoPosition: 'header',
+        maxBulletsPerJob: 5
+    }
 };

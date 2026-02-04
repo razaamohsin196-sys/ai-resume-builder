@@ -377,5 +377,13 @@ export const Template2ColumnTimelineTemplate: ResumeTemplate = {
     id: '2columntimeline',
     name: '2 Column timeline',
     html: html,
-    hasPhoto: true
+    hasPhoto: true,
+    supportedSections: ['profile', 'summary', 'experience', 'education', 'skills', 'projects', 'languages', 'certifications'],
+    sectionOrder: ['profile', 'summary', 'experience', 'education', 'skills'],
+    pageSize: 'A4',
+    metadata: {
+        layout: 'timeline',
+        photoPosition: 'sidebar',
+        maxBulletsPerJob: 5
+    }
 };

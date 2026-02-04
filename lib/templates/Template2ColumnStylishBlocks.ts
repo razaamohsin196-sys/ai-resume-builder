@@ -230,5 +230,14 @@ const html = `<style>
 export const Template2ColumnStylishBlocksTemplate: ResumeTemplate = {
     id: '2columnstylishblocks',
     name: '2 Column stylish blocks',
-    html: html
+    html: html,
+    hasPhoto: false,
+    supportedSections: ['profile', 'summary', 'experience', 'education', 'skills', 'projects', 'languages', 'certifications'],
+    sectionOrder: ['profile', 'summary', 'experience', 'education', 'skills'],
+    pageSize: 'A4',
+    metadata: {
+        layout: 'two-column',
+        photoPosition: 'none',
+        maxBulletsPerJob: 5
+    }
 };
