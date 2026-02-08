@@ -28,6 +28,17 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 
 interface Message {
     id: string;
@@ -191,7 +202,7 @@ const EDITABLE_SELECTORS = [
 ].join(', ');
 
 export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
-    const { setStep, resumeHtml, setResumeHtml, profile, intent, setResume, aiMessages, setAiMessages } = useCareer();
+    const { setStep, resumeHtml, setResumeHtml, profile, intent, setResume, aiMessages, setAiMessages, resetSession } = useCareer();
 
     // ... rest of component
 
@@ -1740,7 +1751,32 @@ ${cleanHtml}
                     <Sparkles className="w-4 h-4 mr-2" />
                     AI Assistant
                 </h3>
-                <Button variant="ghost" size="sm" onClick={() => setAiMessages([])} className="text-xs h-6 px-2">Reset Session</Button>
+                <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                        <Button variant="ghost" size="sm" className="text-xs h-6 px-2">
+                            Reset Session
+                        </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Reset Session?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                This will clear all data including your resume, profile, and chat history. 
+                                You'll be taken back to the beginning to start over.
+                                This action cannot be undone.
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction
+                                onClick={resetSession}
+                                className="bg-destructive text-white hover:bg-destructive/90"
+                            >
+                                Reset Everything
+                            </AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
             </div>
 
             <ScrollArea className="flex-1 p-4">

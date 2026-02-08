@@ -79,8 +79,16 @@ export function CareerProvider({ children }: { children: React.ReactNode }) {
     const finishProcessing = () => setState((prev) => ({ ...prev, isProcessing: false }));
 
     const resetSession = () => {
-        setState(initialState);
+        // Clear all localStorage items related to the session FIRST
+        // This must happen before setState to avoid race conditions
         localStorage.removeItem('career_agent_session');
+        localStorage.removeItem('aiPanelWidth');
+        localStorage.removeItem('aiPanelCollapsed');
+        
+        // Force a page reload to completely reset all component states
+        // This ensures the editor and all other components start fresh
+        // We don't need to call setState since we're reloading anyway
+        window.location.href = '/';
     };
 
     const setAiMessages = (messagesOrUpdater: AiMessage[] | ((prev: AiMessage[]) => AiMessage[])) => {
