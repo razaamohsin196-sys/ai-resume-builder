@@ -196,7 +196,13 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
     // ... rest of component
 
     // --- HISTORY STATE ---
-    const [history, setHistory] = useState<string[]>([]);
+    interface HistoryState {
+        html: string;
+        template: ResumeTemplate;
+        layoutSettings: { lineHeight: number; sectionSpacing: number };
+        pageSize: 'A4' | 'Letter';
+    }
+    const [history, setHistory] = useState<HistoryState[]>([]);
     const [historyIndex, setHistoryIndex] = useState(-1);
 
     // --- TEMPLATE STATE ---
@@ -255,10 +261,29 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
     }, [pageSize]);
 
     // undoing/redoing flag to prevent pushing to history during traversal
-    const logHistory = (newHtml: string) => {
+    const logHistory = (
+        newHtml: string,
+        templateOverride?: ResumeTemplate,
+        layoutOverride?: { lineHeight: number; sectionSpacing: number },
+        pageSizeOverride?: 'A4' | 'Letter'
+    ) => {
         // If we heavily change the tree (new edit), we discard future
         const newHistory = history.slice(0, historyIndex + 1);
-        newHistory.push(newHtml);
+        const historyEntry = {
+            html: newHtml,
+            template: templateOverride ?? selectedTemplate,
+            layoutSettings: layoutOverride ? { ...layoutOverride } : { ...layoutSettings },
+            pageSize: pageSizeOverride ?? pageSize
+        };
+        
+        console.log('[LOG HISTORY] Creating entry:', {
+            template: historyEntry.template.name,
+            layoutSettings: historyEntry.layoutSettings,
+            pageSize: historyEntry.pageSize,
+            htmlLength: newHtml.length
+        });
+        
+        newHistory.push(historyEntry);
         setHistory(newHistory);
         setHistoryIndex(newHistory.length - 1);
     };
@@ -266,7 +291,12 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
     // Initialize history
     useEffect(() => {
         if (history.length === 0 && currentHtml) {
-            setHistory([currentHtml]);
+            setHistory([{
+                html: currentHtml,
+                template: selectedTemplate,
+                layoutSettings: { ...layoutSettings },
+                pageSize
+            }]);
             setHistoryIndex(0);
         }
     }, []);
@@ -274,28 +304,48 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
     const handleUndo = () => {
         if (historyIndex > 0) {
             const newIndex = historyIndex - 1;
-            const prevHtml = history[newIndex];
+            const prevState = history[newIndex];
             setHistoryIndex(newIndex);
+
+            console.log('[UNDO] Restoring state:', {
+                template: prevState.template.name,
+                layoutSettings: prevState.layoutSettings,
+                pageSize: prevState.pageSize
+            });
 
             // FORCE UPDATE: Undo comes from "external" (User UI), so we must rewrite iframe
             isInternalUpdate.current = false;
 
-            setCurrentHtml(prevHtml);
-            setResumeHtml(prevHtml);
+            // Restore all state from history
+            setCurrentHtml(prevState.html);
+            setResumeHtml(prevState.html);
+            setSelectedTemplate(prevState.template);
+            setLayoutSettings(prevState.layoutSettings);
+            setPageSize(prevState.pageSize);
         }
     };
 
     const handleRedo = () => {
         if (historyIndex < history.length - 1) {
             const newIndex = historyIndex + 1;
-            const nextHtml = history[newIndex];
+            const nextState = history[newIndex];
             setHistoryIndex(newIndex);
+
+            console.log('[REDO] Restoring state:', {
+                template: nextState.template.name,
+                layoutSettings: nextState.layoutSettings,
+                pageSize: nextState.pageSize
+            });
 
             // FORCE UPDATE: Redo comes from "external", so we must rewrite iframe
             isInternalUpdate.current = false;
 
-            setCurrentHtml(nextHtml);
-            setResumeHtml(nextHtml);
+            // Restore all state from history
+            setCurrentHtml(nextState.html);
+            setResumeHtml(nextState.html);
+            setSelectedTemplate(nextState.template);
+            setLayoutSettings(nextState.layoutSettings);
+            setPageSize(nextState.pageSize);
         }
     };
 
@@ -687,13 +737,18 @@ ${cleanHtml}
     useEffect(() => {
         if (resumeHtml && resumeHtml !== currentHtml) {
             // Check if this is a NEW distinct update (not just an echo of our own change)
-            if (history[historyIndex] !== resumeHtml) {
+            if (history[historyIndex]?.html !== resumeHtml) {
                 // It came from outside (e.g. initial load or reset)
                 // Clean scripts before setting
                 setCurrentHtml(cleanHtmlScripts(resumeHtml));
                 // Initialize history if empty
                 if (history.length === 0) {
-                    setHistory([resumeHtml]);
+                    setHistory([{
+                        html: resumeHtml,
+                        template: selectedTemplate,
+                        layoutSettings: { ...layoutSettings },
+                        pageSize
+                    }]);
                     setHistoryIndex(0);
                 }
             }
@@ -737,7 +792,11 @@ ${cleanHtml}
 
             setResumeHtml(html);
             setCurrentHtml(html);
-            logHistory(html);
+            
+            // Pass the NEW template state to logHistory since state updates are async
+            const newLayoutSettings = { lineHeight: 1.15, sectionSpacing: 18 };
+            const newPageSize = template.pageSize || 'A4';
+            logHistory(html, template, newLayoutSettings, newPageSize);
 
             setAiMessages(prev => prev.map(m =>
                 m.id === tempId ? { ...m, content: `✅ Switched to **${template.name}** template.` } : m
@@ -1632,7 +1691,7 @@ ${cleanHtml}
     // Compare Logic
     const toggleComparison = (show: boolean) => {
         if (historyIndex > 0) {
-            const prevHtml = history[historyIndex - 1];
+            const prevState = history[historyIndex - 1];
             setShowComparison(show);
             // We cheat a bit: simply swapping the HTML in state is safest for IFrame
             // But to avoid "flashing" or losing current state, we use 'currentHtml' variable
@@ -1641,7 +1700,7 @@ ${cleanHtml}
                 // Show OLD
                 if (iframeRef.current && iframeRef.current.contentDocument) {
                     iframeRef.current.contentDocument.open();
-                    iframeRef.current.contentDocument.write(prevHtml + `< script > document.body.style.opacity = '0.7';</script > `);
+                    iframeRef.current.contentDocument.write(prevState.html + `< script > document.body.style.opacity = '0.7';</script > `);
                     iframeRef.current.contentDocument.close();
                 }
             } else {
