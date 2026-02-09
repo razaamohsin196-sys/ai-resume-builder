@@ -438,22 +438,22 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
                     text-decoration: none !important;
                     background-color: transparent !important;
                 }
-                /* Hide pagination UI visual elements but preserve spacing */
+                /* Hide pagination UI visual elements */
                 .page-break-gap {
-                    background: transparent !important;
-                    border: none !important;
-                }
-                .page-break-gap * {
-                    opacity: 0 !important;
+                    display: none !important;
                 }
                 .page-margin-spacer,
                 .page-break-indicator,
                 .page-number-footer {
                     display: none !important;
                 }
-                /* PRESERVE pagination-pushed margins - they create the page breaks! */
+                /* Use print-safe margins (without gap heights) */
                 .pagination-pushed {
-                    /* Keep the margin-top intact for proper page breaks */
+                    margin-top: var(--print-margin, 0px) !important;
+                }
+                /* Force page breaks where the preview shows them */
+                [data-page-start] {
+                    page-break-before: always;
                 }
                 /* Ensure proper page breaks */
                 .section {
@@ -1143,6 +1143,14 @@ ${cleanHtml}
                             if (type === 'UPDATE_LAYOUT' && settings) {
                                 document.documentElement.style.setProperty('--line-height', settings.lineHeight);
                                 document.documentElement.style.setProperty('--section-spacing', settings.sectionSpacing + 'px');
+                                // Force layout recalculation, then trigger pagination
+                                // (pagination is the authoritative source of IFRAME_RESIZE)
+                                void document.body.offsetHeight;
+                                if (window.updatePagination) {
+                                    window.updatePagination();
+                                } else {
+                                    window.dispatchEvent(new Event('resize'));
+                                }
                             }
                             
                             if (type === 'UPDATE_PAGE_SIZE' && event.data.pageSize) {
@@ -1170,6 +1178,13 @@ ${cleanHtml}
                                         min-height: \${pageHeight} !important;
                                     }
                                 \`;
+                                // Force layout recalculation, then trigger pagination
+                                void document.body.offsetHeight;
+                                if (window.updatePagination) {
+                                    window.updatePagination();
+                                } else {
+                                    window.dispatchEvent(new Event('resize'));
+                                }
                             }
 
                             if (type === 'EXEC_COMMAND') {
@@ -1243,16 +1258,14 @@ ${cleanHtml}
                         });
 
                         // --- 5. Content Height Sync (Auto-Resize) ---
+                        // ResizeObserver triggers pagination recalculation when body size changes.
+                        // Pagination is the authoritative source of IFRAME_RESIZE height 
+                        // (always full-page multiples), so we DON'T send raw scrollHeight here
+                        // to avoid bouncing between raw and paginated heights.
                         const resizeObserver = new ResizeObserver(entries => {
-                            const height = document.body.scrollHeight;
-                            window.parent.postMessage({
-                                type: 'IFRAME_RESIZE',
-                                height: height
-                            }, '*');
+                            if (window.updatePagination) window.updatePagination();
                         });
                         resizeObserver.observe(document.body);
-                        // Also trigger once on load
-                        window.parent.postMessage({ type: 'IFRAME_RESIZE', height: document.body.scrollHeight }, '*');
                         
                         // Toggle Content Editable based on mode
                         const editable = ${isEditing};
@@ -1394,8 +1407,13 @@ ${cleanHtml}
                         body {
                             min-height: auto !important;
                         }
+                        /* In print: use the print-safe margin (without gap height) */
                         .pagination-pushed {
-                            margin-top: 0 !important;
+                            margin-top: var(--print-margin, 0px) !important;
+                        }
+                        /* Force a page break before the first element on each new page */
+                        [data-page-start] {
+                            page-break-before: always;
                         }
                     }
                 </style>
@@ -1406,13 +1424,19 @@ ${cleanHtml}
                         const pageHeight = pageSize === 'Letter' ? 1056 : 1123;
                         const pageGapHeight = 28; // Height of visual gap between pages
                         
+                        let isPaginationRunning = false;
                         function updatePagination() {
+                            if (isPaginationRunning) return;
+                            isPaginationRunning = true;
+                            
                             // Remove existing pagination elements
                             document.querySelectorAll('.page-break-gap').forEach(el => el.remove());
                             
                             // Reset any previously pushed elements
                             document.querySelectorAll('.pagination-pushed').forEach(el => {
                                 el.style.marginTop = '';
+                                el.style.removeProperty('--print-margin');
+                                el.removeAttribute('data-page-start');
                                 el.classList.remove('pagination-pushed');
                             });
                             
@@ -1474,45 +1498,78 @@ ${cleanHtml}
                             
                             const hasPageContainer = pageContainers.length > 0;
                             
-                            // Get all content elements (sections and major blocks)
-                            // Explicitly exclude footer elements with absolute positioning
-                            const contentElements = Array.from(document.body.querySelectorAll('.section, .header, .resume-header, .header-text, .main-content, .main-content > *, .left-column > *, .right-column > *, .about-me, .work-experience, .education'))
-                                .filter(el => {
-                                    // Exclude pagination elements
-                                    if (el.classList.contains('page-break-gap') || el.tagName === 'SCRIPT' || el.tagName === 'STYLE') {
+                            // --- Gather GRANULAR content elements ---
+                            // Instead of pushing entire sections, break them into 
+                            // individual items so only items that cross the page 
+                            // boundary get pushed, minimizing blank space.
+                            function isExcluded(el) {
+                                if (!el || el.nodeType !== 1) return true;
+                                if (el.classList.contains('page-break-gap') || el.classList.contains('page-margin-spacer')) return true;
+                                if (el.tagName === 'SCRIPT' || el.tagName === 'STYLE') return true;
+                                if (el.classList.contains('footer') || el.tagName === 'FOOTER') return true;
+                                if (el.classList.contains('header-bg') || el.classList.contains('footer-bg')) return true;
+                                if (el.classList.contains('page')) return true;
                                         return false;
                                     }
-                                    // Exclude footer elements (check tag name too)
-                                    if (el.classList.contains('footer') || el.tagName === 'FOOTER') {
-                                        return false;
-                                    }
-                                    // Exclude decorative background elements
-                                    if (el.classList.contains('header-bg') || el.classList.contains('footer-bg')) {
-                                        return false;
-                                    }
-                                    return true;
-                                });
                             
-                            // Always use content elements, never the .page container itself
-                            // The .page container is just a wrapper and shouldn't be used for pagination
-                            let elements = contentElements.length > 0 ? contentElements : 
-                                Array.from(document.body.children).filter(el => {
-                                    if (el.classList.contains('page-break-gap') || el.tagName === 'SCRIPT' || el.tagName === 'STYLE') {
-                                        return false;
+                            const SUB_ITEM_SELECTOR = '.experience-item, .education-item, .project-item, .volunteer-item, .timeline-item, .work-item, .job, .two-col-section, .section-content, .skills-group, .skill-group, .skills-grid';
+                            
+                            function getGranularElements() {
+                                const result = [];
+                                const seen = new Set();
+                                
+                                function addUnique(el) {
+                                    if (!isExcluded(el) && !seen.has(el)) {
+                                        seen.add(el);
+                                        result.push(el);
                                     }
-                                    if (el.classList.contains('header-bg') || el.classList.contains('footer-bg')) {
-                                        return false;
+                                }
+                                
+                                // Add headers
+                                document.body.querySelectorAll('.header, .resume-header, .header-text').forEach(addUnique);
+                                
+                                // Process each section: break into title + sub-items if possible
+                                document.body.querySelectorAll('.section, section, [class*="section"]').forEach(section => {
+                                    if (isExcluded(section)) return;
+                                    // Skip wrapper sections (e.g. left-section, right-section that contain other sections)
+                                    if (section.querySelector('.section, section')) {
+                                        // This is a wrapper - skip it, its child sections will be processed
+                                        return;
                                     }
-                                    // Exclude all footer elements
-                                    if (el.classList.contains('footer') || el.tagName === 'FOOTER') {
-                                        return false;
+                                    
+                                    const subItems = section.querySelectorAll(SUB_ITEM_SELECTOR);
+                                    
+                                    if (subItems.length > 1) {
+                                        // Section has multiple sub-items — add title and each item separately
+                                        const title = section.querySelector('.section-title, :scope > h2, :scope > h3');
+                                        if (title) addUnique(title);
+                                        subItems.forEach(item => addUnique(item));
+                                    } else {
+                                        // Section is small (0-1 sub-items) — add entire section as one unit
+                                        addUnique(section);
                                     }
-                                    // Exclude the .page container itself
-                                    if (el.classList.contains('page')) {
-                                        return false;
-                                    }
-                                    return true;
                                 });
+                                
+                                // For two-column layouts, also grab direct children of columns
+                                document.body.querySelectorAll('.main-content > *, .left-column > *, .right-column > *').forEach(el => {
+                                    if (!isExcluded(el) && !seen.has(el)) {
+                                        // Only add if not already covered by section processing
+                                        const parentSection = el.closest('.section, section');
+                                        if (!parentSection || !seen.has(parentSection)) {
+                                            addUnique(el);
+                                        }
+                                    }
+                                });
+                                
+                                return result;
+                                    }
+                            
+                            let elements = getGranularElements();
+                            
+                            // Fallback: if nothing found, use direct body children
+                            if (elements.length === 0) {
+                                elements = Array.from(document.body.children).filter(el => !isExcluded(el));
+                            }
                             
                             // Calculate content height
                             let maxBottom = 0;
@@ -1529,9 +1586,8 @@ ${cleanHtml}
                             const maxReasonableHeight = pageHeight * 10;
                             const cappedContentHeight = Math.min(contentHeight, maxReasonableHeight);
                             
-                            // Only show multiple pages if content CLEARLY exceeds one page
-                            // Add a generous buffer (50px) - content must exceed pageHeight + 50px
-                            const pageThreshold = pageHeight + 50; // Must exceed by at least 50px
+                            // Only show multiple pages if content exceeds one page
+                            const pageThreshold = pageHeight + 20; // Must exceed by at least 20px
                             const exceedsOnePage = cappedContentHeight > pageThreshold;
                             const pageCount = exceedsOnePage ? Math.ceil(cappedContentHeight / pageHeight) : 1;
                             
@@ -1541,31 +1597,76 @@ ${cleanHtml}
                                 
                                 for (let pageNum = 1; pageNum < pageCount; pageNum++) {
                                     const pageBreakY = pageNum * pageHeight + cumulativeOffset;
+                                    const pageTopMargin = 30; // Top margin for content on each new page
+                                    const pageBottomMargin = 20; // Bottom margin — keep content away from page edge
+                                    const orphanThreshold = 80; // Push section titles if they'd be orphaned near page bottom
+                                    // The bottom "safe edge" — content should not extend past this
+                                    const pageBottomEdge = pageBreakY - pageBottomMargin;
+                                    // The "safe zone" where content should not start:
+                                    // from pageBreakY to pageBreakY + pageGapHeight + pageTopMargin
+                                    const newPageContentStart = pageBreakY + pageGapHeight + pageTopMargin;
                                     
-                                    // Find elements that cross this page boundary and push them down
-                                    const topPadding = 30; // Add 30px padding at start of each new page
-                                    let maxPushInThisIteration = 0;
+                                    // Collect elements that need to be pushed for this page break
+                                    const toPush = [];
                                     
                                     elements.forEach(el => {
-                                        // Recalculate position after previous pushes
                                         const rect = el.getBoundingClientRect();
                                         const elTop = rect.top + window.scrollY;
                                         const elBottom = elTop + rect.height;
                                         
-                                        // If element starts before page break but ends after
-                                        // OR if element starts very close to the break (within 10px)
-                                        const proximityThreshold = 10;
-                                        if ((elTop < pageBreakY && elBottom > pageBreakY) || 
-                                            (Math.abs(elTop - pageBreakY) < proximityThreshold && elTop < pageBreakY)) {
-                                            // Element crosses the page break - add margin to push it to next page with padding
-                                            const pushAmount = pageBreakY - elTop + pageGapHeight + topPadding;
+                                        // Push elements that cross into the bottom margin zone
+                                        // (start before the safe edge but end past it)
+                                        if (elTop < pageBottomEdge && elBottom > pageBottomEdge && elBottom <= pageBreakY + pageGapHeight) {
+                                            toPush.push({ el, elTop, elBottom, target: newPageContentStart });
+                                        }
+                                        // Push elements that CROSS the page break boundary
+                                        else if (elTop < pageBreakY && elBottom > pageBreakY + 5) {
+                                            toPush.push({ el, elTop, elBottom, target: newPageContentStart });
+                                        }
+                                        // Also push elements that start inside the gap/margin zone
+                                        else if (elTop >= pageBreakY && elTop < newPageContentStart) {
+                                            toPush.push({ el, elTop, elBottom, target: newPageContentStart });
+                                        }
+                                    });
+                                    
+                                    // Orphan protection: check if a section title would be stranded 
+                                    // near the bottom of the page (within orphanThreshold of break)
+                                    elements.forEach(el => {
+                                        const isTitle = el.classList.contains('section-title') || 
+                                            (el.matches && el.matches('h2, h3') && el.closest('.section, section'));
+                                        if (!isTitle) return;
+                                        
+                                        const rect = el.getBoundingClientRect();
+                                        const elTop = rect.top + window.scrollY;
+                                        const elBottom = elTop + rect.height;
+                                        const spaceAfterTitle = pageBreakY - elBottom;
+                                        
+                                        // If title ends within orphanThreshold of the page break, 
+                                        // it would be alone at bottom — push it to next page
+                                        if (elBottom <= pageBreakY && spaceAfterTitle < orphanThreshold && spaceAfterTitle >= 0) {
+                                            if (!toPush.some(p => p.el === el)) {
+                                                toPush.push({ el, elTop, elBottom, target: newPageContentStart });
+                                            }
+                                        }
+                                    });
+                                    
+                                    // Sort by position so the first element on the new page gets marked
+                                    toPush.sort((a, b) => a.elTop - b.elTop);
+                                    
+                                    // Apply pushes — move each element so its top aligns with the target
+                                    let firstOnPage = true;
+                                    toPush.forEach(({ el, elTop, target }) => {
+                                        const pushAmount = target - elTop;
+                                        if (pushAmount > 0) {
                                             const currentMargin = parseInt(getComputedStyle(el).marginTop) || 0;
                                             el.style.marginTop = (currentMargin + pushAmount) + 'px';
                                             el.classList.add('pagination-pushed');
-                                            
-                                            // Track the maximum push to adjust cumulative offset
-                                            if (pushAmount > maxPushInThisIteration) {
-                                                maxPushInThisIteration = pushAmount;
+                                            // Store a print-safe top margin (without gap height)
+                                            el.style.setProperty('--print-margin', pageTopMargin + 'px');
+                                            // Mark the first element on each new page for print page-break
+                                            if (firstOnPage) {
+                                                el.setAttribute('data-page-start', 'true');
+                                                firstOnPage = false;
                                             }
                                         }
                                     });
@@ -1581,27 +1682,19 @@ ${cleanHtml}
                                 }
                             }
                             
-                            // Calculate final height
-                            let totalHeight;
-                            if (pageCount === 1) {
-                                // Single page - use exactly one page height
-                                totalHeight = pageHeight;
-                            } else {
-                                // Multiple pages - recalculate after adjustments
-                                let finalHeight = 0;
-                                elements.forEach(el => {
-                                    const rect = el.getBoundingClientRect();
-                                    const bottom = rect.bottom + window.scrollY;
-                                    if (bottom > finalHeight) finalHeight = bottom;
-                                });
-                                totalHeight = Math.max(pageCount * pageHeight, finalHeight + 20);
-                            }
+                            // Calculate final height - always use FULL page multiples
+                            // (like Google Docs: each page is exactly pageHeight tall)
+                            const totalGapHeight = pageCount > 1 ? (pageCount - 1) * pageGapHeight : 0;
+                            const totalHeight = (pageCount * pageHeight) + totalGapHeight;
                             
                             document.body.style.minHeight = totalHeight + 'px';
                             
                             // Notify parent
                             window.parent.postMessage({ type: 'PAGE_COUNT', count: pageCount }, '*');
                             window.parent.postMessage({ type: 'IFRAME_RESIZE', height: totalHeight }, '*');
+                            
+                            // Release re-entrant guard after DOM settles
+                            setTimeout(() => { isPaginationRunning = false; }, 100);
                         }
                         
                         // Run pagination after DOM is ready
@@ -1614,25 +1707,48 @@ ${cleanHtml}
                         // Re-run on content changes (debounced)
                         let paginationTimer;
                         const paginationObserver = new MutationObserver((mutations) => {
-                            // Ignore mutations from our own pagination elements
-                            const isOwnMutation = mutations.every(m => 
-                                m.target.classList && (
+                            // Ignore mutations caused by our own pagination logic
+                            const isOwnMutation = mutations.every(m => {
+                                // For childList mutations, check if added/removed nodes are pagination elements
+                                if (m.type === 'childList') {
+                                    const isPaginationNode = (node) => 
+                                        node.nodeType === 1 && node.classList && (
+                                            node.classList.contains('page-break-gap') || 
+                                            node.classList.contains('page-margin-spacer') ||
+                                            node.classList.contains('pagination-pushed')
+                                        );
+                                    const allAdded = Array.from(m.addedNodes).every(isPaginationNode);
+                                    const allRemoved = Array.from(m.removedNodes).every(isPaginationNode);
+                                    return (m.addedNodes.length === 0 || allAdded) && 
+                                           (m.removedNodes.length === 0 || allRemoved);
+                                }
+                                // For attribute mutations, check if target is pagination element
+                                if (m.type === 'attributes') {
+                                    return m.target.classList && (
                                     m.target.classList.contains('page-break-gap') || 
-                                    m.target.classList.contains('page-margin-spacer')
-                                )
+                                        m.target.classList.contains('pagination-pushed')
                             );
+                                }
+                                return false;
+                            });
                             if (isOwnMutation) return;
                             
                             clearTimeout(paginationTimer);
                             paginationTimer = setTimeout(updatePagination, 300);
                         });
-                        paginationObserver.observe(document.body, { childList: true, subtree: true, characterData: true });
+                        paginationObserver.observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['style', 'class'] });
                         
                         // Also update on resize
                         window.addEventListener('resize', () => {
                             clearTimeout(paginationTimer);
                             paginationTimer = setTimeout(updatePagination, 300);
                         });
+                        
+                        // Expose updatePagination globally so layout/page-size handlers can trigger it
+                        window.updatePagination = function() {
+                            clearTimeout(paginationTimer);
+                            paginationTimer = setTimeout(updatePagination, 200);
+                        };
                     })();
                 </script>
             `;
@@ -2104,7 +2220,7 @@ ${cleanHtml}
                 style={{ gap: '24px' }}
             >
                 <div 
-                    className="bg-white shadow-xl overflow-hidden relative transition-all duration-200"
+                    className="bg-white shadow-xl overflow-hidden relative"
                     style={{ 
                         width: pageSize === 'Letter' ? '8.5in' : '210mm',
                         minHeight: iframeHeight ? `${iframeHeight}px` : (pageSize === 'Letter' ? '11in' : '297mm'),
