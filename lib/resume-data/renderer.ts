@@ -897,7 +897,8 @@ function renderSkills(doc: Document, data: ResumeData): void {
   }
   
   // Handle flat skills list - comprehensive selectors
-  if (data.skills.items && data.skills.items.length > 0) {
+  if (data.skills?.items && data.skills.items.length > 0) {
+    const skillItems = data.skills.items;
     
     // Check for skills-grid with multiple ULs (BandwProfessional)
     const skillsGrid = skillsSection.querySelector('.skills-grid');
@@ -905,15 +906,15 @@ function renderSkills(doc: Document, data: ResumeData): void {
       const uls = skillsGrid.querySelectorAll('ul');
       if (uls.length > 0) {
         // Distribute skills evenly across existing ULs
-        const itemsPerList = Math.ceil(data.skills.items.length / uls.length);
+        const itemsPerList = Math.ceil(skillItems.length / uls.length);
         const ownerDoc = skillsGrid.ownerDocument || document;
         uls.forEach((ul, idx) => {
           ul.innerHTML = '';
           const start = idx * itemsPerList;
-          const end = Math.min(start + itemsPerList, data.skills.items!.length);
+          const end = Math.min(start + itemsPerList, skillItems.length);
           for (let i = start; i < end; i++) {
             const li = ownerDoc.createElement('li');
-            li.textContent = data.skills.items![i];
+            li.textContent = skillItems[i];
             ul.appendChild(li);
           }
         });
@@ -927,13 +928,13 @@ function renderSkills(doc: Document, data: ResumeData): void {
         // If it's a list, create list items
         skillsEl.innerHTML = '';
         const ownerDoc = skillsEl.ownerDocument || document;
-        for (const skill of data.skills.items) {
+        for (const skill of skillItems) {
           const li = ownerDoc.createElement('li');
           li.textContent = skill;
           skillsEl.appendChild(li);
         }
       } else {
-        skillsEl.textContent = data.skills.items.join(', ');
+        skillsEl.textContent = skillItems.join(', ');
       }
       return;
     }
