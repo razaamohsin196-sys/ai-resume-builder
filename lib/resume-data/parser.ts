@@ -327,7 +327,6 @@ function parseExperience(doc: Document): ExperienceItem[] | undefined {
   if (itemElements.length === 0) {
     const flatTitles = experienceSection.querySelectorAll('h4.job-title, h4');
     if (flatTitles.length > 0) {
-      console.log('[parseExperience] Detected flat experience structure');
       for (const titleEl of Array.from(flatTitles)) {
         const title = extractText(titleEl);
         if (!title) continue;

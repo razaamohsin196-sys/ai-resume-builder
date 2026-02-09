@@ -295,13 +295,6 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
             pageSize: pageSizeOverride ?? pageSize
         };
         
-        console.log('[LOG HISTORY] Creating entry:', {
-            template: historyEntry.template.name,
-            layoutSettings: historyEntry.layoutSettings,
-            pageSize: historyEntry.pageSize,
-            htmlLength: newHtml.length
-        });
-        
         newHistory.push(historyEntry);
         setHistory(newHistory);
         setHistoryIndex(newHistory.length - 1);
@@ -326,12 +319,6 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
             const prevState = history[newIndex];
             setHistoryIndex(newIndex);
 
-            console.log('[UNDO] Restoring state:', {
-                template: prevState.template.name,
-                layoutSettings: prevState.layoutSettings,
-                pageSize: prevState.pageSize
-            });
-
             // FORCE UPDATE: Undo comes from "external" (User UI), so we must rewrite iframe
             isInternalUpdate.current = false;
 
@@ -349,12 +336,6 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
             const newIndex = historyIndex + 1;
             const nextState = history[newIndex];
             setHistoryIndex(newIndex);
-
-            console.log('[REDO] Restoring state:', {
-                template: nextState.template.name,
-                layoutSettings: nextState.layoutSettings,
-                pageSize: nextState.pageSize
-            });
 
             // FORCE UPDATE: Redo comes from "external", so we must rewrite iframe
             isInternalUpdate.current = false;

@@ -38,14 +38,12 @@ export function injectSection(
   // Find where to inject (after last section or before a specific section)
   const insertionPoint = findInsertionPoint(doc, sectionType, template);
   if (!insertionPoint) {
-    console.warn(`Could not find insertion point for section: ${sectionType}`);
     return { html, sectionId: '' };
   }
   
   // Create the new section element
   const newSection = createSectionElement(doc, sectionType, data, template);
   if (!newSection) {
-    console.warn(`Could not create section element for: ${sectionType}`);
     return { html, sectionId: '' };
   }
   

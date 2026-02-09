@@ -3,8 +3,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { CareerState, CareerIntent, RawInput, AppStep, CareerProfile, ResumeDraft, AiMessage } from '@/types/career';
 
-import { modifyResumeHtml } from "@/app/actions";
-
 interface CareerContextType extends CareerState {
     setStep: (step: AppStep) => void;
     setIntent: (intent: CareerIntent) => void;
