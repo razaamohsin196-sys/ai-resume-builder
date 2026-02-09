@@ -148,6 +148,14 @@ const inferTemplateFromHtml = (html: string): ResumeTemplate | undefined => {
     return undefined;
 };
 
+// CSS SELECTORS for profile photo images across all templates (excludes small icon images)
+const PROFILE_IMAGE_SELECTORS = [
+    '.profile-pic',
+    '.profile-pic-container img',
+    '.image-container img:not(.icon)',
+    '.header-right img',
+].join(', ');
+
 // COMPREHENSIVE LIST OF EDITABLE ELEMENTS ACROSS ALL TEMPLATES
 const EDITABLE_SELECTORS = [
     '.section',
@@ -393,6 +401,24 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
             el.remove();
         });
         
+        // Remove image upload overlays and unwrap image wrappers
+        clonedDoc.querySelectorAll('.image-upload-overlay').forEach(el => {
+            el.remove();
+        });
+        clonedDoc.querySelectorAll('.resume-profile-image-wrapper').forEach(wrapper => {
+            const parent = wrapper.parentNode;
+            if (parent) {
+                while (wrapper.firstChild) {
+                    parent.insertBefore(wrapper.firstChild, wrapper);
+                }
+                wrapper.remove();
+            }
+        });
+        // Clean up image styling classes
+        clonedDoc.querySelectorAll('.resume-profile-image').forEach(img => {
+            img.classList.remove('resume-profile-image');
+        });
+        
         return clonedDoc.documentElement.outerHTML;
     };
 
@@ -537,46 +563,212 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
     };
 
     const handleDownloadDOCX = async () => {
-        // For DOCX, we'll create a simple HTML-based Word document
-        // Word can open HTML files saved with .doc extension
-        const cleanHtml = getCleanHtmlForExport();
-        
-        // Wrap in Word-compatible HTML structure
-        const wordHtml = `
-<!DOCTYPE html>
-<html xmlns:o="urn:schemas-microsoft-com:office:office" 
-      xmlns:w="urn:schemas-microsoft-com:office:word" 
-      xmlns="http://www.w3.org/TR/REC-html40">
-<head>
-    <meta charset="utf-8">
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-    <!--[if gte mso 9]>
-    <xml>
-        <w:WordDocument>
-            <w:View>Print</w:View>
-            <w:Zoom>100</w:Zoom>
-        </w:WordDocument>
-    </xml>
-    <![endif]-->
-    <style>
-        @page { size: ${pageSize === 'Letter' ? '8.5in 11in' : '210mm 297mm'}; margin: 0.5in; }
-        body { font-family: Arial, sans-serif; }
-    </style>
-</head>
-<body>
-${cleanHtml}
-</body>
-</html>`;
-        
-        const blob = new Blob([wordHtml], { type: 'application/msword' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'resume.doc';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+        if (!iframeRef.current?.contentDocument) return;
+        const iframeDoc = iframeRef.current.contentDocument;
+        const body = iframeDoc.body;
+
+        // 1. Load html2canvas from CDN if not loaded (same as PNG export)
+        if (!(window as unknown as { html2canvas?: unknown }).html2canvas) {
+            await new Promise<void>((resolve, reject) => {
+                const s = document.createElement('script');
+                s.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+                s.onload = () => resolve();
+                s.onerror = () => reject(new Error('Failed to load html2canvas'));
+                document.head.appendChild(s);
+            });
+        }
+        // Load JSZip from CDN if not loaded
+        if (!(window as unknown as { JSZip?: unknown }).JSZip) {
+            await new Promise<void>((resolve, reject) => {
+                const s = document.createElement('script');
+                s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+                s.onload = () => resolve();
+                s.onerror = () => reject(new Error('Failed to load JSZip'));
+                document.head.appendChild(s);
+            });
+        }
+
+        try {
+            const html2canvas = (window as unknown as { html2canvas: (el: HTMLElement, opts?: object) => Promise<HTMLCanvasElement> }).html2canvas;
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const JSZip = (window as unknown as { JSZip: any }).JSZip;
+
+            // 2. Page dimensions
+            const scale = 2;
+            const pageHeightPx = pageSize === 'Letter' ? 1056 : 1123;
+            const pageWidthPx = pageSize === 'Letter' ? 816 : 794;
+            // EMU (1 inch = 914400 EMU)
+            const pageWidthEmu = pageSize === 'Letter' ? 7772400 : 7559040;
+            const pageHeightEmu = pageSize === 'Letter' ? 10058400 : 10692000;
+            // Twips (1 inch = 1440 twips)
+            const pageWidthTwips = pageSize === 'Letter' ? 12240 : 11906;
+            const pageHeightTwips = pageSize === 'Letter' ? 15840 : 16838;
+
+            // 3. Inject temporary cleanup styles (same as PDF export) for a clean capture
+            const tempStyle = iframeDoc.createElement('style');
+            tempStyle.id = 'temp-docx-capture';
+            tempStyle.textContent = `
+                .page-break-gap { display: none !important; }
+                .page-margin-spacer, .page-break-indicator, .page-number-footer { display: none !important; }
+                .pagination-pushed { margin-top: var(--print-margin, 0px) !important; }
+                .page, .resume-container { box-shadow: none !important; }
+                *[contenteditable] { outline: none !important; }
+                .review-issue { text-decoration: none !important; background-color: transparent !important; border-bottom: none !important; }
+                .review-issue[data-type="grammar"], .review-issue[data-type="tailor"] { text-decoration: none !important; background-color: transparent !important; }
+                .image-upload-overlay { display: none !important; }
+            `;
+            iframeDoc.head.appendChild(tempStyle);
+            // Let layout settle
+            await new Promise(resolve => setTimeout(resolve, 300));
+
+            // 4. Capture the full clean content as one big canvas
+            const fullCanvas = await html2canvas(body, {
+                scale,
+                useCORS: true,
+                allowTaint: true,
+                backgroundColor: '#ffffff',
+                width: pageWidthPx,
+            });
+
+            // Remove temporary styles
+            iframeDoc.getElementById('temp-docx-capture')?.remove();
+
+            // 5. Slice into per-page images
+            const capturedHeight = fullCanvas.height / scale;
+            const numPages = Math.max(1, Math.ceil(capturedHeight / pageHeightPx));
+
+            const pageImageBytes: Uint8Array[] = [];
+            for (let i = 0; i < numPages; i++) {
+                const pgCanvas = document.createElement('canvas');
+                pgCanvas.width = pageWidthPx * scale;
+                pgCanvas.height = pageHeightPx * scale;
+                const ctx = pgCanvas.getContext('2d')!;
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, pgCanvas.width, pgCanvas.height);
+
+                const srcY = i * pageHeightPx * scale;
+                const srcH = Math.min(pageHeightPx * scale, fullCanvas.height - srcY);
+                if (srcH > 0) {
+                    ctx.drawImage(fullCanvas, 0, srcY, pageWidthPx * scale, srcH, 0, 0, pageWidthPx * scale, srcH);
+                }
+
+                // Convert canvas to PNG bytes
+                const dataUrl = pgCanvas.toDataURL('image/png');
+                const raw = atob(dataUrl.split(',')[1]);
+                const bytes = new Uint8Array(raw.length);
+                for (let j = 0; j < raw.length; j++) bytes[j] = raw.charCodeAt(j);
+                pageImageBytes.push(bytes);
+            }
+
+            // 6. Build proper DOCX (Open XML) ZIP with embedded images
+            const zip = new JSZip();
+
+            // [Content_Types].xml
+            zip.file('[Content_Types].xml',
+`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Default Extension="png" ContentType="image/png"/>
+  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+</Types>`);
+
+            // _rels/.rels
+            zip.folder('_rels').file('.rels',
+`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+</Relationships>`);
+
+            // word/media/imageN.png
+            const wordFolder = zip.folder('word');
+            const mediaFolder = wordFolder.folder('media');
+            for (let i = 0; i < numPages; i++) {
+                mediaFolder.file(`image${i + 1}.png`, pageImageBytes[i]);
+            }
+
+            // word/_rels/document.xml.rels
+            let imgRels = '';
+            for (let i = 0; i < numPages; i++) {
+                imgRels += `  <Relationship Id="rId${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/image${i + 1}.png"/>\n`;
+            }
+            wordFolder.folder('_rels').file('document.xml.rels',
+`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+${imgRels}</Relationships>`);
+
+            // word/document.xml — each page as a full-page inline image
+            let docBody = '';
+            for (let i = 0; i < numPages; i++) {
+                docBody += `
+    <w:p>
+      <w:pPr><w:spacing w:after="0" w:before="0" w:line="240" w:lineRule="auto"/><w:jc w:val="center"/></w:pPr>
+      <w:r>
+        <w:drawing>
+          <wp:inline distT="0" distB="0" distL="0" distR="0">
+            <wp:extent cx="${pageWidthEmu}" cy="${pageHeightEmu}"/>
+            <wp:docPr id="${i + 1}" name="Page ${i + 1}"/>
+            <a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
+              <a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">
+                <pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">
+                  <pic:nvPicPr>
+                    <pic:cNvPr id="${i + 1}" name="image${i + 1}.png"/>
+                    <pic:cNvPicPr/>
+                  </pic:nvPicPr>
+                  <pic:blipFill>
+                    <a:blip r:embed="rId${i + 1}"/>
+                    <a:stretch><a:fillRect/></a:stretch>
+                  </pic:blipFill>
+                  <pic:spPr>
+                    <a:xfrm>
+                      <a:off x="0" y="0"/>
+                      <a:ext cx="${pageWidthEmu}" cy="${pageHeightEmu}"/>
+                    </a:xfrm>
+                    <a:prstGeom prst="rect"><a:avLst/></a:prstGeom>
+                  </pic:spPr>
+                </pic:pic>
+              </a:graphicData>
+            </a:graphic>
+          </wp:inline>
+        </w:drawing>
+      </w:r>
+    </w:p>`;
+                // Page break between pages
+                if (i < numPages - 1) {
+                    docBody += `\n    <w:p><w:r><w:br w:type="page"/></w:r></w:p>`;
+                }
+            }
+
+            wordFolder.file('document.xml',
+`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+            xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+            xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing">
+  <w:body>${docBody}
+    <w:sectPr>
+      <w:pgSz w:w="${pageWidthTwips}" w:h="${pageHeightTwips}"/>
+      <w:pgMar w:top="0" w:right="0" w:bottom="0" w:left="0" w:header="0" w:footer="0" w:gutter="0"/>
+    </w:sectPr>
+  </w:body>
+</w:document>`);
+
+            // 7. Generate and download
+            const blob = await zip.generateAsync({
+                type: 'blob',
+                mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+            });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'resume.docx';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        } catch (error) {
+            console.error('Error generating DOCX:', error);
+            alert('Failed to generate DOCX. Please try the PDF option instead.');
+        }
     };
 
     const handleDownloadTXT = () => {
@@ -865,6 +1057,70 @@ ${cleanHtml}
     const [formatting, setFormatting] = useState<{ bold: boolean; italic: boolean; underline: boolean; fontSize: string }>({ bold: false, italic: false, underline: false, fontSize: '3' });
 
     const iframeRef = useRef<HTMLIFrameElement>(null);
+    const imageInputRef = useRef<HTMLInputElement>(null);
+
+    // --- IMAGE UPLOAD HANDLER ---
+    const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        // Validate file type
+        if (!file.type.startsWith('image/')) {
+            alert('Please select an image file.');
+            return;
+        }
+
+        // Validate file size (max 10MB raw — will be compressed)
+        if (file.size > 10 * 1024 * 1024) {
+            alert('Image size must be less than 10MB.');
+            return;
+        }
+
+        // Compress and resize the image using canvas to avoid localStorage quota issues
+        const img = new window.Image();
+        const objectUrl = URL.createObjectURL(file);
+        img.onload = () => {
+            URL.revokeObjectURL(objectUrl);
+
+            // Max dimensions for a resume profile photo
+            const MAX_WIDTH = 400;
+            const MAX_HEIGHT = 500;
+            let { width, height } = img;
+
+            // Scale down if needed, maintaining aspect ratio
+            if (width > MAX_WIDTH || height > MAX_HEIGHT) {
+                const ratio = Math.min(MAX_WIDTH / width, MAX_HEIGHT / height);
+                width = Math.round(width * ratio);
+                height = Math.round(height * ratio);
+            }
+
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) return;
+
+            ctx.drawImage(img, 0, 0, width, height);
+
+            // Export as JPEG with quality 0.85 (~30-80KB typically)
+            const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+
+            if (iframeRef.current && iframeRef.current.contentWindow) {
+                iframeRef.current.contentWindow.postMessage({
+                    type: 'IMAGE_UPDATE',
+                    src: compressedDataUrl
+                }, '*');
+            }
+        };
+        img.onerror = () => {
+            URL.revokeObjectURL(objectUrl);
+            alert('Failed to load image. Please try a different file.');
+        };
+        img.src = objectUrl;
+
+        // Reset input so same file can be selected again
+        event.target.value = '';
+    };
 
     // Helper: Get the latest HTML from iframe (bypasses debounce)
     // This ensures user edits are not lost when performing operations
@@ -930,6 +1186,12 @@ ${cleanHtml}
             }
             if (event.data.type === 'PAGE_COUNT') {
                 setPageCount(event.data.count || 1);
+            }
+            if (event.data.type === 'IMAGE_CLICK') {
+                // Open file explorer to select a new image
+                if (imageInputRef.current) {
+                    imageInputRef.current.click();
+                }
             }
         };
         window.addEventListener('message', handleMessage);
@@ -1257,6 +1519,75 @@ ${cleanHtml}
                             }
                         });
 
+                        // --- 4b. Profile Image Click-to-Upload ---
+                        const profileImageSelector = '${PROFILE_IMAGE_SELECTORS}';
+                        const profileImages = document.querySelectorAll(profileImageSelector);
+                        let activeProfileImage = null;
+                        
+                        profileImages.forEach(function(img) {
+                            // Skip tiny icon images (less than 40px)
+                            if (img.naturalWidth > 0 && img.naturalWidth < 40) return;
+                            if (img.width < 40 && img.height < 40) return;
+                            
+                            // Mark as profile image for styling
+                            img.classList.add('resume-profile-image');
+                            // Remove contenteditable from image and its wrapper to prevent text cursor
+                            img.removeAttribute('contenteditable');
+                            
+                            // Wrap image in a relative container for overlay
+                            const parent = img.parentElement;
+                            if (parent && !parent.classList.contains('resume-profile-image-wrapper')) {
+                                const wrapper = document.createElement('div');
+                                wrapper.className = 'resume-profile-image-wrapper';
+                                wrapper.style.cssText = parent.style.cssText || '';
+                                // Copy over parent's sizing behavior
+                                wrapper.style.position = 'relative';
+                                wrapper.style.display = 'inline-block';
+                                wrapper.style.width = '100%';
+                                parent.insertBefore(wrapper, img);
+                                wrapper.appendChild(img);
+                                
+                                // Add overlay with camera icon
+                                const overlay = document.createElement('div');
+                                overlay.className = 'image-upload-overlay';
+                                overlay.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4z"/><path d="M9 2 7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/></svg><span>Change Photo</span>';
+                                wrapper.appendChild(overlay);
+                                
+                                // Click on wrapper triggers upload
+                                wrapper.addEventListener('click', function(e) {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    activeProfileImage = img;
+                                    window.parent.postMessage({ type: 'IMAGE_CLICK' }, '*');
+                                });
+                            } else {
+                                // Image is already wrapped or can't be wrapped — attach click directly
+                                img.addEventListener('click', function(e) {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    activeProfileImage = img;
+                                    window.parent.postMessage({ type: 'IMAGE_CLICK' }, '*');
+                                });
+                            }
+                        });
+                        
+                        // Listen for IMAGE_UPDATE from parent (file selected)
+                        window.addEventListener('message', function(event) {
+                            if (event.data.type === 'IMAGE_UPDATE' && event.data.src) {
+                                if (activeProfileImage) {
+                                    activeProfileImage.src = event.data.src;
+                                    // Trigger content update
+                                    clearTimeout(debounceTimer);
+                                    debounceTimer = setTimeout(function() {
+                                        window.parent.postMessage({
+                                            type: 'RESUME_CONTENT_UPDATE',
+                                            html: document.documentElement.outerHTML
+                                        }, '*');
+                                    }, 300);
+                                }
+                            }
+                        });
+
                         // --- 5. Content Height Sync (Auto-Resize) ---
                         // ResizeObserver triggers pagination recalculation when body size changes.
                         // Pagination is the authoritative source of IFRAME_RESIZE height 
@@ -1289,6 +1620,60 @@ ${cleanHtml}
                             /* Enforce Layout Settings Globally */
                             .section { margin-bottom: var(--section-spacing, 20px) !important; }
                             p, li, .item-description, .about-me-text, .item-subtitle, .date, .location { line-height: var(--line-height, 1.4) !important; }
+
+                            /* Profile Image Upload Hover Effect */
+                            .resume-profile-image {
+                                cursor: pointer !important;
+                                transition: filter 0.2s ease, outline 0.2s ease;
+                                position: relative;
+                            }
+                            .resume-profile-image:hover {
+                                filter: brightness(0.7);
+                                outline: 3px solid #3b82f6;
+                                outline-offset: 2px;
+                            }
+                            .resume-profile-image-wrapper {
+                                position: relative;
+                                display: inline-block;
+                            }
+                            .resume-profile-image-wrapper .image-upload-overlay {
+                                position: absolute;
+                                top: 0;
+                                left: 0;
+                                right: 0;
+                                bottom: 0;
+                                display: flex;
+                                flex-direction: column;
+                                align-items: center;
+                                justify-content: center;
+                                background: rgba(0,0,0,0.45);
+                                opacity: 0;
+                                transition: opacity 0.2s ease;
+                                pointer-events: none;
+                                z-index: 10;
+                            }
+                            .resume-profile-image-wrapper:hover .image-upload-overlay {
+                                opacity: 1;
+                            }
+                            .image-upload-overlay svg {
+                                width: 28px;
+                                height: 28px;
+                                fill: white;
+                                margin-bottom: 4px;
+                            }
+                            .image-upload-overlay span {
+                                color: white;
+                                font-size: 11px;
+                                font-family: system-ui, -apple-system, sans-serif;
+                                font-weight: 600;
+                                text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+                            }
+                            @media print {
+                                .resume-profile-image { outline: none !important; filter: none !important; }
+                                .image-upload-overlay { display: none !important; }
+                            }
+                            .printing .resume-profile-image { outline: none !important; filter: none !important; }
+                            .printing .image-upload-overlay { display: none !important; }
 
                             /* HIDE EDITOR ARTIFACTS IN PRINT/PDF */
                             @media print {
@@ -2193,7 +2578,7 @@ ${cleanHtml}
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={handleDownloadDOCX} className="cursor-pointer">
                             <FileText className="w-4 h-4 mr-2 text-blue-500" />
-                            Word Document (.doc)
+                            Word Document (.docx)
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem onClick={handleDownloadPNG} className="cursor-pointer">
@@ -2235,6 +2620,15 @@ ${cleanHtml}
                             height: iframeHeight ? `${iframeHeight}px` : (pageSize === 'Letter' ? '11in' : '297mm'),
                             minHeight: pageSize === 'Letter' ? '11in' : '297mm'
                         }}
+                    />
+
+                    {/* HIDDEN FILE INPUT FOR IMAGE UPLOAD */}
+                    <input
+                        ref={imageInputRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handleImageUpload}
                     />
 
                     {/* RICH TEXT OVERLAY */}

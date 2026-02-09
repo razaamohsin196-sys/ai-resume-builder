@@ -53,7 +53,27 @@ export function CareerProvider({ children }: { children: React.ReactNode }) {
     // Save to local storage on change
     useEffect(() => {
         if (isClient) {
-            localStorage.setItem('career_agent_session', JSON.stringify(state));
+            try {
+                localStorage.setItem('career_agent_session', JSON.stringify(state));
+            } catch (e) {
+                // QuotaExceededError — likely caused by large base64 images in resumeHtml.
+                // Retry with base64 image data stripped from the HTML.
+                console.warn('localStorage quota exceeded, saving with images stripped', e);
+                try {
+                    const lightState = {
+                        ...state,
+                        resumeHtml: state.resumeHtml
+                            ? state.resumeHtml.replace(
+                                /src="data:image\/[^"]+"/g,
+                                'src=""'
+                              )
+                            : state.resumeHtml,
+                    };
+                    localStorage.setItem('career_agent_session', JSON.stringify(lightState));
+                } catch (e2) {
+                    console.error('Failed to save session even after stripping images', e2);
+                }
+            }
         }
     }, [state, isClient]);
 
