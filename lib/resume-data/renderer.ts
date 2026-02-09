@@ -41,6 +41,12 @@ export function renderToTemplate(data: ResumeData, template: ResumeTemplate): st
   renderTraining(doc, data);
   renderVolunteering(doc, data);
   
+  // Remove sections that have no user data (avoids blank placeholder sections)
+  removeEmptySections(doc, data);
+  
+  // Fix CSS for continuous content flow (no blank pages or clipping)
+  fixContinuousLayoutCSS(doc, template);
+  
   return serializeDOMToHtml(doc);
 }
 
@@ -120,10 +126,22 @@ function renderProfile(doc: Document, data: ResumeData): void {
   
   // Render contact info - comprehensive selectors
   const contactSelectors = ['.contact-info', '.contact', '.header', '.header-info', '.header-right', '.footer'];
-  let contactSection = null;
+  let contactSection: Element | null = null;
   for (const selector of contactSelectors) {
     contactSection = doc.querySelector(selector);
     if (contactSection) break;
+  }
+  
+  // Fallback: find section with "Contact" title (ElegantProfessionalPhoto, BlueSimpleProfile)
+  if (!contactSection) {
+    const sections = doc.querySelectorAll('.section, section, [class*="section"]');
+    for (const section of Array.from(sections)) {
+      const titleEl = section.querySelector('.section-title, h2, h3');
+      if (titleEl && /contact/i.test(extractText(titleEl))) {
+        contactSection = section;
+        break;
+      }
+    }
   }
   
   if (contactSection) {
@@ -289,12 +307,37 @@ function renderProfile(doc: Document, data: ResumeData): void {
       }
     }
   } else {
-    console.warn('[renderProfile] Contact section not found in template');
+    console.warn('[renderProfile] Contact section not found in standard location, trying section-based contact');
+  }
+  
+  // Fallback: Template2ColumnStylishBlocks and similar templates store contact in separate sections
+  // with h2 titles like "PHONE", "EMAIL", "WEBSITE", "ADDRESS"
+  if (!contactSection) {
+    const allSections = doc.querySelectorAll('.section, section, [class*="section"]');
+    for (const section of Array.from(allSections)) {
+      const titleEl = section.querySelector('.section-title, h2, h3');
+      if (!titleEl) continue;
+      const titleText = extractText(titleEl).toLowerCase();
+      
+      if (titleText.includes('phone') && profile.phone) {
+        const p = section.querySelector('p');
+        if (p) p.textContent = profile.phone;
+      } else if (titleText.includes('email') && profile.email) {
+        const p = section.querySelector('p');
+        if (p) p.textContent = profile.email;
+      } else if (titleText.includes('website') && profile.website) {
+        const p = section.querySelector('p');
+        if (p) p.textContent = profile.website.replace(/^https?:\/\//, '');
+      } else if (titleText.includes('address') && profile.location) {
+        const p = section.querySelector('p');
+        if (p) p.textContent = profile.location;
+      }
+    }
   }
   
   // Render photo - comprehensive selectors
   if (profile.photo) {
-    const photoSelectors = ['.profile-pic', '.profile-photo', '.headshot', 'img[class*="profile"]', 'img[class*="photo"]', '.header img'];
+    const photoSelectors = ['.profile-pic', '.profile-photo', '.headshot', 'img[class*="profile"]', 'img[class*="photo"]', '.header img', '.image-container img'];
     for (const selector of photoSelectors) {
       const img = doc.querySelector(selector);
       if (img) {
@@ -311,8 +354,10 @@ function renderProfile(doc: Document, data: ResumeData): void {
  * Render summary section
  */
 function renderSummary(doc: Document, data: ResumeData): void {
-  if (!data.summary) {
-    console.log('[renderSummary] No summary data to render');
+  if (!data.summary || !data.summary.text) {
+    console.log('[renderSummary] No summary data - removing placeholder section');
+    const summarySection = findSection(doc, ['summary', 'about', 'profile', 'objective']);
+    if (summarySection) summarySection.remove();
     return;
   }
   
@@ -387,7 +432,7 @@ function renderSummary(doc: Document, data: ResumeData): void {
   const sections = doc.querySelectorAll('.section, section, [class*="section"]');
   for (const section of Array.from(sections)) {
     const titleEl = section.querySelector('.section-title, h2, h3');
-    if (titleEl && /summary|about|profile|objective/i.test(extractText(titleEl))) {
+    if (titleEl && /summary|about|profile|objective|personal profile/i.test(extractText(titleEl))) {
       // More specific selector - prefer dedicated summary classes
       // Avoid matching work-item or experience-item descriptions
       let contentEl = section.querySelector('.summary, .about-me-text');
@@ -423,27 +468,43 @@ function renderSummary(doc: Document, data: ResumeData): void {
  */
 function renderExperience(doc: Document, data: ResumeData): void {
   if (!data.experience || data.experience.length === 0) {
-    console.log('[renderExperience] No experience data to render');
+    console.log('[renderExperience] No experience data - removing placeholder section');
+    const expSection = findSection(doc, ['experience', 'work', 'employment', 'professional']);
+    if (expSection) expSection.remove();
     return;
   }
   
   console.log('[renderExperience] Rendering', data.experience.length, 'experience items');
   
-  const experienceSection = findSection(doc, ['experience', 'work', 'employment']);
+  const experienceSection = findSection(doc, ['experience', 'work', 'employment', 'professional']);
   if (!experienceSection) {
     console.warn('[renderExperience] Experience section not found in template');
     return;
   }
   
   // Find template item - comprehensive selectors
-  const templateItem = experienceSection.querySelector('.experience-item, .job, .timeline-item, .work-item, .two-col-section, .item, [class*="experience"]');
+  // .section-content is used by AccentColorMinimal (split left/right columns)
+  let templateItem = experienceSection.querySelector('.experience-item, .job, .timeline-item, .work-item, .two-col-section, .section-content, [class*="experience"]');
+  
+  // Handle FLAT experience structure (ElegantProfessionalPhoto)
+  // where items are h4.job-title + p.job-details + ul.job-description siblings without a wrapper
   if (!templateItem) {
+    const flatJobTitles = experienceSection.querySelectorAll('h4.job-title, h4');
+    if (flatJobTitles.length > 0) {
+      console.log('[renderExperience] Detected flat experience structure, rendering inline');
+      renderFlatExperience(experienceSection, data.experience);
+      return;
+    }
     console.warn('[renderExperience] Template item not found in experience section');
     return;
   }
   
+  // Also look for timeline wrapper (Template2ColumnTimeline has items inside .timeline container)
+  const timelineContainer = experienceSection.querySelector('.timeline');
+  const parentContainer = timelineContainer || experienceSection;
+  
   // Clear existing items - comprehensive selectors
-  const allItems = experienceSection.querySelectorAll('.experience-item, .job, .timeline-item, .work-item, .two-col-section');
+  const allItems = parentContainer.querySelectorAll('.experience-item, .job, .timeline-item, .work-item, .two-col-section, .section-content');
   console.log('[renderExperience] Removing', allItems.length, 'placeholder items');
   allItems.forEach(item => item.remove());
   
@@ -451,10 +512,56 @@ function renderExperience(doc: Document, data: ResumeData): void {
   for (const exp of data.experience) {
     const itemEl = cloneElement(templateItem);
     renderExperienceItem(itemEl, exp);
-    experienceSection.appendChild(itemEl);
+    parentContainer.appendChild(itemEl);
   }
   
   console.log('[renderExperience] Successfully rendered', data.experience.length, 'items');
+}
+
+/**
+ * Render experience in flat structure (no item wrappers)
+ * Used by ElegantProfessionalPhoto and similar templates
+ */
+function renderFlatExperience(section: Element, items: ExperienceItem[]): void {
+  const ownerDoc = section.ownerDocument || document;
+  
+  // Find the section title to preserve it
+  const titleEl = section.querySelector('.section-title, h2, h3');
+  
+  // Remove all child elements except the title
+  const children = Array.from(section.children);
+  for (const child of children) {
+    if (child !== titleEl) {
+      child.remove();
+    }
+  }
+  
+  // Render each experience item as flat h4 + p + ul
+  for (const exp of items) {
+    const h4 = ownerDoc.createElement('h4');
+    h4.className = 'job-title';
+    h4.textContent = exp.title;
+    section.appendChild(h4);
+    
+    const details = ownerDoc.createElement('p');
+    details.className = 'job-details';
+    const dateText = exp.endDate ? `${exp.startDate} - ${exp.endDate}` : exp.startDate;
+    details.textContent = `${exp.company}${exp.location ? ', ' + exp.location : ''} | ${dateText}`;
+    section.appendChild(details);
+    
+    if (exp.bullets && exp.bullets.length > 0) {
+      const ul = ownerDoc.createElement('ul');
+      ul.className = 'job-description';
+      for (const bullet of exp.bullets) {
+        const li = ownerDoc.createElement('li');
+        li.textContent = bullet;
+        ul.appendChild(li);
+      }
+      section.appendChild(ul);
+    }
+  }
+  
+  console.log('[renderFlatExperience] Successfully rendered', items.length, 'flat experience items');
 }
 
 /**
@@ -468,13 +575,27 @@ function renderExperienceItem(element: Element, data: ExperienceItem): void {
     '.position',
     '.role',
     '.item-title',  // ModernProfessional
+    '.item-titl',  // AccentColorMinimal (typo in template)
     'h3',
     'h4'
   ];
+  let titleRendered = false;
   for (const selector of titleSelectors) {
     const titleEl = element.querySelector(selector);
-    if (titleEl && !titleEl.classList.contains('section-title')) {
+    if (titleEl && !titleEl.classList.contains('section-title') && !titleEl.classList.contains('responsibilities-title')) {
+      // For AccentColorMinimal: .item-title exists in both left (title) and right (company) columns
+      // Use the one in .left-column first
+      const leftCol = element.querySelector('.left-column');
+      if (leftCol && selector === '.item-title') {
+        const leftTitle = leftCol.querySelector('.item-title, .item-titl');
+        if (leftTitle) {
+          leftTitle.textContent = data.title;
+          titleRendered = true;
+          break;
+        }
+      }
       titleEl.textContent = data.title;
+      titleRendered = true;
       break;
     }
   }
@@ -486,9 +607,12 @@ function renderExperienceItem(element: Element, data: ExperienceItem): void {
     '.organization',
     '.company-location',
     '.date-company',
-    '.details',  // OliveGreenModern
+    '.job-details',  // ElegantProfessionalPhoto
     '.item-subtitle',  // ModernProfessional
+    '.right-column .item-title',  // AccentColorMinimal (company in right column)
+    '.details',  // OliveGreenModern, Template2ColumnStylishBlocks
   ];
+  let companyRendered = false;
   for (const selector of companySelectors) {
     const companyEl = element.querySelector(selector);
     if (companyEl) {
@@ -503,8 +627,42 @@ function renderExperienceItem(element: Element, data: ExperienceItem): void {
         text = `${dateText}\n${text}`;
       }
       
+      // For job-details fields (ElegantProfessionalPhoto), include date
+      if (selector === '.job-details') {
+        const dateText = data.endDate ? `${data.startDate} - ${data.endDate}` : data.startDate;
+        text = `${text} | ${dateText}`;
+      }
+      
+      // For .details: if title was NOT rendered separately, combine title + company
+      if (selector === '.details' && !titleRendered) {
+        text = `${data.title} | ${data.company}`;
+        if (data.location) {
+          text += ` | ${data.location}`;
+        }
+      }
+      
       companyEl.textContent = text;
+      companyRendered = true;
       break;
+    }
+  }
+  
+  // Fallback: BandwProfessional uses .left-col with plain <p> for company
+  if (!companyRendered) {
+    const leftCol = element.querySelector('.left-col');
+    if (leftCol) {
+      const paragraphs = leftCol.querySelectorAll('p');
+      // The first <p> that's NOT .date gets the company
+      for (const p of Array.from(paragraphs)) {
+        if (!p.classList.contains('date')) {
+          p.textContent = data.company;
+          if (data.location) {
+            p.textContent += `, ${data.location}`;
+          }
+          companyRendered = true;
+          break;
+        }
+      }
     }
   }
   
@@ -515,7 +673,7 @@ function renderExperienceItem(element: Element, data: ExperienceItem): void {
     '.job-date',
     '.period',
     '.duration',
-    '.item-date',  // ModernProfessional
+    '.item-date',  // ModernProfessional, AccentColorMinimal
     '.date-badge',  // ColorfulBlocks
   ];
   for (const selector of dateSelectors) {
@@ -530,7 +688,7 @@ function renderExperienceItem(element: Element, data: ExperienceItem): void {
   }
   
   // Render bullets - comprehensive selectors
-  const bulletsContainer = element.querySelector('.achievements, ul, .bullets, .item-description, .responsibilities-list, .experience-list');
+  const bulletsContainer = element.querySelector('.achievements, ul, .bullets, .item-description, .responsibilities-list, .experience-list, .job-description');
   if (bulletsContainer && data.bullets.length > 0) {
     // If it's a paragraph element, join bullets with line breaks
     if (bulletsContainer.tagName === 'P' || bulletsContainer.classList.contains('item-description')) {
@@ -546,6 +704,15 @@ function renderExperienceItem(element: Element, data: ExperienceItem): void {
       }
     }
   }
+  
+  // Fallback: If no bullets container found but we have bullets, try to find/create one
+  if (!bulletsContainer && data.bullets.length > 0) {
+    // Look for any <p> that might hold a description (not date, not title, not company)
+    const descP = element.querySelector('p:not(.date):not(.job-title):not(.details):not(.job-details):not(.company):not(.responsibilities-title)');
+    if (descP) {
+      descP.textContent = data.bullets.join('. ');
+    }
+  }
 }
 
 /**
@@ -553,27 +720,29 @@ function renderExperienceItem(element: Element, data: ExperienceItem): void {
  */
 function renderEducation(doc: Document, data: ResumeData): void {
   if (!data.education || data.education.length === 0) {
-    console.log('[renderEducation] No education data to render');
+    console.log('[renderEducation] No education data - removing placeholder section');
+    const eduSection = findSection(doc, ['education', 'academic', 'education background']);
+    if (eduSection) eduSection.remove();
     return;
   }
   
   console.log('[renderEducation] Rendering', data.education.length, 'education items');
   
-  const educationSection = findSection(doc, ['education', 'academic']);
+  const educationSection = findSection(doc, ['education', 'academic', 'education background']);
   if (!educationSection) {
     console.warn('[renderEducation] Education section not found in template');
     return;
   }
   
   // Comprehensive template item selectors
-  const templateItem = educationSection.querySelector('.education-item, .school, .timeline-item, .two-col-section, [class*="education"]');
+  const templateItem = educationSection.querySelector('.education-item, .school, .timeline-item, .two-col-section, .section-content, [class*="education"]');
   if (!templateItem) {
     console.warn('[renderEducation] Template item not found in education section');
     return;
   }
   
   // Clear existing items - comprehensive selectors
-  const allItems = educationSection.querySelectorAll('.education-item, .school, .timeline-item, .two-col-section');
+  const allItems = educationSection.querySelectorAll('.education-item, .school, .timeline-item, .two-col-section, .section-content');
   console.log('[renderEducation] Removing', allItems.length, 'placeholder items');
   allItems.forEach(item => item.remove());
   
@@ -620,6 +789,7 @@ function renderEducationItem(element: Element, data: EducationItem): void {
       '.details',  // OliveGreenModern
       '.item-subheader span:first-child',  // ColorfulBlocks (first span in subheader)
     ];
+    let schoolRendered = false;
     for (const selector of schoolSelectors) {
       const schoolEl = element.querySelector(selector);
       if (schoolEl) {
@@ -628,7 +798,40 @@ function renderEducationItem(element: Element, data: EducationItem): void {
           text += `, ${data.location}`;
         }
         schoolEl.textContent = text;
+        schoolRendered = true;
         break;
+      }
+    }
+    
+    // Fallback: BandwProfessional / Template2ColumnTimeline use .left-col or plain <p> for school
+    if (!schoolRendered) {
+      const leftCol = element.querySelector('.left-col');
+      if (leftCol) {
+        // Find the <p> that's NOT the date
+        const paragraphs = leftCol.querySelectorAll('p');
+        for (const p of Array.from(paragraphs)) {
+          if (!p.classList.contains('date')) {
+            let text = data.school;
+            if (data.location) text += `, ${data.location}`;
+            p.textContent = text;
+            schoolRendered = true;
+            break;
+          }
+        }
+      }
+      
+      // Template2ColumnTimeline education has plain <p> siblings without .left-col
+      if (!schoolRendered) {
+        const paragraphs = element.querySelectorAll('p');
+        for (const p of Array.from(paragraphs)) {
+          if (!p.classList.contains('date') && !p.classList.contains('degree') && !p.classList.contains('completed')) {
+            let text = data.school;
+            if (data.location) text += `, ${data.location}`;
+            p.textContent = text;
+            schoolRendered = true;
+            break;
+          }
+        }
       }
     }
     
@@ -639,9 +842,10 @@ function renderEducationItem(element: Element, data: EducationItem): void {
       '.major',
       '.field',
       '.item-title',  // ModernProfessional
-      'h3',  // OliveGreenModern
+      'h3',  // OliveGreenModern, BandwProfessional
       '.item-header .title',  // ColorfulBlocks
     ];
+    let degreeRendered = false;
     for (const selector of degreeSelectors) {
       const degreeEl = element.querySelector(selector);
       if (degreeEl && !degreeEl.classList.contains('section-title')) {
@@ -650,6 +854,7 @@ function renderEducationItem(element: Element, data: EducationItem): void {
           text += ` — ${data.location}`;
         }
         degreeEl.textContent = text;
+        degreeRendered = true;
         break;
       }
     }
@@ -660,6 +865,7 @@ function renderEducationItem(element: Element, data: EducationItem): void {
     '.date',
     '.education-date',
     '.graduation',
+    '.completed',  // BlueSimpleProfile
     '.item-date',
     '.date-badge',  // ColorfulBlocks
   ];
@@ -693,14 +899,16 @@ function renderEducationItem(element: Element, data: EducationItem): void {
  * Render skills section
  */
 function renderSkills(doc: Document, data: ResumeData): void {
-  if (!data.skills) {
-    console.log('[renderSkills] No skills data to render');
+  if (!data.skills || (!data.skills.groups?.length && !data.skills.items?.length)) {
+    console.log('[renderSkills] No skills data - removing placeholder section');
+    const skillsSection = findSection(doc, ['skill', 'expertise', 'competenc']);
+    if (skillsSection) skillsSection.remove();
     return;
   }
   
   console.log('[renderSkills] Rendering skills - groups:', data.skills.groups?.length || 0, 'items:', data.skills.items?.length || 0);
   
-  const skillsSection = findSection(doc, ['skills', 'expertise', 'competencies']);
+  const skillsSection = findSection(doc, ['skill', 'expertise', 'competenc']);
   if (!skillsSection) {
     console.warn('[renderSkills] Skills section not found in template');
     return;
@@ -744,6 +952,29 @@ function renderSkills(doc: Document, data: ResumeData): void {
   // Handle flat skills list - comprehensive selectors
   if (data.skills.items && data.skills.items.length > 0) {
     console.log('[renderSkills] Rendering', data.skills.items.length, 'flat skill items');
+    
+    // Check for skills-grid with multiple ULs (BandwProfessional)
+    const skillsGrid = skillsSection.querySelector('.skills-grid');
+    if (skillsGrid) {
+      const uls = skillsGrid.querySelectorAll('ul');
+      if (uls.length > 0) {
+        // Distribute skills evenly across existing ULs
+        const itemsPerList = Math.ceil(data.skills.items.length / uls.length);
+        const ownerDoc = skillsGrid.ownerDocument || document;
+        uls.forEach((ul, idx) => {
+          ul.innerHTML = '';
+          const start = idx * itemsPerList;
+          const end = Math.min(start + itemsPerList, data.skills.items!.length);
+          for (let i = start; i < end; i++) {
+            const li = ownerDoc.createElement('li');
+            li.textContent = data.skills.items![i];
+            ul.appendChild(li);
+          }
+        });
+        console.log('[renderSkills] Successfully rendered skills to skills-grid ULs');
+        return;
+      }
+    }
     
     const skillsEl = skillsSection.querySelector('.skills-list, .skills, .expertise-list, ul');
     if (skillsEl) {
@@ -839,10 +1070,49 @@ function renderProjectItem(element: Element, data: ProjectItem): void {
  * Render languages section
  */
 function renderLanguages(doc: Document, data: ResumeData): void {
-  if (!data.languages || data.languages.length === 0) return;
+  if (!data.languages || data.languages.length === 0) {
+    // No language data - remove standalone language section if exists
+    const langSection = findSection(doc, ['language']);
+    if (langSection) langSection.remove();
+    return;
+  }
   
-  // Languages are often in the skills section
-  const skillsSection = findSection(doc, ['skills']);
+  // Try standalone language section first (OliveGreenModern, Template2ColumnTimeline, etc.)
+  const langSection = findSection(doc, ['language']);
+  if (langSection) {
+    const listEl = langSection.querySelector('ul');
+    if (listEl) {
+      listEl.innerHTML = '';
+      const ownerDoc = listEl.ownerDocument || doc;
+      for (const lang of data.languages) {
+        const li = ownerDoc.createElement('li');
+        li.textContent = `${lang.language} – ${lang.proficiency}`;
+        listEl.appendChild(li);
+      }
+      console.log('[renderLanguages] Rendered to standalone language section (ul)');
+      return;
+    }
+    
+    // Handle paragraph-based language items (Template2ColumnTimeline)
+    const langItems = langSection.querySelectorAll('p:not(.section-title), .language-item');
+    if (langItems.length > 0) {
+      // Remove existing items
+      langItems.forEach(item => item.remove());
+      
+      // Add new items
+      const ownerDoc = langSection.ownerDocument || doc;
+      for (const lang of data.languages) {
+        const p = ownerDoc.createElement('p');
+        p.textContent = `${lang.language} – ${lang.proficiency}`;
+        langSection.appendChild(p);
+      }
+      console.log('[renderLanguages] Rendered to standalone language section (p)');
+      return;
+    }
+  }
+  
+  // Fallback: Languages inside skills section as a group
+  const skillsSection = findSection(doc, ['skill', 'expertise']);
   if (!skillsSection) return;
   
   // Look for languages group
@@ -864,9 +1134,13 @@ function renderLanguages(doc: Document, data: ResumeData): void {
  * Render certifications section
  */
 function renderCertifications(doc: Document, data: ResumeData): void {
-  if (!data.certifications || data.certifications.length === 0) return;
+  if (!data.certifications || data.certifications.length === 0) {
+    const certsSection = findSection(doc, ['certification', 'certificate']);
+    if (certsSection) certsSection.remove();
+    return;
+  }
   
-  const certsSection = findSection(doc, ['certifications', 'certificates']);
+  const certsSection = findSection(doc, ['certification', 'certificate']);
   if (!certsSection) return;
   
   const listEl = certsSection.querySelector('ul');
@@ -889,7 +1163,11 @@ function renderCertifications(doc: Document, data: ResumeData): void {
  * Render training section
  */
 function renderTraining(doc: Document, data: ResumeData): void {
-  if (!data.training || data.training.length === 0) return;
+  if (!data.training || data.training.length === 0) {
+    const trainingSection = findSection(doc, ['training', 'courses']);
+    if (trainingSection) trainingSection.remove();
+    return;
+  }
   
   const trainingSection = findSection(doc, ['training', 'courses']);
   if (!trainingSection) return;
@@ -944,9 +1222,10 @@ function renderVolunteering(doc: Document, data: ResumeData): void {
 
 /**
  * Helper: Find a section by title keywords
+ * Searches .section, <section>, and [class*="section"] (covers left-section, right-section, etc.)
  */
 function findSection(doc: Document, keywords: string[]): Element | null {
-  const sections = doc.querySelectorAll('.section, section');
+  const sections = doc.querySelectorAll('.section, section, [class*="section"]');
   
   for (const section of Array.from(sections)) {
     const titleEl = section.querySelector('.section-title, h2, h3');
@@ -959,4 +1238,95 @@ function findSection(doc: Document, keywords: string[]): Element | null {
   }
   
   return null;
+}
+
+/**
+ * Remove sections from the DOM that have no corresponding user data.
+ * This prevents empty placeholder sections from taking up space after template swap.
+ */
+function removeEmptySections(doc: Document, data: ResumeData): void {
+  const sectionChecks: { keywords: string[]; hasData: boolean }[] = [
+    { keywords: ['summary', 'about', 'profile', 'objective'], hasData: !!data.summary?.text },
+    { keywords: ['experience', 'work', 'employment'], hasData: !!(data.experience && data.experience.length > 0) },
+    { keywords: ['education', 'academic'], hasData: !!(data.education && data.education.length > 0) },
+    { keywords: ['skill', 'expertise', 'competenc'], hasData: !!(data.skills && (data.skills.groups?.length || data.skills.items?.length)) },
+    { keywords: ['project'], hasData: !!(data.projects && data.projects.length > 0) },
+    { keywords: ['language'], hasData: !!(data.languages && data.languages.length > 0) },
+    { keywords: ['certification', 'certificate'], hasData: !!(data.certifications && data.certifications.length > 0) },
+    { keywords: ['training', 'course'], hasData: !!(data.training && data.training.length > 0) },
+    { keywords: ['volunteering', 'volunteer'], hasData: !!(data.volunteering && data.volunteering.length > 0) },
+  ];
+
+  const sections = doc.querySelectorAll('.section, section, [class*="section"]');
+  
+  for (const section of Array.from(sections)) {
+    const titleEl = section.querySelector('.section-title, h2, h3');
+    if (!titleEl) continue;
+    
+    const titleText = extractText(titleEl).toLowerCase();
+    
+    for (const check of sectionChecks) {
+      if (check.keywords.some(kw => titleText.includes(kw)) && !check.hasData) {
+        console.log(`[removeEmptySections] Removing empty section: "${titleText}"`);
+        section.remove();
+        break;
+      }
+    }
+  }
+}
+
+/**
+ * Fix CSS in the rendered HTML to ensure continuous content flow.
+ * Converts fixed heights to min-heights and removes overflow:hidden on .page containers.
+ * Carefully avoids breaking flex-grow based layouts (e.g. ColorfulBlocks).
+ */
+function fixContinuousLayoutCSS(doc: Document, template: ResumeTemplate): void {
+  const pageSize = template.pageSize || 'A4';
+  const pageHeight = pageSize === 'Letter' ? '1056px' : '1123px';
+  
+  // Inject CSS overrides into a new <style> block
+  const styleEl = doc.createElement('style');
+  styleEl.textContent = `
+    /* Continuous content layout fix - prevents blank pages and content clipping */
+    .page {
+      height: auto !important;
+      min-height: ${pageHeight};
+      overflow: visible !important;
+    }
+    .main-container {
+      height: auto !important;
+      min-height: 100%;
+    }
+    /* Only override .main-content height if it uses fixed/calc height, not flex-grow */
+    .main-content[style*="height"] {
+      height: auto !important;
+      min-height: auto;
+    }
+    /* Prevent profile images from stretching to fill flex containers */
+    .profile-pic-container img {
+      height: auto !important;
+      max-height: 350px;
+    }
+    @media print {
+      .page {
+        height: auto !important;
+        min-height: auto !important;
+        overflow: visible !important;
+      }
+    }
+  `;
+  
+  // Append to head or body
+  const head = doc.querySelector('head');
+  if (head) {
+    head.appendChild(styleEl);
+  } else {
+    // If no head, prepend to body
+    const body = doc.querySelector('body');
+    if (body) {
+      body.insertBefore(styleEl, body.firstChild);
+    }
+  }
+  
+  console.log('[fixContinuousLayoutCSS] Injected CSS overrides for continuous content flow');
 }

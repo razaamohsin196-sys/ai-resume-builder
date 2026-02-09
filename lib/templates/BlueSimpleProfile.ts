@@ -17,13 +17,13 @@ const html = `<style>
 
         .page {
             width: 816px;
-            height: 1056px;
+            min-height: 1056px;
             margin: 0 auto;
             margin-bottom: 0.2em;
             box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
             background-color: #ffffff;
             position: relative;
-            overflow: hidden;
+            overflow: visible;
         }
 
         .header-bg {
@@ -48,7 +48,7 @@ const html = `<style>
             position: relative;
             z-index: 1;
             display: flex;
-            height: calc(100% - 70px);
+            min-height: calc(100% - 70px);
             width: calc(100% - 60px);
             transform: translateY(70px) translateX(30px);
         }

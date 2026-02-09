@@ -20,6 +20,11 @@ const PLACEHOLDER_PATTERNS = [
   /adeline\s+palmerston/i,
   /mira\s+karlsson/i,  // Template2ColumnMinimal
   /tonnie\s+thomsen/i,  // Template2ColumnStylishBlocks
+  /sharya\s+singh/i,  // BandwProfessional
+  /mariana\s+anderson/i,  // Template2ColumnTimeline
+  /howard\s+ong/i,  // BlueSimpleProfile
+  /niranjan\s+devi/i,  // BandwProfessional reference
+  /aarya\s+agarwal/i,  // BandwProfessional reference
   
   // Placeholder text
   /lorem\s+ipsum/i,
@@ -44,13 +49,28 @@ const PLACEHOLDER_PATTERNS = [
   // Placeholder companies
   /arowwai\s+industries/i,
   /wardiere\s+inc/i,
+  /wardiere\s+company/i,  // BandwProfessional
+  /wardiere\s+university/i,  // BandwProfessional
+  /wardiere\s+high\s+school/i,  // BandwProfessional
   /salford\s+&\s+co/i,
   /borcelle\s+university/i,
+  /borcelle\s+studio/i,  // BandwProfessional
+  /borcelle\s+business\s+school/i,  // BlueSimpleProfile
   /rimberio\s+university/i,
   /giggling\s+platypus/i,
   /bellows\s+college/i,  // Template2ColumnMinimal & Template2ColumnStylishBlocks
   /east\s+beringer\s+community\s+college/i,  // Template2ColumnMinimal
   /balsam\s+elementary\s+school/i,  // Template2ColumnStylishBlocks
+  /ginyard\s+international/i,  // Template2ColumnTimeline, BlueSimpleProfile
+  /ingoude\s+company/i,  // BlueSimpleProfile
+  /timmerman\s+industries/i,  // BlueSimpleProfile
+  /larana\s+business\s+school/i,  // BlueSimpleProfile
+  /fauget/i,  // ElegantProfessionalPhoto
+  /studio\s+shodwe/i,  // ElegantProfessionalPhoto
+  /keithston\s+and\s+partners/i,  // ElegantProfessionalPhoto
+  /liceria/i,  // OliveGreenModern, AccentColorMinimal
+  /korina\s+villanueva/i,  // AccentColorMinimal
+  /university\s+of\s+lorem/i,  // AccentColorMinimal
   
   // Placeholder degrees/education
   /ba\s+in\s+communications/i,  // Template2ColumnMinimal
@@ -90,10 +110,15 @@ const PLACEHOLDER_PATTERNS = [
   // Placeholder websites
   /www\.example\.com/i,  // Template2ColumnMinimal
   /www\.interestingsite\.com/i,  // Template2ColumnStylishBlocks
+  /www\.reallygreatsite\.com/i,  // Multiple templates
   
   // Placeholder locations
   /santa\s+fe,?\s+nm/i,  // Template2ColumnStylishBlocks
   /987\s+6th\s+ave/i,  // Template2ColumnStylishBlocks address
+  /123\s+anywhere\s+st/i,  // Multiple templates
+  
+  // Placeholder phone numbers (more templates)
+  /\+?123[-.]?456[-.]?7890/i,  // Common across many templates
   
   // Generic placeholder
   /\[name\]/i,

@@ -1419,21 +1419,60 @@ ${cleanHtml}
                             // Ensure body has relative positioning
                             document.body.style.position = 'relative';
                             
-                            // Check if template uses .page containers (like Blue Simple Profile)
-                            const pageContainer = document.querySelector('.page');
-                            const hasPageContainer = pageContainer !== null;
-                            
-                            // For templates with fixed-height .page containers, remove the fixed height
-                            // to allow content to flow naturally across multiple pages
-                            if (hasPageContainer && pageContainer) {
+                            // Fix ALL .page containers - remove fixed height and overflow:hidden
+                            // to allow content to flow continuously across multiple pages
+                            const pageContainers = document.querySelectorAll('.page');
+                            pageContainers.forEach(function(pageContainer) {
                                 const pageStyle = window.getComputedStyle(pageContainer);
-                                const hasFixedHeight = pageStyle.height && pageStyle.height !== 'auto' && !pageStyle.height.includes('%');
                                 
+                                // Fix fixed height → min-height
+                                const hasFixedHeight = pageStyle.height && pageStyle.height !== 'auto' && !pageStyle.height.includes('%');
                                 if (hasFixedHeight) {
                                     pageContainer.style.height = 'auto';
                                     pageContainer.style.minHeight = pageHeight + 'px';
                                 }
-                            }
+                                
+                                // Remove overflow:hidden that clips content
+                                if (pageStyle.overflow === 'hidden') {
+                                    pageContainer.style.overflow = 'visible';
+                                }
+                            });
+                            
+                            // Fix .main-container height (two-column layouts)
+                            const mainContainers = document.querySelectorAll('.main-container');
+                            mainContainers.forEach(function(mc) {
+                                const mcStyle = window.getComputedStyle(mc);
+                                if (mcStyle.height && mcStyle.height !== 'auto' && !mcStyle.height.includes('%')) {
+                                    mc.style.height = 'auto';
+                                    mc.style.minHeight = '100%';
+                                }
+                            });
+                            
+                            // Fix .main-content height (e.g., BlueSimpleProfile calc-based height)
+                            // Only fix if it has a fixed/calc height, not flex-grow based layouts
+                            const mainContents = document.querySelectorAll('.main-content');
+                            mainContents.forEach(function(mc) {
+                                const mcStyle = window.getComputedStyle(mc);
+                                const mcHeight = mcStyle.height;
+                                const mcFlexGrow = mcStyle.flexGrow;
+                                // Only override if height is explicitly set (not from flex-grow)
+                                if (mcHeight && mcHeight !== 'auto' && !mcHeight.includes('auto') && mcFlexGrow === '0') {
+                                    mc.style.height = 'auto';
+                                    mc.style.minHeight = 'auto';
+                                }
+                            });
+                            
+                            // Fix profile images that stretch to fill flex containers
+                            document.querySelectorAll('.profile-pic-container img').forEach(function(img) {
+                                const imgStyle = window.getComputedStyle(img);
+                                // If image height exceeds a reasonable max (350px), constrain it
+                                if (parseInt(imgStyle.height) > 400) {
+                                    img.style.height = 'auto';
+                                    img.style.maxHeight = '350px';
+                                }
+                            });
+                            
+                            const hasPageContainer = pageContainers.length > 0;
                             
                             // Get all content elements (sections and major blocks)
                             // Explicitly exclude footer elements with absolute positioning

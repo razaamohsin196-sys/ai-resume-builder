@@ -195,6 +195,35 @@ function parseProfile(doc: Document): ProfileSection {
     }
   }
   
+  // Fallback: Template2ColumnStylishBlocks stores contact in separate sections
+  if (!profile.email || !profile.phone) {
+    const allSections = doc.querySelectorAll('.section, section, [class*="section"]');
+    for (const section of Array.from(allSections)) {
+      const titleEl = section.querySelector('.section-title, h2, h3');
+      if (!titleEl) continue;
+      const titleText = extractText(titleEl).toLowerCase();
+      
+      if (titleText.includes('phone') && !profile.phone) {
+        const p = section.querySelector('p');
+        if (p) profile.phone = extractPhone(extractText(p));
+      } else if (titleText.includes('email') && !profile.email) {
+        const p = section.querySelector('p');
+        if (p) profile.email = extractEmail(extractText(p));
+      } else if (titleText.includes('website') && !profile.website) {
+        const p = section.querySelector('p');
+        if (p) {
+          const text = extractText(p);
+          if (text && !text.includes('@')) {
+            profile.website = text.startsWith('http') ? text : `https://${text}`;
+          }
+        }
+      } else if (titleText.includes('address') && !profile.location) {
+        const p = section.querySelector('p');
+        if (p) profile.location = extractText(p);
+      }
+    }
+  }
+  
   // Extract photo - comprehensive selectors
   const photoSelectors = [
     '.profile-pic',
@@ -238,7 +267,7 @@ function parseSummary(doc: Document): SummarySection | undefined {
     const titleEl = section.querySelector('.section-title, h2, h3, [class*="title"]');
     if (titleEl) {
       const titleText = extractText(titleEl);
-      if (/summary|about|profile|objective/i.test(titleText)) {
+      if (/summary|about|profile|objective|personal profile/i.test(titleText)) {
         // For ColorfulBlocks .summary-list (ul with li items)
         const summaryList = section.querySelector('.summary-list, ul');
         if (summaryList && summaryList.tagName === 'UL') {
@@ -277,7 +306,7 @@ function parseExperience(doc: Document): ExperienceItem[] | undefined {
   const items: ExperienceItem[] = [];
   
   // Find experience section
-  const experienceSection = findSection(doc, ['experience', 'work', 'employment']);
+  const experienceSection = findSection(doc, ['experience', 'work', 'employment', 'professional']);
   if (!experienceSection) return undefined;
   
   // Find experience items - comprehensive selector list covering all templates
@@ -291,7 +320,59 @@ function parseExperience(doc: Document): ExperienceItem[] | undefined {
     '.two-col-section', // BandwProfessional
   ];
   
-  const itemElements = queryAllSelectors(experienceSection, itemSelectors);
+  let itemElements = queryAllSelectors(experienceSection, itemSelectors);
+  
+  // Handle flat experience structure (ElegantProfessionalPhoto)
+  // Items are h4.job-title + p.job-details + ul.job-description siblings without wrappers
+  if (itemElements.length === 0) {
+    const flatTitles = experienceSection.querySelectorAll('h4.job-title, h4');
+    if (flatTitles.length > 0) {
+      console.log('[parseExperience] Detected flat experience structure');
+      for (const titleEl of Array.from(flatTitles)) {
+        const title = extractText(titleEl);
+        if (!title) continue;
+        
+        // Get sibling elements that follow this h4
+        let company = '';
+        let dateText = '';
+        const bullets: string[] = [];
+        let sibling = titleEl.nextElementSibling;
+        
+        while (sibling && sibling.tagName !== 'H4' && sibling.tagName !== 'H3' && sibling.tagName !== 'H2') {
+          if (sibling.classList.contains('job-details') || (sibling.tagName === 'P' && !sibling.classList.contains('section-title'))) {
+            const text = extractText(sibling);
+            // Parse "Company | Date" format
+            if (text.includes('|')) {
+              const parts = text.split('|').map(p => p.trim());
+              company = parts[0];
+              dateText = parts.slice(1).join(' ').trim();
+            } else {
+              company = text;
+            }
+          } else if (sibling.tagName === 'UL' || sibling.classList.contains('job-description')) {
+            const lis = sibling.querySelectorAll('li');
+            lis.forEach(li => {
+              const t = extractText(li);
+              if (t) bullets.push(t);
+            });
+          }
+          sibling = sibling.nextElementSibling;
+        }
+        
+        const { startDate, endDate } = parseDateRange(dateText);
+        
+        items.push({
+          id: generateId(),
+          title,
+          company: company || 'Unknown',
+          startDate,
+          endDate,
+          bullets: filterPlaceholderBullets(bullets),
+        });
+      }
+      return items.length > 0 ? items : undefined;
+    }
+  }
   
   for (const itemEl of itemElements) {
     const item = parseExperienceItem(itemEl);
@@ -326,6 +407,7 @@ function parseExperienceItem(element: Element): ExperienceItem | null {
     '.employer',
     '.company-location',
     '.date-company', // Template2ColumnTimeline
+    '.job-details',  // ElegantProfessionalPhoto
     '.details', // Template2ColumnStylishBlocks, OliveGreenModern
     '.item-subtitle', // ModernProfessional
   ];
@@ -342,11 +424,30 @@ function parseExperienceItem(element: Element): ExperienceItem | null {
     '.date-badge',  // ColorfulBlocks
   ];
   
-  const title = extractTextFromSelectors(element, titleSelectors);
-  if (!title) return null;
+  let title = extractTextFromSelectors(element, titleSelectors);
   
   let company = extractTextFromSelectors(element, companySelectors);
   let dateText = extractTextFromSelectors(element, dateSelectors);
+  
+  // Handle case where title is NOT found but .details has "Title | Company | Location"
+  // (Template2ColumnStylishBlocks)
+  if (!title && company && company.includes('|')) {
+    const parts = company.split('|').map(p => p.trim());
+    title = parts[0]; // First part is title
+    company = parts.slice(1).join(' | ').trim(); // Rest is company/location
+  }
+  
+  if (!title) return null;
+  
+  // Handle BlueSimpleProfile: title from h3 is "Company | Title" combined
+  // If the title itself contains a pipe and no separate company element was found
+  if (title.includes('|') && !company) {
+    const parts = title.split('|').map(p => p.trim());
+    if (parts.length >= 2) {
+      company = parts[0]; // First part is usually company
+      title = parts.slice(1).join(' ').trim(); // Second part is the actual title
+    }
+  }
   
   // Handle combined date-company fields (e.g., "2022 - 2025<br>Company Name")
   if (company && company.includes('\n')) {
@@ -374,10 +475,24 @@ function parseExperienceItem(element: Element): ExperienceItem | null {
     company = parts[0].trim();
   }
   
+  // Fallback: BandwProfessional uses .left-col with plain <p> for company
+  if (!company) {
+    const leftCol = element.querySelector('.left-col');
+    if (leftCol) {
+      const paragraphs = leftCol.querySelectorAll('p');
+      for (const p of Array.from(paragraphs)) {
+        if (!p.classList.contains('date')) {
+          company = extractText(p);
+          break;
+        }
+      }
+    }
+  }
+  
   const { startDate, endDate } = parseDateRange(dateText);
   
   // Extract bullets - comprehensive selectors
-  const bulletsEl = element.querySelector('.achievements, ul, .bullets, .item-description, .responsibilities-list, .experience-list, [class*="description"]') || element;
+  const bulletsEl = element.querySelector('.achievements, ul, .bullets, .item-description, .responsibilities-list, .experience-list, .job-description, [class*="description"]') || element;
   const rawBullets = extractBullets(bulletsEl);
   
   // Filter out placeholder bullets
@@ -483,6 +598,34 @@ function parseEducationItem(element: Element): EducationItem | null {
     school = extractTextFromSelectors(element, schoolSelectors);
     degree = extractTextFromSelectors(element, degreeSelectors);
     
+    // Fallback: BandwProfessional uses .left-col with plain <p> for school
+    if (!school) {
+      const leftCol = element.querySelector('.left-col');
+      if (leftCol) {
+        const paragraphs = leftCol.querySelectorAll('p');
+        for (const p of Array.from(paragraphs)) {
+          if (!p.classList.contains('date')) {
+            school = extractText(p);
+            break;
+          }
+        }
+      }
+    }
+    
+    // Fallback: Template2ColumnTimeline has plain <p> without class for school
+    if (!school) {
+      const paragraphs = element.querySelectorAll('p');
+      for (const p of Array.from(paragraphs)) {
+        if (!p.classList.contains('date') && !p.classList.contains('degree') && !p.classList.contains('completed')) {
+          const text = extractText(p);
+          if (text && !/^\d{4}/.test(text) && !/expected|graduation|completed/i.test(text)) {
+            school = text;
+            break;
+          }
+        }
+      }
+    }
+    
     // Handle combined school/location fields (e.g., "University, City A")
     if (school && school.includes(',')) {
       const parts = school.split(',');
@@ -536,7 +679,7 @@ function parseEducationItem(element: Element): EducationItem | null {
  * Parse skills section
  */
 function parseSkills(doc: Document): SkillsSection | undefined {
-  const skillsSection = findSection(doc, ['skills', 'expertise', 'competencies']);
+  const skillsSection = findSection(doc, ['skill', 'expertise', 'competenc']);
   if (!skillsSection) return undefined;
   
   const skills: SkillsSection = {};
@@ -656,7 +799,7 @@ function parseProjectItem(element: Element): ProjectItem | null {
 function parseLanguages(doc: Document): LanguageItem[] | undefined {
   const items: LanguageItem[] = [];
   
-  const languagesSection = findSection(doc, ['languages', 'language']);
+  const languagesSection = findSection(doc, ['language']);
   if (!languagesSection) return undefined;
   
   const text = extractText(languagesSection);
@@ -692,7 +835,7 @@ function parseLanguages(doc: Document): LanguageItem[] | undefined {
 function parseCertifications(doc: Document): CertificationItem[] | undefined {
   const items: CertificationItem[] = [];
   
-  const certsSection = findSection(doc, ['certifications', 'certificates', 'licenses']);
+  const certsSection = findSection(doc, ['certification', 'certificate', 'license']);
   if (!certsSection) return undefined;
   
   const itemElements = certsSection.querySelectorAll('li, .cert-item, .certification');
@@ -784,6 +927,7 @@ function parseVolunteering(doc: Document): VolunteeringItem[] | undefined {
 
 /**
  * Helper: Find a section by title keywords
+ * Searches .section, <section>, and [class*="section"] (covers left-section, right-section, etc.)
  */
 function findSection(doc: Document, keywords: string[]): Element | null {
   const sections = doc.querySelectorAll('.section, section, [class*="section"]');
