@@ -7,6 +7,7 @@ import { hydrateContext } from "@/lib/context-hydrator";
 import { getTemplateById } from "@/lib/templates"; // Registry import
 import { IngestionSource, CareerProfilePatch, ChatLearning } from "@/lib/ingestion/types";
 import { processCareerProfile as processBridge } from "@/lib/bridge-process";
+import { careerProfileToResumeData, renderToTemplate, parseHtmlToDOM, serializeDOMToHtml } from "@/lib/resume-data";
 
 
 
@@ -323,10 +324,61 @@ export async function generateHtmlResume(profile: CareerProfile, intent: CareerI
         const result = await model.generateContent(prompt);
         let text = result.response.text();
         text = text.replace(/```html/g, '').replace(/```/g, '');
+        
+        // Check if AI returned the template unchanged (contains placeholder data)
+        if (text.includes('Becky Shu') || text.includes('beckyshu') || text.includes('beckyhsiung96')) {
+            console.log('[generateHtmlResume] AI returned template with placeholder data, using deterministic fallback');
+            // Fall back to deterministic rendering
+            return generateDeterministicHtml(profile, templateHtml);
+        }
+        
         return text;
     } catch (e) {
         console.error("Html Generation Error", e);
-        return templateHtml; // Fallback
+        // Use deterministic rendering instead of returning template with placeholder data
+        console.log('[generateHtmlResume] AI generation failed, using deterministic fallback');
+        return generateDeterministicHtml(profile, templateHtml);
+    }
+}
+
+/**
+ * Fallback: Generate HTML deterministically without AI
+ * Converts CareerProfile to ResumeData and uses renderToTemplate
+ */
+function generateDeterministicHtml(profile: CareerProfile, templateHtml: string): string {
+    try {
+        console.log('[generateDeterministicHtml] Converting CareerProfile to ResumeData...');
+        // Convert CareerProfile to ResumeData
+        const resumeData = careerProfileToResumeData(profile);
+        
+        console.log('[generateDeterministicHtml] Profile converted, rendering to template...');
+        // Parse template HTML to get template object
+        const doc = parseHtmlToDOM(templateHtml);
+        
+        // Import SectionType for proper typing
+        const { SectionType } = require('@/lib/resume-data/schema');
+        
+        // Create a minimal template object
+        const template: any = {
+            id: 'current',
+            name: 'Current Template',
+            html: templateHtml,
+            hasPhoto: false,
+            supportedSections: ['profile', 'summary', 'experience', 'education', 'skills', 'projects', 'languages', 'certifications', 'volunteering'] as any[],
+            sectionOrder: ['profile', 'summary', 'experience', 'education', 'skills', 'projects', 'languages', 'certifications', 'volunteering'] as any[],
+            pageSize: 'A4' as const,
+        };
+        
+        // Render using deterministic template renderer
+        const rendered = renderToTemplate(resumeData, template);
+        
+        console.log('[generateDeterministicHtml] Successfully rendered HTML with actual data');
+        return rendered;
+    } catch (error) {
+        console.error('[generateDeterministicHtml] Deterministic rendering error:', error);
+        // Last resort: return template as-is
+        console.log('[generateDeterministicHtml] Falling back to template HTML');
+        return templateHtml;
     }
 }
 

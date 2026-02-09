@@ -50,19 +50,53 @@ export function renderToTemplate(data: ResumeData, template: ResumeTemplate): st
 function renderProfile(doc: Document, data: ResumeData): void {
   const { profile } = data;
   
-  // Render name - comprehensive selectors
-  const nameSelectors = ['.name', 'h1', '.profile-name', '.header-text', '.header-left h1', '.right-header h1'];
+  console.log('[renderProfile] Rendering profile with name:', profile.name);
+  
+  // Render name - comprehensive selectors - replace ALL matches to ensure no placeholder remains
+  const nameSelectors = [
+    '.name',
+    'h1',
+    '.profile-name',
+    '.header-text',
+    '.header-left h1',
+    '.right-header h1',
+    '.name-title h1',  // ModernProfessional
+    '.name-title .name',  // ModernProfessional variant
+  ];
+  let nameRendered = false;
   for (const selector of nameSelectors) {
-    const nameEl = doc.querySelector(selector);
-    if (nameEl) {
-      nameEl.textContent = profile.name;
-      break;
+    const nameElements = doc.querySelectorAll(selector);
+    if (nameElements.length > 0) {
+      nameElements.forEach(nameEl => {
+        // Only replace if it's not a section title or other non-name element
+        if (!nameEl.classList.contains('section-title') && 
+            !nameEl.classList.contains('company-name') &&
+            !nameEl.classList.contains('school-name') &&
+            !nameEl.classList.contains('reference-name')) {
+          nameEl.textContent = profile.name;
+          nameRendered = true;
+        }
+      });
+      if (nameRendered) break;
     }
+  }
+  
+  if (!nameRendered) {
+    console.warn('[renderProfile] Name was not rendered! No matching selector found.');
   }
   
   // Render title - comprehensive selectors
   if (profile.title) {
-    const titleSelectors = ['.job-title', '.title', '.role', '.subtitle', '.header-left .title'];
+    const titleSelectors = [
+      '.job-title',
+      '.title',
+      '.role',
+      '.subtitle',
+      '.header-left .title',
+      '.header-left h2',  // MinimalistSimplePhoto
+      'h2:not(.section-title)',  // MinimalistSimplePhoto h2
+      '.header p',  // Template2ColumnMinimal (title is in .header p, after h1 name)
+    ];
     for (const selector of titleSelectors) {
       const titleEl = doc.querySelector(selector);
       if (titleEl && !titleEl.classList.contains('section-title') && !titleEl.classList.contains('item-title')) {
@@ -198,28 +232,41 @@ function renderProfile(doc: Document, data: ResumeData): void {
     
     // LinkedIn
     if (profile.linkedin) {
+      let linkedinRendered = false;
       const linkedinLinks = Array.from(contactSection.querySelectorAll('a')).find(a =>
         a.getAttribute('href')?.includes('linkedin.com')
       );
       if (linkedinLinks) {
         linkedinLinks.setAttribute('href', profile.linkedin);
         linkedinLinks.textContent = profile.linkedin.replace(/^https?:\/\//, '');
+        linkedinRendered = true;
+      }
+      
+      if (!linkedinRendered) {
+        console.warn('[renderProfile] LinkedIn was not rendered - no matching link found');
       }
     }
     
     // GitHub
     if (profile.github) {
+      let githubRendered = false;
       const githubLinks = Array.from(contactSection.querySelectorAll('a')).find(a =>
         a.getAttribute('href')?.includes('github.com')
       );
       if (githubLinks) {
         githubLinks.setAttribute('href', profile.github);
         githubLinks.textContent = profile.github.replace(/^https?:\/\//, '');
+        githubRendered = true;
+      }
+      
+      if (!githubRendered) {
+        console.warn('[renderProfile] GitHub was not rendered - no matching link found');
       }
     }
     
     // Website
     if (profile.website) {
+      let websiteRendered = false;
       const websiteLinks = Array.from(contactSection.querySelectorAll('a')).find(a => {
         const href = a.getAttribute('href');
         return href && !href.includes('linkedin.com') && !href.includes('github.com') && !href.startsWith('mailto:') && !href.startsWith('tel:');
@@ -227,14 +274,22 @@ function renderProfile(doc: Document, data: ResumeData): void {
       if (websiteLinks) {
         websiteLinks.setAttribute('href', profile.website);
         websiteLinks.textContent = profile.website.replace(/^https?:\/\//, '');
+        websiteRendered = true;
       } else {
         // Try contact-web class
         const webEl = contactSection.querySelector('.contact-web, .contact-item.contact-web');
         if (webEl) {
           webEl.textContent = profile.website.replace(/^https?:\/\//, '');
+          websiteRendered = true;
         }
       }
+      
+      if (!websiteRendered) {
+        console.warn('[renderProfile] Website was not rendered - no matching element found');
+      }
     }
+  } else {
+    console.warn('[renderProfile] Contact section not found in template');
   }
   
   // Render photo - comprehensive selectors
@@ -248,21 +303,83 @@ function renderProfile(doc: Document, data: ResumeData): void {
       }
     }
   }
+  
+  console.log('[renderProfile] Profile rendering complete');
 }
 
 /**
  * Render summary section
  */
 function renderSummary(doc: Document, data: ResumeData): void {
-  if (!data.summary) return;
+  if (!data.summary) {
+    console.log('[renderSummary] No summary data to render');
+    return;
+  }
+  
+  console.log('[renderSummary] Rendering summary:', data.summary.text.substring(0, 50) + '...');
+  
+  let summaryRendered = false;
   
   // Comprehensive summary selectors
-  const summarySelectors = ['.summary', '.about', '.profile-summary', '.about-me', '.about-me-text'];
+  const summarySelectors = [
+    '.summary',
+    '.about',
+    '.profile-summary',
+    '.about-me',
+    '.about-me-text',
+    '.about-me p',  // OliveGreenModern
+    '.section.about-me p',  // OliveGreenModern variant
+    '.summary-list',  // ColorfulBlocks (list format)
+  ];
   for (const selector of summarySelectors) {
-    const summaryEl = doc.querySelector(selector);
-    if (summaryEl) {
-      summaryEl.textContent = data.summary.text;
-      return;
+    const summaryElements = doc.querySelectorAll(selector);
+    if (summaryElements.length > 0) {
+      summaryElements.forEach(summaryEl => {
+        // Don't replace section titles or subtitle
+        if (!summaryEl.classList.contains('section-title') && 
+            !summaryEl.classList.contains('subtitle') &&
+            !summaryEl.closest('.section-title') && data.summary) {
+          
+          // Handle list format (ColorfulBlocks)
+          if (summaryEl.tagName === 'UL' || summaryEl.classList.contains('summary-list')) {
+            // Split summary text into sentences for list items
+            const sentences = data.summary.text.match(/[^.!?]+[.!?]+/g) || [data.summary.text];
+            summaryEl.innerHTML = '';
+            const ownerDoc = summaryEl.ownerDocument || document;
+            sentences.forEach(sentence => {
+              const li = ownerDoc.createElement('li');
+              li.textContent = sentence.trim();
+              summaryEl.appendChild(li);
+            });
+          } else {
+            // Handle paragraph format
+            summaryEl.textContent = data.summary.text;
+          }
+          summaryRendered = true;
+        }
+      });
+      if (summaryRendered) {
+        console.log('[renderSummary] Summary rendered using selector:', selector);
+        return;
+      }
+    }
+  }
+  
+  // Special case: ColorfulBlocks has summary in .header p (but not MinimalistSimplePhoto's .contact-info p or Template2ColumnMinimal's title p)
+  if (!summaryRendered) {
+    const headerParagraphs = doc.querySelectorAll('.header p');
+    for (const p of Array.from(headerParagraphs)) {
+      // Skip if it's inside contact-info or has subtitle class
+      // Also skip if it looks like a title/role (all uppercase, short text)
+      const text = extractText(p);
+      const looksLikeTitle = text && text === text.toUpperCase() && text.length < 100;
+      
+      if (!p.closest('.contact-info') && !p.classList.contains('subtitle') && !looksLikeTitle) {
+        p.textContent = data.summary.text;
+        console.log('[renderSummary] Summary rendered to .header p (ColorfulBlocks)');
+        summaryRendered = true;
+        return;
+      }
     }
   }
   
@@ -271,31 +388,63 @@ function renderSummary(doc: Document, data: ResumeData): void {
   for (const section of Array.from(sections)) {
     const titleEl = section.querySelector('.section-title, h2, h3');
     if (titleEl && /summary|about|profile|objective/i.test(extractText(titleEl))) {
-      const contentEl = section.querySelector('.summary, .about-me-text, p, [class*="text"]') || section;
+      // More specific selector - prefer dedicated summary classes
+      // Avoid matching work-item or experience-item descriptions
+      let contentEl = section.querySelector('.summary, .about-me-text');
+      
+      // If not found, try to find a paragraph that's not inside a work/experience item
+      if (!contentEl) {
+        const paragraphs = section.querySelectorAll('p');
+        for (const p of Array.from(paragraphs)) {
+          // Skip if it's a section title or inside a work/experience item
+          if (!p.classList.contains('section-title') && 
+              !p.closest('.work-item') && 
+              !p.closest('.experience-item')) {
+            contentEl = p;
+            break;
+          }
+        }
+      }
+      
       // Don't overwrite the title
-      if (contentEl !== titleEl) {
+      if (contentEl && contentEl !== titleEl) {
         contentEl.textContent = data.summary.text;
+        console.log('[renderSummary] Summary rendered by finding section with title');
         return;
       }
     }
   }
+  
+  console.warn('[renderSummary] Summary was not rendered! No matching element found.');
 }
 
 /**
  * Render experience section
  */
 function renderExperience(doc: Document, data: ResumeData): void {
-  if (!data.experience || data.experience.length === 0) return;
+  if (!data.experience || data.experience.length === 0) {
+    console.log('[renderExperience] No experience data to render');
+    return;
+  }
+  
+  console.log('[renderExperience] Rendering', data.experience.length, 'experience items');
   
   const experienceSection = findSection(doc, ['experience', 'work', 'employment']);
-  if (!experienceSection) return;
+  if (!experienceSection) {
+    console.warn('[renderExperience] Experience section not found in template');
+    return;
+  }
   
   // Find template item - comprehensive selectors
-  const templateItem = experienceSection.querySelector('.experience-item, .job, .timeline-item, .work-item, .two-col-section');
-  if (!templateItem) return;
+  const templateItem = experienceSection.querySelector('.experience-item, .job, .timeline-item, .work-item, .two-col-section, .item, [class*="experience"]');
+  if (!templateItem) {
+    console.warn('[renderExperience] Template item not found in experience section');
+    return;
+  }
   
   // Clear existing items - comprehensive selectors
   const allItems = experienceSection.querySelectorAll('.experience-item, .job, .timeline-item, .work-item, .two-col-section');
+  console.log('[renderExperience] Removing', allItems.length, 'placeholder items');
   allItems.forEach(item => item.remove());
   
   // Render each experience item
@@ -304,6 +453,8 @@ function renderExperience(doc: Document, data: ResumeData): void {
     renderExperienceItem(itemEl, exp);
     experienceSection.appendChild(itemEl);
   }
+  
+  console.log('[renderExperience] Successfully rendered', data.experience.length, 'items');
 }
 
 /**
@@ -311,7 +462,15 @@ function renderExperience(doc: Document, data: ResumeData): void {
  */
 function renderExperienceItem(element: Element, data: ExperienceItem): void {
   // Render title - comprehensive selectors
-  const titleSelectors = ['.job-title', '.title', '.position', '.role', '.item-title', 'h3', 'h4'];
+  const titleSelectors = [
+    '.job-title',
+    '.title',
+    '.position',
+    '.role',
+    '.item-title',  // ModernProfessional
+    'h3',
+    'h4'
+  ];
   for (const selector of titleSelectors) {
     const titleEl = element.querySelector(selector);
     if (titleEl && !titleEl.classList.contains('section-title')) {
@@ -321,7 +480,15 @@ function renderExperienceItem(element: Element, data: ExperienceItem): void {
   }
   
   // Render company - comprehensive selectors
-  const companySelectors = ['.company', '.company-name', '.organization', '.company-location', '.date-company', '.details', '.item-subtitle'];
+  const companySelectors = [
+    '.company',
+    '.company-name',
+    '.organization',
+    '.company-location',
+    '.date-company',
+    '.details',  // OliveGreenModern
+    '.item-subtitle',  // ModernProfessional
+  ];
   for (const selector of companySelectors) {
     const companyEl = element.querySelector(selector);
     if (companyEl) {
@@ -342,7 +509,15 @@ function renderExperienceItem(element: Element, data: ExperienceItem): void {
   }
   
   // Render dates - comprehensive selectors
-  const dateSelectors = ['.date', '.dates', '.job-date', '.period', '.duration', '.item-date'];
+  const dateSelectors = [
+    '.date',
+    '.dates',
+    '.job-date',
+    '.period',
+    '.duration',
+    '.item-date',  // ModernProfessional
+    '.date-badge',  // ColorfulBlocks
+  ];
   for (const selector of dateSelectors) {
     const dateEl = element.querySelector(selector);
     if (dateEl && !dateEl.classList.contains('date-company')) {
@@ -355,10 +530,10 @@ function renderExperienceItem(element: Element, data: ExperienceItem): void {
   }
   
   // Render bullets - comprehensive selectors
-  const bulletsContainer = element.querySelector('.achievements, ul, .bullets, .item-description, .responsibilities-list');
+  const bulletsContainer = element.querySelector('.achievements, ul, .bullets, .item-description, .responsibilities-list, .experience-list');
   if (bulletsContainer && data.bullets.length > 0) {
     // If it's a paragraph element, join bullets with line breaks
-    if (bulletsContainer.tagName === 'P') {
+    if (bulletsContainer.tagName === 'P' || bulletsContainer.classList.contains('item-description')) {
       bulletsContainer.textContent = data.bullets.join('. ');
     } else {
       bulletsContainer.innerHTML = '';
@@ -377,17 +552,29 @@ function renderExperienceItem(element: Element, data: ExperienceItem): void {
  * Render education section
  */
 function renderEducation(doc: Document, data: ResumeData): void {
-  if (!data.education || data.education.length === 0) return;
+  if (!data.education || data.education.length === 0) {
+    console.log('[renderEducation] No education data to render');
+    return;
+  }
+  
+  console.log('[renderEducation] Rendering', data.education.length, 'education items');
   
   const educationSection = findSection(doc, ['education', 'academic']);
-  if (!educationSection) return;
+  if (!educationSection) {
+    console.warn('[renderEducation] Education section not found in template');
+    return;
+  }
   
   // Comprehensive template item selectors
-  const templateItem = educationSection.querySelector('.education-item, .school, .timeline-item, .two-col-section');
-  if (!templateItem) return;
+  const templateItem = educationSection.querySelector('.education-item, .school, .timeline-item, .two-col-section, [class*="education"]');
+  if (!templateItem) {
+    console.warn('[renderEducation] Template item not found in education section');
+    return;
+  }
   
   // Clear existing items - comprehensive selectors
   const allItems = educationSection.querySelectorAll('.education-item, .school, .timeline-item, .two-col-section');
+  console.log('[renderEducation] Removing', allItems.length, 'placeholder items');
   allItems.forEach(item => item.remove());
   
   // Render each education item
@@ -396,42 +583,86 @@ function renderEducation(doc: Document, data: ResumeData): void {
     renderEducationItem(itemEl, edu);
     educationSection.appendChild(itemEl);
   }
+  
+  console.log('[renderEducation] Successfully rendered', data.education.length, 'items');
 }
 
 /**
  * Render a single education item
  */
 function renderEducationItem(element: Element, data: EducationItem): void {
-  // Render school - comprehensive selectors
-  const schoolSelectors = ['.school', '.school-name', '.university', '.institution', '.college', '.item-subtitle', '.details'];
-  for (const selector of schoolSelectors) {
-    const schoolEl = element.querySelector(selector);
-    if (schoolEl) {
-      let text = data.school;
-      if (data.location && selector !== '.details') {
-        text += `, ${data.location}`;
-      }
-      schoolEl.textContent = text;
-      break;
-    }
-  }
+  // Check if this is MinimalistSimplePhoto template (school in .item-title, degree in .item-subtitle)
+  const isMinimalistPhoto = element.querySelector('.item-title') && element.querySelector('.item-subtitle') && 
+                            !element.querySelector('.item-header');
   
-  // Render degree - comprehensive selectors
-  const degreeSelectors = ['.degree', '.degree-info', '.major', '.field', '.item-title'];
-  for (const selector of degreeSelectors) {
-    const degreeEl = element.querySelector(selector);
-    if (degreeEl && !degreeEl.classList.contains('section-title')) {
-      let text = data.degree;
-      if (data.location && selector === '.degree-info') {
-        text += ` — ${data.location}`;
+  if (isMinimalistPhoto) {
+    // MinimalistSimplePhoto: REVERSED - school in .item-title, degree in .item-subtitle
+    const schoolEl = element.querySelector('.item-title');
+    if (schoolEl) {
+      schoolEl.textContent = data.school;
+    }
+    
+    const degreeEl = element.querySelector('.item-subtitle');
+    if (degreeEl) {
+      degreeEl.textContent = data.degree;
+    }
+  } else {
+    // Standard templates: degree in .item-title, school in .item-subtitle
+    
+    // Render school - comprehensive selectors
+    const schoolSelectors = [
+      '.school',
+      '.school-name',
+      '.university',
+      '.institution',
+      '.college',
+      '.item-subtitle',  // ModernProfessional
+      '.details',  // OliveGreenModern
+      '.item-subheader span:first-child',  // ColorfulBlocks (first span in subheader)
+    ];
+    for (const selector of schoolSelectors) {
+      const schoolEl = element.querySelector(selector);
+      if (schoolEl) {
+        let text = data.school;
+        if (data.location && selector !== '.details' && !selector.includes('subheader')) {
+          text += `, ${data.location}`;
+        }
+        schoolEl.textContent = text;
+        break;
       }
-      degreeEl.textContent = text;
-      break;
+    }
+    
+    // Render degree - comprehensive selectors
+    const degreeSelectors = [
+      '.degree',
+      '.degree-info',
+      '.major',
+      '.field',
+      '.item-title',  // ModernProfessional
+      'h3',  // OliveGreenModern
+      '.item-header .title',  // ColorfulBlocks
+    ];
+    for (const selector of degreeSelectors) {
+      const degreeEl = element.querySelector(selector);
+      if (degreeEl && !degreeEl.classList.contains('section-title')) {
+        let text = data.degree;
+        if (data.location && selector === '.degree-info') {
+          text += ` — ${data.location}`;
+        }
+        degreeEl.textContent = text;
+        break;
+      }
     }
   }
   
   // Render dates - comprehensive selectors
-  const dateSelectors = ['.date', '.education-date', '.graduation', '.item-date'];
+  const dateSelectors = [
+    '.date',
+    '.education-date',
+    '.graduation',
+    '.item-date',
+    '.date-badge',  // ColorfulBlocks
+  ];
   for (const selector of dateSelectors) {
     const dateEl = element.querySelector(selector);
     if (dateEl) {
@@ -450,7 +681,7 @@ function renderEducationItem(element: Element, data: EducationItem): void {
       element.textContent = text.replace(/GPA:?\s*[\d.]+/i, `GPA: ${data.gpa}`);
     } else {
       // Try to add GPA to degree info
-      const degreeEl = element.querySelector('.degree-info, .degree');
+      const degreeEl = element.querySelector('.degree-info, .degree, .item-subtitle');
       if (degreeEl) {
         degreeEl.textContent += ` | GPA: ${data.gpa}`;
       }
@@ -462,19 +693,30 @@ function renderEducationItem(element: Element, data: EducationItem): void {
  * Render skills section
  */
 function renderSkills(doc: Document, data: ResumeData): void {
-  if (!data.skills) return;
+  if (!data.skills) {
+    console.log('[renderSkills] No skills data to render');
+    return;
+  }
+  
+  console.log('[renderSkills] Rendering skills - groups:', data.skills.groups?.length || 0, 'items:', data.skills.items?.length || 0);
   
   const skillsSection = findSection(doc, ['skills', 'expertise', 'competencies']);
-  if (!skillsSection) return;
+  if (!skillsSection) {
+    console.warn('[renderSkills] Skills section not found in template');
+    return;
+  }
   
   // Handle grouped skills - comprehensive selectors
-  if (data.skills.groups) {
+  if (data.skills.groups && data.skills.groups.length > 0) {
+    console.log('[renderSkills] Rendering', data.skills.groups.length, 'skill groups');
+    
     const groupContainer = skillsSection.querySelector('.skills-group, .skill-group, .skills-grid')?.parentElement;
     if (groupContainer) {
       const templateGroup = skillsSection.querySelector('.skills-group, .skill-group, .skills-grid');
       if (templateGroup) {
         // Clear existing groups
-        const allGroups = groupContainer.querySelectorAll('.skills-group, .skill-group, .skills-grid > *');
+        const allGroups = groupContainer.querySelectorAll('.skills-group, .skill-group, .skills-grid');
+        console.log('[renderSkills] Removing', allGroups.length, 'placeholder skill groups');
         allGroups.forEach(g => g.remove());
         
         // Render each group
@@ -493,12 +735,16 @@ function renderSkills(doc: Document, data: ResumeData): void {
           
           groupContainer.appendChild(groupEl);
         }
+        console.log('[renderSkills] Successfully rendered', data.skills.groups.length, 'skill groups');
+        return;
       }
     }
   }
   
   // Handle flat skills list - comprehensive selectors
-  if (data.skills.items) {
+  if (data.skills.items && data.skills.items.length > 0) {
+    console.log('[renderSkills] Rendering', data.skills.items.length, 'flat skill items');
+    
     const skillsEl = skillsSection.querySelector('.skills-list, .skills, .expertise-list, ul');
     if (skillsEl) {
       if (skillsEl.tagName === 'UL') {
@@ -513,8 +759,12 @@ function renderSkills(doc: Document, data: ResumeData): void {
       } else {
         skillsEl.textContent = data.skills.items.join(', ');
       }
+      console.log('[renderSkills] Successfully rendered', data.skills.items.length, 'skill items');
+      return;
     }
   }
+  
+  console.warn('[renderSkills] Skills were not rendered! No matching element found.');
 }
 
 /**

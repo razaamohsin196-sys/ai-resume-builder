@@ -32,6 +32,7 @@ import {
   generateId,
   detectSectionType,
 } from './utils';
+import { isPlaceholderText, filterPlaceholderBullets } from './placeholder-filter';
 
 /**
  * Main parser function: HTML → ResumeData
@@ -74,6 +75,11 @@ function parseProfile(doc: Document): ProfileSection {
   ];
   profile.name = extractTextFromSelectors(doc, nameSelectors) || 'Unknown';
   
+  // Filter placeholder names
+  if (isPlaceholderText(profile.name)) {
+    profile.name = '';
+  }
+  
   // Extract title/role - comprehensive selectors
   const titleSelectors = [
     '.job-title',
@@ -83,6 +89,8 @@ function parseProfile(doc: Document): ProfileSection {
     '.profile-title',
     '.subtitle',
     '.header-left .title',
+    '.header-left h2',  // MinimalistSimplePhoto
+    '.header p',  // Template2ColumnMinimal (title is in .header p, after h1 name)
   ];
   profile.title = extractTextFromSelectors(doc, titleSelectors);
   
@@ -219,6 +227,8 @@ function parseSummary(doc: Document): SummarySection | undefined {
     '.profile-summary',
     '.about-me',
     '.about-me-text', // ModernProfessional
+    '.summary-list',  // ColorfulBlocks
+    '.header p:not(.subtitle)',  // ColorfulBlocks (paragraph in header, excluding subtitle)
     '[class*="summary"]',
   ];
   
@@ -229,11 +239,22 @@ function parseSummary(doc: Document): SummarySection | undefined {
     if (titleEl) {
       const titleText = extractText(titleEl);
       if (/summary|about|profile|objective/i.test(titleText)) {
+        // For ColorfulBlocks .summary-list (ul with li items)
+        const summaryList = section.querySelector('.summary-list, ul');
+        if (summaryList && summaryList.tagName === 'UL') {
+          const listItems = Array.from(summaryList.querySelectorAll('li'));
+          const text = listItems.map(li => extractText(li)).filter(t => t).join(' ');
+          if (text && !isPlaceholderText(text)) {
+            return { text };
+          }
+        }
+        
+        // Standard text extraction
         const contentEl = section.querySelector('.summary, .about-me-text, p, [class*="text"]') || section;
         let text = extractText(contentEl);
         // Remove the title from the text
         text = text.replace(titleText, '').trim();
-        if (text && text !== titleText) {
+        if (text && text !== titleText && !isPlaceholderText(text)) {
           return { text };
         }
       }
@@ -242,7 +263,7 @@ function parseSummary(doc: Document): SummarySection | undefined {
   
   // Try direct selectors
   const text = extractTextFromSelectors(doc, summarySelectors);
-  if (text) {
+  if (text && !isPlaceholderText(text)) {
     return { text };
   }
   
@@ -318,6 +339,7 @@ function parseExperienceItem(element: Element): ExperienceItem | null {
     '.duration',
     '.item-date',
     '.date-company', // Also contains date in some templates
+    '.date-badge',  // ColorfulBlocks
   ];
   
   const title = extractTextFromSelectors(element, titleSelectors);
@@ -355,8 +377,22 @@ function parseExperienceItem(element: Element): ExperienceItem | null {
   const { startDate, endDate } = parseDateRange(dateText);
   
   // Extract bullets - comprehensive selectors
-  const bulletsEl = element.querySelector('.achievements, ul, .bullets, .item-description, .responsibilities-list, [class*="description"]') || element;
-  const bullets = extractBullets(bulletsEl);
+  const bulletsEl = element.querySelector('.achievements, ul, .bullets, .item-description, .responsibilities-list, .experience-list, [class*="description"]') || element;
+  const rawBullets = extractBullets(bulletsEl);
+  
+  // Filter out placeholder bullets
+  const bullets = filterPlaceholderBullets(rawBullets);
+  
+  // If no valid bullets, try to extract from description paragraph
+  if (bullets.length === 0 && bulletsEl) {
+    const descParagraph = bulletsEl.querySelector('p');
+    if (descParagraph) {
+      const text = extractText(descParagraph);
+      if (text && !isPlaceholderText(text)) {
+        bullets.push(text);
+      }
+    }
+  }
   
   return {
     id: generateId(),
@@ -403,50 +439,80 @@ function parseEducation(doc: Document): EducationItem[] | undefined {
  * Parse a single education item
  */
 function parseEducationItem(element: Element): EducationItem | null {
-  // Comprehensive school selectors
-  const schoolSelectors = [
-    '.school',
-    '.school-name',
-    '.university',
-    '.institution',
-    '.college', // Template2ColumnStylishBlocks
-    '.item-subtitle', // ModernProfessional
-    '.details', // OliveGreenModern
-  ];
+  // Check if this is MinimalistSimplePhoto template (school in .item-title, degree in .item-subtitle, no .item-header)
+  const isMinimalistPhoto = element.querySelector('.item-title') && element.querySelector('.item-subtitle') && 
+                            !element.querySelector('.item-header') && element.classList.contains('education-item');
   
-  // Comprehensive degree selectors
-  const degreeSelectors = [
-    '.degree',
-    '.degree-info',
-    '.major',
-    '.field',
-    '.item-title', // ModernProfessional
-  ];
+  let school = '';
+  let degree = '';
+  
+  if (isMinimalistPhoto) {
+    // MinimalistSimplePhoto: REVERSED - school in .item-title, degree in .item-subtitle
+    const schoolEl = element.querySelector('.item-title');
+    if (schoolEl) {
+      school = extractText(schoolEl);
+    }
+    
+    const degreeEl = element.querySelector('.item-subtitle');
+    if (degreeEl) {
+      degree = extractText(degreeEl);
+    }
+  } else {
+    // Standard templates: degree in .item-title, school in .item-subtitle
+    
+    // Comprehensive school selectors
+    const schoolSelectors = [
+      '.school',
+      '.school-name',
+      '.university',
+      '.institution',
+      '.college', // Template2ColumnStylishBlocks
+      '.item-subtitle', // ModernProfessional
+      '.details', // OliveGreenModern
+    ];
+    
+    // Comprehensive degree selectors
+    const degreeSelectors = [
+      '.degree',
+      '.degree-info',
+      '.major',
+      '.field',
+      '.item-title', // ModernProfessional
+    ];
+    
+    school = extractTextFromSelectors(element, schoolSelectors);
+    degree = extractTextFromSelectors(element, degreeSelectors);
+    
+    // Handle combined school/location fields (e.g., "University, City A")
+    if (school && school.includes(',')) {
+      const parts = school.split(',');
+      school = parts[0].trim();
+    }
+    
+    // Handle pipe-separated fields
+    if (school && school.includes('|')) {
+      const parts = school.split('|').map(p => p.trim());
+      school = parts[0];
+    }
+  }
+  
+  if (!school && !degree) return null;
+  
+  // Filter placeholder data
+  if (isPlaceholderText(school)) school = '';
+  if (isPlaceholderText(degree)) degree = '';
+  
+  // If both are placeholders, return null
+  if (!school && !degree) return null;
   
   // Comprehensive date selectors
   const dateSelectors = [
     '.date',
     '.education-date',
     '.graduation',
-    '.item-date', // ModernProfessional
+    '.item-date', // ModernProfessional, MinimalistSimplePhoto
+    '.date-badge',  // ColorfulBlocks
   ];
-  
-  let school = extractTextFromSelectors(element, schoolSelectors);
-  let degree = extractTextFromSelectors(element, degreeSelectors);
-  
-  // Handle combined school/location fields (e.g., "University, City A")
-  if (school && school.includes(',')) {
-    const parts = school.split(',');
-    school = parts[0].trim();
-  }
-  
-  // Handle pipe-separated fields
-  if (school && school.includes('|')) {
-    const parts = school.split('|').map(p => p.trim());
-    school = parts[0];
-  }
-  
-  if (!school && !degree) return null;
   
   const dateText = extractTextFromSelectors(element, dateSelectors);
   const { startDate, endDate } = parseDateRange(dateText);
