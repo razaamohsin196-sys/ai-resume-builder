@@ -19,7 +19,7 @@ const html = `<style>
         .page {
             background-color: #ffffff;
             width: 816px;
-            height: 1056px;
+            min-height: 1056px;
             display: flex;
             box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
             margin-bottom: 0.2em;

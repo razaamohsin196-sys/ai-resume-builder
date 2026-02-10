@@ -20,7 +20,7 @@ const html = `<style>
 
         .page {
             width: 794px;
-            height: 1123px;
+            min-height: 1123px;
             background-color: white;
             margin-top: 0.2em;
             margin-bottom: 0.2em;

@@ -3,8 +3,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { CareerState, CareerIntent, RawInput, AppStep, CareerProfile, ResumeDraft, AiMessage } from '@/types/career';
 
-import { modifyResumeHtml } from "@/app/actions";
-
 interface CareerContextType extends CareerState {
     setStep: (step: AppStep) => void;
     setIntent: (intent: CareerIntent) => void;
@@ -53,7 +51,27 @@ export function CareerProvider({ children }: { children: React.ReactNode }) {
     // Save to local storage on change
     useEffect(() => {
         if (isClient) {
-            localStorage.setItem('career_agent_session', JSON.stringify(state));
+            try {
+                localStorage.setItem('career_agent_session', JSON.stringify(state));
+            } catch (e) {
+                // QuotaExceededError — likely caused by large base64 images in resumeHtml.
+                // Retry with base64 image data stripped from the HTML.
+                console.warn('localStorage quota exceeded, saving with images stripped', e);
+                try {
+                    const lightState = {
+                        ...state,
+                        resumeHtml: state.resumeHtml
+                            ? state.resumeHtml.replace(
+                                /src="data:image\/[^"]+"/g,
+                                'src=""'
+                              )
+                            : state.resumeHtml,
+                    };
+                    localStorage.setItem('career_agent_session', JSON.stringify(lightState));
+                } catch (e2) {
+                    console.error('Failed to save session even after stripping images', e2);
+                }
+            }
         }
     }, [state, isClient]);
 
@@ -79,8 +97,16 @@ export function CareerProvider({ children }: { children: React.ReactNode }) {
     const finishProcessing = () => setState((prev) => ({ ...prev, isProcessing: false }));
 
     const resetSession = () => {
-        setState(initialState);
+        // Clear all localStorage items related to the session FIRST
+        // This must happen before setState to avoid race conditions
         localStorage.removeItem('career_agent_session');
+        localStorage.removeItem('aiPanelWidth');
+        localStorage.removeItem('aiPanelCollapsed');
+        
+        // Force a page reload to completely reset all component states
+        // This ensures the editor and all other components start fresh
+        // We don't need to call setState since we're reloading anyway
+        window.location.href = '/';
     };
 
     const setAiMessages = (messagesOrUpdater: AiMessage[] | ((prev: AiMessage[]) => AiMessage[])) => {

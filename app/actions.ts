@@ -4,11 +4,9 @@ import { generateContent } from "@/lib/ai/gemini";
 import { SYSTEM_PROMPTS } from "@/lib/ai/prompts";
 import { RawInput, CareerIntent, CareerProfile, ResumeDraft, ResumeBullet } from "@/types/career";
 import { hydrateContext } from "@/lib/context-hydrator";
-import { getTemplateById } from "@/lib/templates"; // Registry import
-import { IngestionSource, CareerProfilePatch, ChatLearning } from "@/lib/ingestion/types";
+import { getTemplateById } from "@/lib/templates";
 import { processCareerProfile as processBridge } from "@/lib/bridge-process";
-
-
+import { careerProfileToResumeData, renderToTemplate, SectionType } from "@/lib/resume-data";
 
 // Mock data for when API key is missing
 const MOCK_PROFILE: CareerProfile = {
@@ -71,7 +69,6 @@ const MOCK_RESUME: ResumeDraft = {
 
 
 export async function processCareerProfile(inputs: RawInput[], intent: CareerIntent, overrides?: any) {
-    console.log("[BRIDGE] Delegating to Multi-Source Bridge...");
     return await processBridge(inputs, intent, overrides);
 }
 
@@ -80,13 +77,11 @@ import { ingestRawProfile as ingestBridge } from '@/lib/bridge-process';
 import { refineProfile as refineBridge } from '@/lib/ingestion/refinement';
 
 export async function ingestCareerProfile(inputs: RawInput[], intent: CareerIntent, overrides?: any) {
-    console.log("[ACTION] Ingesting Raw Profile...");
     return await ingestBridge(inputs, intent, overrides);
 }
 
 // NEW: Step 2 - Refinement (Slow)
 export async function refineCareerProfile(profile: CareerProfile, intent: CareerIntent, overrides?: any) {
-    console.log("[ACTION] Refining Profile...");
     return await refineBridge(profile, intent, overrides || {});
 }
 
@@ -99,9 +94,6 @@ async function processLegacy(inputs: RawInput[], intent: CareerIntent) {
     // Add System Context
     const intentContext = `Target Role: ${intent.targetRole}\nTarget Location: ${intent.targetLocation}\nYOE: ${intent.yearsOfExperience}\nGoal: ${intent.jobSearchIntent}`;
     parts.push({ text: `CONTEXT:\n${intentContext}` });
-
-    console.log(`[processCareerProfile] Received ${inputs.length} inputs`);
-    inputs.forEach((inp, idx) => console.log(`Input ${idx}: type=${inp.type} content_preview=${inp.content.substring(0, 50)}...`));
 
     // Add Inputs
     // We explicitly map the inputs to simple, 1-indexed integers so the model can easily cite them.
@@ -129,14 +121,6 @@ async function processLegacy(inputs: RawInput[], intent: CareerIntent) {
             parts.push({ text: `[Source ID: ${sourceId}] (${input.type}): ${input.content}` });
         }
     }
-
-    // Since we changed the internal logic to use parts, we need to bypass the simple generateContent helper
-    // or update `generateContent` to support parts. Let's update `generateContent` in gemini.ts instead.
-    // Actually, for speed, I'll just use the client directly here or update the helper.
-    // Let's update the helper to be more flexible. 
-
-    // Wait, I can't update the helper easily without breaking other calls or doing two edits.
-    // I'll just do a direct call here for the multimodal support to ensure it works perfect.
 
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) return MOCK_PROFILE;
@@ -323,10 +307,43 @@ export async function generateHtmlResume(profile: CareerProfile, intent: CareerI
         const result = await model.generateContent(prompt);
         let text = result.response.text();
         text = text.replace(/```html/g, '').replace(/```/g, '');
+        
+        // Check if AI returned the template unchanged (contains placeholder data)
+        if (text.includes('Becky Shu') || text.includes('beckyshu') || text.includes('beckyhsiung96')) {
+            // Fall back to deterministic rendering
+            return generateDeterministicHtml(profile, templateHtml);
+        }
+        
         return text;
     } catch (e) {
         console.error("Html Generation Error", e);
-        return templateHtml; // Fallback
+        return generateDeterministicHtml(profile, templateHtml);
+    }
+}
+
+/**
+ * Fallback: Generate HTML deterministically without AI
+ * Converts CareerProfile to ResumeData and uses renderToTemplate
+ */
+function generateDeterministicHtml(profile: CareerProfile, templateHtml: string): string {
+    try {
+        const resumeData = careerProfileToResumeData(profile);
+        
+        const template = {
+            id: 'current',
+            name: 'Current Template',
+            html: templateHtml,
+            hasPhoto: false,
+            supportedSections: ['profile', 'summary', 'experience', 'education', 'skills', 'projects', 'languages', 'certifications', 'volunteering'] as SectionType[],
+            sectionOrder: ['profile', 'summary', 'experience', 'education', 'skills', 'projects', 'languages', 'certifications', 'volunteering'] as SectionType[],
+            pageSize: 'A4' as const,
+        };
+        
+        const rendered = renderToTemplate(resumeData, template);
+        return rendered;
+    } catch (error) {
+        console.error('[generateDeterministicHtml] Deterministic rendering error:', error);
+        return templateHtml;
     }
 }
 
@@ -398,8 +415,6 @@ export async function modifyResumeHtml(currentHtml: string, instruction: string)
 
         // With Schema, text() is guaranteed to be valid JSON
         const text = result.response.text();
-        console.log("[AI RAW RESPONSE]:", text.substring(0, 500) + "..."); // Log start only
-
         try {
             const parsed = JSON.parse(text);
 
@@ -463,7 +478,6 @@ export async function modifyCareerProfile(currentProfile: CareerProfile, instruc
     let additionalContext = "";
     const urls = extractUrls(instruction);
     if (urls.length > 0) {
-        console.log(`[AI Coach] Detected URLs: ${urls.join(', ')}`);
         const hydratedContents = await Promise.all(urls.map(url => hydrateContext(url)));
         additionalContext = `\n\nEXTERNAL RESOURCES PROVIDED BY USER:\n${hydratedContents.filter(Boolean).join('\n\n')}`;
     }

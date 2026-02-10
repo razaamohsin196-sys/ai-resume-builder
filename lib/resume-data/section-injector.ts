@@ -38,14 +38,12 @@ export function injectSection(
   // Find where to inject (after last section or before a specific section)
   const insertionPoint = findInsertionPoint(doc, sectionType, template);
   if (!insertionPoint) {
-    console.warn(`Could not find insertion point for section: ${sectionType}`);
     return { html, sectionId: '' };
   }
   
   // Create the new section element
   const newSection = createSectionElement(doc, sectionType, data, template);
   if (!newSection) {
-    console.warn(`Could not create section element for: ${sectionType}`);
     return { html, sectionId: '' };
   }
   
@@ -108,7 +106,7 @@ function findInsertionPoint(
  */
 function findExistingSection(doc: Document, sectionType: SectionType): Element | null {
   const keywords = getSectionKeywords(sectionType);
-  const sections = doc.querySelectorAll('.section, section');
+  const sections = doc.querySelectorAll('.section, section, [class*="section"]');
   
   for (const section of Array.from(sections)) {
     const titleEl = section.querySelector('.section-title, h2, h3');
@@ -129,14 +127,14 @@ function findExistingSection(doc: Document, sectionType: SectionType): Element |
 function getSectionKeywords(sectionType: SectionType): string[] {
   const keywordMap: Record<SectionType, string[]> = {
     profile: ['contact', 'profile'],
-    summary: ['summary', 'about', 'profile'],
-    experience: ['experience', 'work', 'employment'],
+    summary: ['summary', 'about', 'profile', 'objective'],
+    experience: ['experience', 'work', 'employment', 'professional'],
     education: ['education', 'academic'],
-    skills: ['skills', 'expertise'],
-    projects: ['projects', 'portfolio'],
-    languages: ['languages', 'language'],
-    certifications: ['certifications', 'certificates', 'licenses'],
-    training: ['training', 'courses'],
+    skills: ['skill', 'expertise', 'competenc'],
+    projects: ['project', 'portfolio'],
+    languages: ['language'],
+    certifications: ['certification', 'certificate', 'license'],
+    training: ['training', 'course'],
     volunteering: ['volunteering', 'volunteer', 'community'],
     custom: ['custom'],
   };
