@@ -16,6 +16,7 @@ interface SectionManagerProps {
   template: ResumeTemplate;
   onHtmlChange: (html: string) => void;
   iframeRef?: React.RefObject<HTMLIFrameElement | null>;
+  isEditing?: boolean;
 }
 
 interface SectionOption {
@@ -118,7 +119,7 @@ function pickSectionData(careerData: ResumeData, sectionType: SectionType): Part
   }
 }
 
-export function SectionManager({ currentHtml, template, onHtmlChange, iframeRef }: SectionManagerProps) {
+export function SectionManager({ currentHtml, template, onHtmlChange, iframeRef, isEditing = true }: SectionManagerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
 
@@ -195,6 +196,7 @@ export function SectionManager({ currentHtml, template, onHtmlChange, iframeRef 
           variant="outline" 
           size="sm" 
           className="h-8 gap-1.5 hover:bg-primary hover:text-primary-foreground transition-colors"
+          disabled={!isEditing}
         >
           <Plus className="w-3.5 h-3.5" />
           <span className="hidden sm:inline-block">Add Section</span>

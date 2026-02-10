@@ -635,13 +635,20 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
             const pageWidthTwips = pageSize === 'Letter' ? 12240 : 11906;
             const pageHeightTwips = pageSize === 'Letter' ? 15840 : 16838;
 
-            // 3. Inject temporary cleanup styles (same as PDF export) for a clean capture
+            // 3. Inject temporary cleanup styles for a clean capture.
+            //    IMPORTANT: Do NOT override .pagination-pushed margins here.
+            //    Unlike PDF export (which uses the browser's print engine with CSS
+            //    page-break-before), DOCX export captures the canvas and slices it.
+            //    Collapsing pagination margins would misalign content with the fixed
+            //    slice intervals, causing content to be cut mid-line — especially in
+            //    colorful two-column templates where backgrounds must align per-page.
+            //    Instead, we keep the paginated layout intact and slice at positions
+            //    that skip the page-break gap areas.
             const tempStyle = iframeDoc.createElement('style');
             tempStyle.id = 'temp-docx-capture';
             tempStyle.textContent = `
                 .page-break-gap { display: none !important; }
                 .page-margin-spacer, .page-break-indicator, .page-number-footer { display: none !important; }
-                .pagination-pushed { margin-top: var(--print-margin, 0px) !important; }
                 .page, .resume-container { box-shadow: none !important; }
                 *[contenteditable] { outline: none !important; }
                 .review-issue { text-decoration: none !important; background-color: transparent !important; border-bottom: none !important; }
@@ -664,9 +671,22 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
             // Remove temporary styles
             iframeDoc.getElementById('temp-docx-capture')?.remove();
 
-            // 5. Slice into per-page images
+            // 5. Slice into per-page images, accounting for page-break gaps.
+            //    The pagination system inserts 28px-tall gap indicators between
+            //    pages and pushes content down accordingly. The captured canvas
+            //    includes these gap areas (rendered as blank space since we hid
+            //    the visual indicators). We must skip them when slicing so each
+            //    page image contains only its own content.
+            const pageGapHeight = 28; // Must match pagination script's pageGapHeight
+            // Use pageCount from React state (set via PAGE_COUNT message from the
+            // pagination script). Querying .page-break-gap elements from the DOM is
+            // unreliable here because html2canvas may trigger MutationObserver
+            // callbacks that cause the pagination script to remove & recreate them.
+            // Fall back to canvas-height calculation if state is stale.
             const capturedHeight = fullCanvas.height / scale;
-            const numPages = Math.max(1, Math.ceil(capturedHeight / pageHeightPx));
+            const numPages = pageCount > 1
+                ? pageCount
+                : Math.max(1, Math.ceil(capturedHeight / pageHeightPx));
 
             const pageImageBytes: Uint8Array[] = [];
             for (let i = 0; i < numPages; i++) {
@@ -677,7 +697,10 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
                 ctx.fillStyle = '#ffffff';
                 ctx.fillRect(0, 0, pgCanvas.width, pgCanvas.height);
 
-                const srcY = i * pageHeightPx * scale;
+                // Each page occupies pageHeightPx in the canvas, followed by a
+                // pageGapHeight gap (except for the last page). So page i starts
+                // at i * (pageHeightPx + pageGapHeight).
+                const srcY = i * (pageHeightPx + pageGapHeight) * scale;
                 const srcH = Math.min(pageHeightPx * scale, fullCanvas.height - srcY);
                 if (srcH > 0) {
                     ctx.drawImage(fullCanvas, 0, srcY, pageWidthPx * scale, srcH, 0, 0, pageWidthPx * scale, srcH);
@@ -764,10 +787,10 @@ ${imgRels}</Relationships>`);
         </w:drawing>
       </w:r>
     </w:p>`;
-                // Page break between pages
-                if (i < numPages - 1) {
-                    docBody += `\n    <w:p><w:r><w:br w:type="page"/></w:r></w:p>`;
-                }
+                // No explicit page break needed — each image is sized to fill the
+                // entire page (pageWidthEmu × pageHeightEmu with zero margins), so
+                // Word naturally starts the next image on a new page. Adding an
+                // explicit <w:br w:type="page"/> would create a blank page in between.
             }
 
             wordFolder.file('document.xml',
@@ -2596,7 +2619,7 @@ ${imgRels}</Relationships>`);
 
                     <Popover open={isTemplatePopoverOpen} onOpenChange={setIsTemplatePopoverOpen}>
                         <PopoverTrigger asChild>
-                            <Button variant="outline" size="sm" className="h-8 gap-1 border-dashed" disabled={isChangingTemplate}>
+                            <Button variant="outline" size="sm" className="h-8 gap-1 border-dashed" disabled={!isEditing || isChangingTemplate}>
                                 {isChangingTemplate ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <LayoutTemplate className="w-3.5 h-3.5" />}
                                 <span className="hidden sm:inline-block max-w-[100px] truncate">Template</span>
                             </Button>
@@ -2628,7 +2651,7 @@ ${imgRels}</Relationships>`);
 
                     <Popover>
                         <PopoverTrigger asChild>
-                            <Button variant="ghost" size="sm" className="h-8 gap-1 ml-1">
+                            <Button variant="ghost" size="sm" className="h-8 gap-1 ml-1" disabled={!isEditing}>
                                 <Settings className="w-3.5 h-3.5" />
                                 Spacing
                             </Button>
@@ -2674,11 +2697,12 @@ ${imgRels}</Relationships>`);
                             logHistory(html);
                         }}
                         iframeRef={iframeRef}
+                        isEditing={isEditing}
                     />
                     
                     <Popover>
                         <PopoverTrigger asChild>
-                            <Button variant="ghost" size="sm" className="h-8 gap-1">
+                            <Button variant="ghost" size="sm" className="h-8 gap-1" disabled={!isEditing}>
                                 <Layout className="w-3.5 h-3.5" />
                                 {pageSize}
                             </Button>
@@ -2723,10 +2747,10 @@ ${imgRels}</Relationships>`);
 
                     <div className="h-4 w-px bg-border mx-2" />
 
-                    <Button variant="ghost" size="icon" disabled={historyIndex <= 0} onClick={handleUndo}>
+                    <Button variant="ghost" size="icon" disabled={!isEditing || historyIndex <= 0} onClick={handleUndo}>
                         <Undo className="w-4 h-4" />
                     </Button>
-                    <Button variant="ghost" size="icon" disabled={historyIndex >= history.length - 1} onClick={handleRedo}>
+                    <Button variant="ghost" size="icon" disabled={!isEditing || historyIndex >= history.length - 1} onClick={handleRedo}>
                         <Redo className="w-4 h-4" />
                     </Button>
                 </div>
