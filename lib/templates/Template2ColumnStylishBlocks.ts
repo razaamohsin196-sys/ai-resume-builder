@@ -16,16 +16,16 @@ const html = `<style>
         .page {
             background-color: #ffffff;
             width: 794px;
-            height: 1123px;
+            min-height: 1123px;
             position: relative;
-            overflow: hidden;
+            overflow: visible;
             box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
             margin-bottom: 0.2em;
         }
 
         .main-container {
             display: flex;
-            height: 100%;
+            min-height: 100%;
         }
 
         .left-column {

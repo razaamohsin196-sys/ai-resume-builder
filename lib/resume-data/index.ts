@@ -10,6 +10,9 @@ export * from './parser';
 export * from './renderer';
 export * from './section-injector';
 export * from './adapters';
+export * from './profile-adapter';
+export * from './utils';
+export * from './placeholder-filter';
 
 import { parseResumeHtml } from './parser';
 import { renderToTemplate } from './renderer';
@@ -29,14 +32,14 @@ export function swapTemplate(currentHtml: string, newTemplate: ResumeTemplate): 
     const data = parseResumeHtml(currentHtml);
     
     // Step 2: Render to new template
-    let html = renderToTemplate(data, newTemplate);
+    const html = renderToTemplate(data, newTemplate);
     
     // Step 3: Apply template-specific adapters
     const result = applyAdapter(data, html, newTemplate);
     
     return result.html;
   } catch (error) {
-    console.error('Template swap error:', error);
+    console.error('[swapTemplate] Template swap error:', error);
     throw new Error(`Failed to swap template: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }

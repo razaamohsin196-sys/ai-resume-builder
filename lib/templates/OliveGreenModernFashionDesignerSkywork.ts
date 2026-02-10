@@ -120,7 +120,6 @@ const html = `<style>
         .main-content {
             display: flex;
             gap: 40px;
-            height: 100%;
         }
 
         .left-column,

@@ -19,7 +19,7 @@ const html = `<style>
 
         .page {
             width: 8.5in;
-            height: 11in;
+            min-height: 11in;
             background-color: #ffffff;
             margin: 2em 0;
             box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);

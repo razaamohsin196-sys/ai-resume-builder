@@ -43,7 +43,6 @@ const html = `<style>
             background: white;
             width: var(--page-width);
             min-height: var(--page-height);
-            max-height: var(--page-height);
             margin: 0 auto;
             padding: var(--page-margin);
             position: relative;
