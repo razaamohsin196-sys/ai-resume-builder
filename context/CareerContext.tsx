@@ -100,6 +100,8 @@ export function CareerProvider({ children }: { children: React.ReactNode }) {
         // Clear all localStorage items related to the session FIRST
         // This must happen before setState to avoid race conditions
         localStorage.removeItem('career_agent_session');
+        localStorage.removeItem('career_profile_resume_data');
+        localStorage.removeItem('resume_edits_data');
         localStorage.removeItem('aiPanelWidth');
         localStorage.removeItem('aiPanelCollapsed');
         

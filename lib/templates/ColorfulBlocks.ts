@@ -30,12 +30,14 @@ const html = `<style>
         }
 
         .left-column {
-            width: 43%;
+            width: 38%;
+            min-width: 38%;
             box-sizing: border-box;
         }
 
         .right-column {
-            width: 65%;
+            width: 62%;
+            min-width: 62%;
             background-color: #FFFFFF;
             display: flex;
             flex-direction: column;

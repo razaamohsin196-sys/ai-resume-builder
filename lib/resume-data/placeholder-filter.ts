@@ -190,3 +190,59 @@ export function cleanPlaceholderData(data: any): any {
   
   return data;
 }
+
+/**
+ * Clean template HTML for preview display by stripping all visible placeholder text.
+ * Preserves structure and styling but removes fake names, Lorem ipsum, fake emails, etc.
+ * Works on raw HTML strings using regex (no DOM required).
+ */
+export function cleanTemplateHtmlForPreview(html: string): string {
+  if (!html) return html;
+  
+  // Step 1: Split HTML into style/script regions and content regions
+  // to avoid accidentally modifying CSS or JS.
+  // Process only text content outside <style> and <script> tags.
+  const parts: string[] = [];
+  let lastIndex = 0;
+  
+  // Match <style>...</style> and <script>...</script> blocks (preserve them unchanged)
+  const tagPattern = /<(style|script)[\s>][\s\S]*?<\/\1>/gi;
+  let tagMatch;
+  
+  while ((tagMatch = tagPattern.exec(html)) !== null) {
+    // Process the content BEFORE this tag block
+    if (tagMatch.index > lastIndex) {
+      parts.push(cleanTextSegments(html.slice(lastIndex, tagMatch.index)));
+    }
+    // Preserve the style/script block unchanged
+    parts.push(tagMatch[0]);
+    lastIndex = tagMatch.index + tagMatch[0].length;
+  }
+  
+  // Process the remaining content after the last style/script block
+  if (lastIndex < html.length) {
+    parts.push(cleanTextSegments(html.slice(lastIndex)));
+  }
+  
+  return parts.join('');
+}
+
+/**
+ * Clean text content between HTML tags in a segment that is NOT inside <style>/<script>.
+ */
+function cleanTextSegments(segment: string): string {
+  return segment.replace(
+    />((?:[^<]|\n)+)</g,
+    (match, textContent: string) => {
+      const trimmed = textContent.trim();
+      if (!trimmed) return match; // Preserve whitespace-only
+      
+      if (isPlaceholderText(trimmed)) {
+        // Preserve the tag boundary characters but blank the text
+        return '> <';
+      }
+      
+      return match;
+    }
+  );
+}

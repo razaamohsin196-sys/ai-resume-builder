@@ -11,6 +11,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { CheckCircle2, AlertCircle, HelpCircle, BrainCircuit, Sparkles, Send, MessageSquareText, Plus, Trash2, LayoutTemplate, Image as ImageIcon, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { CareerProfileItem } from '@/types/career';
 import { modifyCareerProfile, refineCareerProfile, ingestCareerProfile } from '@/app/actions';
+import { saveCareerProfileResumeData } from '@/lib/resume-data/profile-adapter';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -161,8 +162,15 @@ export function ProfileReview() {
 
     const handleProceedToDraft = (withTailoring: boolean) => {
         // Ensure we commit the refined profile to the main context if selected
+        const profileToCommit = (activeTab === 'refined' && refinedProfile) ? refinedProfile : profile;
         if (activeTab === 'refined' && refinedProfile) {
             setRawProfile(refinedProfile); // Commit refined as the "truth" for next steps
+        }
+
+        // Store the full career profile ResumeData in localStorage
+        // so SectionManager can use it when user manually adds sections later
+        if (profileToCommit) {
+            saveCareerProfileResumeData(profileToCommit);
         }
 
         if (withTailoring && jobDescription.trim() && intent) {

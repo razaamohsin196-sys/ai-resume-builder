@@ -3,10 +3,11 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Plus, Briefcase, GraduationCap, Award, Languages, BookOpen, Heart, Sparkles, Loader2 } from 'lucide-react';
-import { SectionType } from '@/lib/resume-data/schema';
+import { Plus, Briefcase, GraduationCap, Award, Languages, BookOpen, Heart, Sparkles, Loader2, Trophy, FileText } from 'lucide-react';
+import { SectionType, ResumeData } from '@/lib/resume-data/schema';
 import { getMissingSections, injectSection } from '@/lib/resume-data/section-injector';
 import { parseResumeHtml } from '@/lib/resume-data/parser';
+import { loadCareerProfileResumeData, loadResumeEditsData, saveResumeEditsData } from '@/lib/resume-data/profile-adapter';
 import { ResumeTemplate } from '@/lib/templates/types';
 import { cn } from '@/lib/utils';
 
@@ -62,6 +63,20 @@ const SECTION_OPTIONS: SectionOption[] = [
     color: 'text-rose-600 bg-rose-50 dark:bg-rose-950',
   },
   {
+    type: 'awards',
+    label: 'Awards',
+    description: 'Honors and achievements',
+    icon: Trophy,
+    color: 'text-yellow-600 bg-yellow-50 dark:bg-yellow-950',
+  },
+  {
+    type: 'publications',
+    label: 'Publications',
+    description: 'Published works and papers',
+    icon: FileText,
+    color: 'text-cyan-600 bg-cyan-50 dark:bg-cyan-950',
+  },
+  {
     type: 'custom',
     label: 'Custom Section',
     description: 'Add any custom content',
@@ -70,6 +85,39 @@ const SECTION_OPTIONS: SectionOption[] = [
   },
 ];
 
+/**
+ * Pick the relevant section data from career profile ResumeData
+ * for the section type being injected.
+ */
+function pickSectionData(careerData: ResumeData, sectionType: SectionType): Partial<ResumeData> {
+  switch (sectionType) {
+    case 'projects':
+      return careerData.projects ? { projects: careerData.projects } : {};
+    case 'certifications':
+      return careerData.certifications ? { certifications: careerData.certifications } : {};
+    case 'languages':
+      return careerData.languages ? { languages: careerData.languages } : {};
+    case 'training':
+      return careerData.training ? { training: careerData.training } : {};
+    case 'volunteering':
+      return careerData.volunteering ? { volunteering: careerData.volunteering } : {};
+    case 'awards':
+      return careerData.awards ? { awards: careerData.awards } : {};
+    case 'publications':
+      return careerData.publications ? { publications: careerData.publications } : {};
+    case 'skills':
+      return careerData.skills ? { skills: careerData.skills } : {};
+    case 'experience':
+      return careerData.experience ? { experience: careerData.experience } : {};
+    case 'education':
+      return careerData.education ? { education: careerData.education } : {};
+    case 'summary':
+      return careerData.summary ? { summary: careerData.summary } : {};
+    default:
+      return {};
+  }
+}
+
 export function SectionManager({ currentHtml, template, onHtmlChange, iframeRef }: SectionManagerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
@@ -77,11 +125,33 @@ export function SectionManager({ currentHtml, template, onHtmlChange, iframeRef 
   const handleAddSection = async (sectionType: SectionType) => {
     setIsAdding(true);
     try {
-      // Parse current data
-      const data = parseResumeHtml(currentHtml);
+      // Parse current HTML data
+      const parsedData = parseResumeHtml(currentHtml);
+      
+      // Load saved edits data (accumulated across template switches)
+      const editsData = loadResumeEditsData();
+      // Load career profile data (original data from profile generation)
+      const careerData = loadCareerProfileResumeData();
+      
+      // Merge: edits data takes priority over career data for the section being added
+      const bestFallback = editsData || careerData;
+      const data: ResumeData = bestFallback
+        ? { ...parsedData, ...pickSectionData(bestFallback, sectionType) }
+        : parsedData;
       
       // Inject the new section
       const { html: newHtml, sectionId } = injectSection(currentHtml, sectionType, data, template);
+      
+      // Persist the merged data to localStorage so edits survive template switches
+      try {
+        const updatedData = parseResumeHtml(newHtml);
+        const prevEdits = loadResumeEditsData();
+        // Merge: keep all previous edits, overlay with new parsed data
+        const merged = prevEdits
+          ? { ...prevEdits, ...updatedData, profile: { ...(prevEdits.profile || {}), ...updatedData.profile } }
+          : updatedData;
+        saveResumeEditsData(merged);
+      } catch (_) { /* non-critical */ }
       
       // Update HTML
       onHtmlChange(newHtml);

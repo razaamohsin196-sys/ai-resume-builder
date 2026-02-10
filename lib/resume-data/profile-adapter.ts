@@ -6,7 +6,7 @@
  */
 
 import { CareerProfile, CareerProfileItem } from '@/types/career';
-import { ResumeData, ExperienceItem, EducationItem, ProjectItem, SkillsSection, LanguageItem, CertificationItem } from './schema';
+import { ResumeData, ExperienceItem, EducationItem, ProjectItem, SkillsSection, LanguageItem, CertificationItem, AwardItem, PublicationItem } from './schema';
 
 /**
  * Convert CareerProfile to ResumeData
@@ -20,11 +20,13 @@ export function careerProfileToResumeData(profile: CareerProfile): ResumeData {
   const certItems = profile.items.filter(item => item.category === 'certification');
   const languageItems = profile.items.filter(item => item.category === 'language');
   const volunteerItems = profile.items.filter(item => item.category === 'volunteer');
+  const awardItems = profile.items.filter(item => item.category === 'award');
+  const publicationItems = profile.items.filter(item => item.category === 'publication');
 
   // Build ResumeData
   const resumeData: ResumeData = {
     profile: {
-      name: profile.personal?.name || 'Your Name',
+      name: profile.personal?.name || '',
       location: profile.personal?.location,
       email: profile.contact?.email,
       phone: profile.contact?.phone,
@@ -34,13 +36,15 @@ export function careerProfileToResumeData(profile: CareerProfile): ResumeData {
       photo: profile.personal?.photos?.[0],
     },
     summary: profile.summary ? { text: profile.summary } : undefined,
-    experience: roleItems.map(convertToExperience),
-    education: educationItems.map(convertToEducation),
+    experience: roleItems.length > 0 ? roleItems.map(convertToExperience) : undefined,
+    education: educationItems.length > 0 ? educationItems.map(convertToEducation) : undefined,
     skills: convertToSkills(skillItems),
     projects: projectItems.length > 0 ? projectItems.map(convertToProject) : undefined,
     languages: languageItems.length > 0 ? languageItems.map(convertToLanguage) : undefined,
     certifications: certItems.length > 0 ? certItems.map(convertToCertification) : undefined,
     volunteering: volunteerItems.length > 0 ? volunteerItems.map(convertToVolunteering) : undefined,
+    awards: awardItems.length > 0 ? awardItems.map(convertToAward) : undefined,
+    publications: publicationItems.length > 0 ? publicationItems.map(convertToPublication) : undefined,
   };
 
   return resumeData;
@@ -72,7 +76,7 @@ function convertToExperience(item: CareerProfileItem): ExperienceItem {
   return {
     id: item.id,
     title: item.title,
-    company: item.organization || 'Company',
+    company: item.organization || '',
     location: '', // Not in CareerProfileItem
     startDate,
     endDate,
@@ -100,7 +104,7 @@ function convertToEducation(item: CareerProfileItem): EducationItem {
   return {
     id: item.id,
     degree: item.title,
-    school: item.organization || 'University',
+    school: item.organization || '',
     location: '', // Not in CareerProfileItem
     startDate,
     endDate,
@@ -111,11 +115,26 @@ function convertToEducation(item: CareerProfileItem): EducationItem {
  * Convert CareerProfileItem (project) to ProjectItem
  */
 function convertToProject(item: CareerProfileItem): ProjectItem {
+  // Parse dates (format: "Jan 2020 - Dec 2022" or "2020 - 2022")
+  let startDate = '';
+  let endDate = '';
+  if (item.dates) {
+    const dateParts = item.dates.split(/\s*[-–—]\s*/);
+    if (dateParts.length >= 2) {
+      startDate = dateParts[0].trim();
+      endDate = dateParts[1].trim();
+    } else {
+      startDate = item.dates;
+    }
+  }
+
   return {
     id: item.id,
     title: item.title,
     organization: item.organization,
     description: item.description,
+    startDate: startDate || undefined,
+    endDate: endDate || undefined,
   };
 }
 
@@ -151,7 +170,7 @@ function convertToCertification(item: CareerProfileItem): CertificationItem {
   return {
     id: item.id,
     name: item.title,
-    issuer: item.organization || 'Issuer',
+    issuer: item.organization || '',
     date: item.dates,
   };
 }
@@ -176,9 +195,118 @@ function convertToVolunteering(item: CareerProfileItem) {
   return {
     id: item.id,
     role: item.title,
-    organization: item.organization || 'Organization',
+    organization: item.organization || '',
     startDate,
     endDate,
     description: item.description,
   };
+}
+
+/**
+ * Convert CareerProfileItem (award) to AwardItem
+ */
+function convertToAward(item: CareerProfileItem): AwardItem {
+  return {
+    id: item.id,
+    name: item.title,
+    issuer: item.organization || '',
+    date: item.dates,
+    description: item.description || '',
+  };
+}
+
+/**
+ * Convert CareerProfileItem (publication) to PublicationItem
+ */
+function convertToPublication(item: CareerProfileItem): PublicationItem {
+  return {
+    id: item.id,
+    title: item.title,
+    publisher: item.organization || '',
+    date: item.dates,
+    description: item.description || '',
+  };
+}
+
+// --- localStorage helpers for resume data persistence ---
+
+const CAREER_PROFILE_RESUME_DATA_KEY = 'career_profile_resume_data';
+const RESUME_EDITS_DATA_KEY = 'resume_edits_data';
+
+/**
+ * Store the career profile as ResumeData in localStorage.
+ * Called when user clicks "Generate" in ProfileReview.
+ */
+export function saveCareerProfileResumeData(profile: CareerProfile): void {
+  try {
+    const resumeData = careerProfileToResumeData(profile);
+    localStorage.setItem(CAREER_PROFILE_RESUME_DATA_KEY, JSON.stringify(resumeData));
+  } catch (e) {
+    console.error('[saveCareerProfileResumeData] Failed to save:', e);
+  }
+}
+
+/**
+ * Load the stored career profile ResumeData from localStorage.
+ * Used by SectionManager to populate sections with actual data.
+ */
+export function loadCareerProfileResumeData(): ResumeData | null {
+  try {
+    const stored = localStorage.getItem(CAREER_PROFILE_RESUME_DATA_KEY);
+    if (!stored) return null;
+    return JSON.parse(stored) as ResumeData;
+  } catch (e) {
+    console.error('[loadCareerProfileResumeData] Failed to load:', e);
+    return null;
+  }
+}
+
+/**
+ * Clear stored career profile ResumeData from localStorage.
+ */
+export function clearCareerProfileResumeData(): void {
+  try {
+    localStorage.removeItem(CAREER_PROFILE_RESUME_DATA_KEY);
+  } catch (e) {
+    // ignore
+  }
+}
+
+/**
+ * Save the latest resume edits data to localStorage.
+ * Called after each template switch or AI modification to
+ * accumulate edits so they survive across template switches.
+ */
+export function saveResumeEditsData(data: ResumeData): void {
+  try {
+    localStorage.setItem(RESUME_EDITS_DATA_KEY, JSON.stringify(data));
+  } catch (e) {
+    console.error('[saveResumeEditsData] Failed to save:', e);
+  }
+}
+
+/**
+ * Load the latest resume edits data from localStorage.
+ * This is the accumulated edits data from prior template switches/edits.
+ */
+export function loadResumeEditsData(): ResumeData | null {
+  try {
+    const stored = localStorage.getItem(RESUME_EDITS_DATA_KEY);
+    if (!stored) return null;
+    return JSON.parse(stored) as ResumeData;
+  } catch (e) {
+    console.error('[loadResumeEditsData] Failed to load:', e);
+    return null;
+  }
+}
+
+/**
+ * Clear stored resume edits data from localStorage.
+ */
+export function clearResumeEditsData(): void {
+  try {
+    localStorage.removeItem(RESUME_EDITS_DATA_KEY);
+  } catch (e) {
+    // ignore
+  }
 }

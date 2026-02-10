@@ -524,3 +524,35 @@ export function getNormalizedSelectors(sectionType: string): Record<string, stri
       return {};
   }
 }
+
+/**
+ * Extract ResumeData from embedded JSON in HTML
+ * Returns null if no data is found
+ */
+export function extractResumeData(html: string): any | null {
+  try {
+    const doc = parseHtmlToDOM(html);
+    const scriptEl = doc.querySelector('script#resume-data[type="application/json"]');
+    
+    if (!scriptEl || !scriptEl.textContent) {
+      return null;
+    }
+    
+    return JSON.parse(scriptEl.textContent);
+  } catch (error) {
+    console.error('Failed to extract resume data from HTML:', error);
+    return null;
+  }
+}
+
+/**
+ * Check if HTML document has embedded resume data
+ */
+export function hasEmbeddedResumeData(html: string): boolean {
+  try {
+    const doc = parseHtmlToDOM(html);
+    return !!doc.querySelector('script#resume-data[type="application/json"]');
+  } catch (error) {
+    return false;
+  }
+}

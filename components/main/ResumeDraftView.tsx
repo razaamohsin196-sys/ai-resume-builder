@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useCareer } from '@/context/CareerContext';
 import { generateHtmlResume, generateResumeDraft } from '@/app/actions';
 import { ResumeDraft } from '@/types/career';
+import { parseResumeHtml, saveResumeEditsData } from '@/lib/resume-data';
 import { Button } from '@/components/ui/button';
 import { Loader2, Download, ArrowLeft, Sparkles, CheckCircle2, ChevronRight, Edit } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -44,6 +45,13 @@ export function ResumeDraftView() {
 
                     setResumeHtml(html);
                     setResume(draft);
+                    
+                    // Seed the edits data store with the initial generated resume
+                    // so template switching has complete data from the start
+                    try {
+                        const initialData = parseResumeHtml(html);
+                        saveResumeEditsData(initialData);
+                    } catch (_) { /* non-critical */ }
                 } catch (e) {
                     console.error(e);
                 }
