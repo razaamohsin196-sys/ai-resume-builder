@@ -75,9 +75,8 @@ export function InputDropzone() {
     };
 
     const handleProceed = () => {
-        // Skip full-screen loader (ProcessingView) and go straight to review
-        // Ingestion will happen inside ProfileReview
-        setStep('profile-review');
+        // Go to processing step which will extract form data
+        setStep('processing');
     };
 
     const handleGenerate = async () => {

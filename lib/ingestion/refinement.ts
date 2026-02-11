@@ -1,6 +1,6 @@
 
 import { CareerProfile, CareerIntent, CareerProfileItem } from '@/types/career';
-import { generateContent } from '@/lib/ai/gemini';
+import { generateContent } from '@/lib/ai/provider';
 import { SYSTEM_PROMPTS } from '@/lib/ai/prompts';
 import { CareerProfileAggregator } from './aggregator';
 import { CareerProfilePatch } from './types';

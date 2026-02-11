@@ -10,6 +10,7 @@ import { ProfileReview } from "@/components/main/ProfileReview";
 import { ResumeDraftView } from "@/components/main/ResumeDraftView";
 import { InterviewPrepView } from "@/components/interview/InterviewPrepView";
 import { ResumeEditor } from "@/components/editor/ResumeEditor";
+import { CareerProfileForm } from "@/components/onboarding/CareerProfileForm";
 import { KUSE_RESUME_TEMPLATE } from "@/lib/templates/kuseResume";
 
 export default function Home() {
@@ -48,6 +49,7 @@ export default function Home() {
       )}
 
       {step === 'processing' && <ProcessingView />}
+      {step === 'profile-form' && <CareerProfileForm />}
       {step === 'profile-review' && <ProfileReview />}
       {step === 'resume-draft' && <ResumeDraftView />}
       {step === 'resume-editor' && <ResumeEditor initialHtml={resumeHtml || KUSE_RESUME_TEMPLATE} />}

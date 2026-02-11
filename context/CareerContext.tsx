@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { CareerState, CareerIntent, RawInput, AppStep, CareerProfile, ResumeDraft, AiMessage } from '@/types/career';
+import { CareerProfileFormData } from '@/types/form';
 
 interface CareerContextType extends CareerState {
     setStep: (step: AppStep) => void;
@@ -11,6 +12,7 @@ interface CareerContextType extends CareerState {
     setProfile: (profile: CareerProfile) => void;
     setResume: (resume: ResumeDraft) => void;
     setResumeHtml: (html: string) => void;
+    setFormData: (formData: CareerProfileFormData | null) => void;
     startProcessing: () => void;
     finishProcessing: () => void;
     resetSession: () => void;
@@ -92,6 +94,7 @@ export function CareerProvider({ children }: { children: React.ReactNode }) {
     const setProfile = (profile: CareerProfile) => setState((prev) => ({ ...prev, profile }));
     const setResume = (resume: ResumeDraft) => setState((prev) => ({ ...prev, resume }));
     const setResumeHtml = (resumeHtml: string) => setState((prev) => ({ ...prev, resumeHtml }));
+    const setFormData = (formData: CareerProfileFormData | null) => setState((prev) => ({ ...prev, formData: formData || undefined }));
 
     const startProcessing = () => setState((prev) => ({ ...prev, isProcessing: true }));
     const finishProcessing = () => setState((prev) => ({ ...prev, isProcessing: false }));
@@ -129,6 +132,7 @@ export function CareerProvider({ children }: { children: React.ReactNode }) {
                 setProfile,
                 setResume,
                 setResumeHtml,
+                setFormData,
                 startProcessing,
                 finishProcessing,
                 resetSession,

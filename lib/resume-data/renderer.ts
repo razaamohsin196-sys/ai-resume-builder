@@ -873,13 +873,62 @@ function renderEducationItem(element: Element, data: EducationItem): void {
  */
 function renderSkills(doc: Document, data: ResumeData): void {
   if (!data.skills || (!data.skills.groups?.length && !data.skills.items?.length)) {
-    const skillsSection = findSection(doc, ['skill', 'expertise', 'competenc']);
+    const skillsSection = findSection(doc, ['skill', 'expertise', 'competenc', 'technical', 'technologies']);
     if (skillsSection) skillsSection.remove();
     return;
   }
   
-  const skillsSection = findSection(doc, ['skill', 'expertise', 'competenc']);
-  if (!skillsSection) return;
+  // Try multiple keywords to find skills section
+  const skillsSection = findSection(doc, ['skill', 'expertise', 'competenc', 'technical', 'technologies', 'proficienc']);
+  if (!skillsSection) {
+    console.warn('[renderSkills] Could not find skills section in template');
+    return;
+  }
+  
+  console.log(`[renderSkills] Found skills section, populating ${data.skills.items?.length || data.skills.groups?.length || 0} skills`);
+  
+  // CRITICAL: Clear ALL hardcoded/placeholder skills FIRST, before any population
+  // This must happen for both grouped and flat skills
+  const allUlsInSection = skillsSection.querySelectorAll('ul');
+  console.log(`[renderSkills] Found ${allUlsInSection.length} <ul> elements, clearing all existing <li> items`);
+  
+  // Remove ALL <li> items from ALL <ul> elements in the skills section
+  allUlsInSection.forEach((ul, idx) => {
+    const listItems = ul.querySelectorAll('li');
+    if (listItems.length > 0) {
+      console.log(`[renderSkills] Clearing ${listItems.length} hardcoded skills from UL ${idx + 1}:`, 
+        Array.from(listItems).slice(0, 3).map(li => li.textContent?.trim()).filter(Boolean));
+    }
+    
+    // Clear innerHTML completely - this removes ALL hardcoded skills
+    // Only skip if the ul is actually part of a section title (which shouldn't happen)
+    const isInTitle = ul.closest('h2, h3, .section-title');
+    if (!isInTitle) {
+      // Completely clear the ul - we'll repopulate it with real skills
+      ul.innerHTML = '';
+      console.log(`[renderSkills] Cleared innerHTML of UL ${idx + 1}`);
+    } else {
+      // If somehow in a title, just remove the li items
+      listItems.forEach(li => {
+        if (!li.closest('.section-title')) {
+          li.remove();
+        }
+      });
+    }
+  });
+  
+  // Also clear any text content in skills containers that might have comma-separated skills
+  const skillsContainers = skillsSection.querySelectorAll('.skills-list, .skills, .expertise-list, p, span, div');
+  skillsContainers.forEach(el => {
+    if (!el.closest('.section-title') && !el.closest('ul') && !el.closest('h2') && !el.closest('h3')) {
+      const text = extractText(el).toLowerCase();
+      // If it looks like it contains skills (has commas and skill-like words), clear it
+      if (text.includes(',') && (text.includes('illustration') || text.includes('design') || text.includes('programming') || text.includes('knowledge') || text.length > 20)) {
+        el.textContent = '';
+        el.innerHTML = '';
+      }
+    }
+  });
   
   // Handle grouped skills - comprehensive selectors
   if (data.skills.groups && data.skills.groups.length > 0) {
@@ -917,16 +966,21 @@ function renderSkills(doc: Document, data: ResumeData): void {
   if (data.skills?.items && data.skills.items.length > 0) {
     const skillItems = data.skills.items;
     
+    console.log(`[renderSkills] Starting to populate ${skillItems.length} skills:`, skillItems.slice(0, 5));
+    
+    // Note: Hardcoded skills were already cleared above, now we just populate
+    
     // Check for skills-grid with multiple ULs (BandwProfessional)
     const skillsGrid = skillsSection.querySelector('.skills-grid');
     if (skillsGrid) {
       const uls = skillsGrid.querySelectorAll('ul');
       if (uls.length > 0) {
+        // Clear all first
+        uls.forEach(ul => ul.innerHTML = '');
         // Distribute skills evenly across existing ULs
         const itemsPerList = Math.ceil(skillItems.length / uls.length);
         const ownerDoc = skillsGrid.ownerDocument || document;
         uls.forEach((ul, idx) => {
-          ul.innerHTML = '';
           const start = idx * itemsPerList;
           const end = Math.min(start + itemsPerList, skillItems.length);
           for (let i = start; i < end; i++) {
@@ -935,26 +989,95 @@ function renderSkills(doc: Document, data: ResumeData): void {
             ul.appendChild(li);
           }
         });
+        console.log(`[renderSkills] Populated ${skillItems.length} skills across ${uls.length} ULs in skills-grid`);
         return;
       }
     }
     
-    const skillsEl = skillsSection.querySelector('.skills-list, .skills, .expertise-list, ul');
-    if (skillsEl) {
-      if (skillsEl.tagName === 'UL') {
-        // If it's a list, create list items
-        skillsEl.innerHTML = '';
-        const ownerDoc = skillsEl.ownerDocument || document;
+    // Find ALL ul elements in the skills section (not just the first one)
+    // We already cleared them above, now we populate
+    const allUls = skillsSection.querySelectorAll('ul');
+    if (allUls.length > 0) {
+      // Use the first ul (or the one that's not in section-title)
+      let targetUl: Element | null = null;
+      for (const ul of Array.from(allUls)) {
+        // Skip if it's part of a section title
+        if (!ul.closest('.section-title') && !ul.closest('h2') && !ul.closest('h3')) {
+          targetUl = ul;
+          break;
+        }
+      }
+      // Fallback to first ul if none found (but log a warning)
+      if (!targetUl && allUls.length > 0) {
+        targetUl = allUls[0];
+        console.warn(`[renderSkills] Using first UL as fallback (might be in title)`);
+      }
+      
+      if (targetUl) {
+        // Double-check it's empty (should already be from above)
+        if (targetUl.querySelectorAll('li').length > 0) {
+          console.warn(`[renderSkills] UL still has ${targetUl.querySelectorAll('li').length} items, clearing again`);
+          targetUl.innerHTML = '';
+        }
+        
+        const ownerDoc = targetUl.ownerDocument || document;
         for (const skill of skillItems) {
           const li = ownerDoc.createElement('li');
           li.textContent = skill;
-          skillsEl.appendChild(li);
+          targetUl.appendChild(li);
         }
+        console.log(`[renderSkills] ✅ Successfully populated ${skillItems.length} skills as list items in UL`);
+        console.log(`[renderSkills] Skills added:`, skillItems.slice(0, 10));
+        
+        // Verify the skills were actually added
+        const verifyCount = targetUl.querySelectorAll('li').length;
+        if (verifyCount !== skillItems.length) {
+          console.error(`[renderSkills] ⚠️ Mismatch! Expected ${skillItems.length} skills but found ${verifyCount} in UL`);
+        }
+        return;
       } else {
-        skillsEl.textContent = skillItems.join(', ');
+        console.warn(`[renderSkills] Found ${allUls.length} ULs but couldn't select target UL`);
       }
+    } else {
+      console.warn(`[renderSkills] No <ul> elements found in skills section!`);
+    }
+    
+    // Try other selectors for skills container (non-ul elements)
+    const skillsEl = skillsSection.querySelector('.skills-list, .skills, .expertise-list, .skill-items, [class*="skill"]');
+    if (skillsEl && skillsEl.tagName !== 'UL') {
+      // Clear existing content
+      skillsEl.innerHTML = '';
+      skillsEl.textContent = skillItems.join(', ');
+      console.log(`[renderSkills] Populated ${skillItems.length} skills as comma-separated text`);
       return;
     }
+    
+    // Fallback: Try to find any element that might contain skills (p, div, span)
+    // and replace placeholder text with actual skills
+    const allElements = skillsSection.querySelectorAll('p, div, span, td');
+    for (const el of Array.from(allElements)) {
+      const text = extractText(el).toLowerCase();
+      // Check if this element contains placeholder skill-like text
+      if (text.includes('skill') || text.includes('expertise') || text.includes('proficient') || 
+          text.includes('javascript') || text.includes('python') || text.includes('java') ||
+          /[a-z]+\s*,\s*[a-z]+/.test(text)) {
+        // This might be a skills container - replace with actual skills
+        el.textContent = skillItems.join(', ');
+        console.log(`[renderSkills] Populated ${skillItems.length} skills in fallback element`);
+        return;
+      }
+    }
+    
+    // Last resort: Create a new list if we found the section but no container
+    const ownerDoc = skillsSection.ownerDocument || document;
+    const ul = ownerDoc.createElement('ul');
+    for (const skill of skillItems) {
+      const li = ownerDoc.createElement('li');
+      li.textContent = skill;
+      ul.appendChild(li);
+    }
+    skillsSection.appendChild(ul);
+    console.log(`[renderSkills] Created new list with ${skillItems.length} skills`);
   }
   
 }

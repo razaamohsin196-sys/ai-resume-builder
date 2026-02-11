@@ -2,12 +2,13 @@
 
 import React, { useEffect, useState } from 'react';
 import { useCareer } from '@/context/CareerContext';
-import { ingestCareerProfile } from '@/app/actions';
+import { extractFormData } from '@/app/actions';
+import { CareerProfileFormData } from '@/types/form';
 import { Loader2, CheckCircle2, BrainCircuit } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 export function ProcessingView() {
-    const { rawMemory, intent, profile, setProfile, setStep } = useCareer();
+    const { rawMemory, intent, setStep, setFormData } = useCareer();
     const [error, setError] = useState<string | null>(null);
     const [status, setStatus] = useState<'ingesting' | 'understanding' | 'complete'>('ingesting');
     const [retryCount, setRetryCount] = useState(0);
@@ -29,17 +30,16 @@ export function ProcessingView() {
             try {
                 if (!intent) throw new Error("No intent found");
 
-                // Get overrides from current profile state if available
-                const overrides = profile?.manualOverrides;
-                const newProfile = await ingestCareerProfile(rawMemory.inputs, intent, overrides);
+                // Extract form data from uploaded content
+                const formData = await extractFormData(rawMemory.inputs, intent);
 
                 if (!mounted) return;
-                setProfile(newProfile);
                 setStatus('complete');
 
-                // Step 3: Transition
+                // Step 3: Transition to form
                 setTimeout(() => {
-                    setStep('profile-review');
+                    setFormData(formData);
+                    setStep('profile-form');
                 }, 1000);
             } catch (e: any) {
                 console.error(e);
@@ -53,7 +53,7 @@ export function ProcessingView() {
         run();
 
         return () => { mounted = false; };
-    }, [rawMemory, intent, profile, setProfile, setStep, retryCount]);
+    }, [rawMemory, intent, setStep, setFormData, retryCount]);
 
     if (error) {
         return (

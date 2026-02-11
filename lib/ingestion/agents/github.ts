@@ -1,7 +1,7 @@
 import { IngestionAgent, IngestionSource, CareerProfilePatch, ChatLearning, ProjectUpsert, SkillUpsert } from '../types';
 import { CareerIntent } from '@/types/career';
 import { fetchPublicGitHubData } from '../github-fetcher';
-import { generateContent } from '@/lib/ai/gemini';
+import { generateContent } from '@/lib/ai/provider';
 
 const SYSTEM_PROMPT = `
 You are GitHubIngestionAgent (Enrichment Mode).

@@ -1,5 +1,6 @@
 import { IngestionSource, CareerProfilePatch, ChatLearning, RoleUpsert, SkillUpsert, ProjectUpsert, EducationUpsert, GenericUpsert, VolunteerUpsert, CertificationUpsert, AwardUpsert, LanguageUpsert } from '@/lib/ingestion/types';
 import { CareerIntent } from '@/types/career';
+import { SYSTEM_PROMPTS } from '@/lib/ai/prompts';
 
 
 
@@ -49,14 +50,18 @@ export const PDFIngestionAgent = {
             throw new Error(`Failed to parse PDF text: ${e.message || e}. Details: ${JSON.stringify(e)}`);
         }
 
-        // 2. AI Extraction (Gemini Flash)
-        const { GoogleGenerativeAI } = require("@google/generative-ai");
-        const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
-
-        const model = genAI.getGenerativeModel({
-            model: "gemini-2.0-flash-exp",
-            generationConfig: { responseMimeType: "application/json" }
-        });
+        // 2. AI Extraction (Using unified provider - Gemini first, OpenAI fallback)
+        const { generateContentWithSystem } = await import("@/lib/ai/advanced");
+        
+        // Create a proper system instruction for PDF extraction
+        const systemInstruction = SYSTEM_PROMPTS.CAREER_UNDERSTANDING + `
+        
+        ADDITIONAL INSTRUCTIONS FOR PDF EXTRACTION:
+        - You are extracting data from a PDF resume that has been converted to text.
+        - The text may have formatting issues or be incomplete.
+        - Extract ALL information you can find, even if it seems incomplete.
+        - Be thorough and capture every role, skill, education entry, etc.
+        `;
 
         const prompt = `
         TASK:
@@ -95,8 +100,17 @@ export const PDFIngestionAgent = {
         `; // Cap text to avoid huge context usage if PDF is massive
 
         try {
-            const result = await model.generateContent(prompt);
-            const extracted = JSON.parse(result.response.text());
+            const result = await generateContentWithSystem(
+                systemInstruction,
+                prompt,
+                { responseMimeType: "application/json" }
+            );
+            
+            if (!result) {
+                throw new Error("AI provider returned no response");
+            }
+            
+            const extracted = typeof result === 'string' ? JSON.parse(result) : result;
             const items = extracted.items || [];
 
             // 3. Map to Patch (Manual Mapping to Upserts)

@@ -80,7 +80,7 @@ export interface AiMessage {
     timestamp: number;
 }
 
-export type AppStep = 'onboarding-intent' | 'onboarding-inputs' | 'processing' | 'profile-review' | 'resume-draft' | 'resume-editor' | 'interview-prep';
+export type AppStep = 'onboarding-intent' | 'onboarding-inputs' | 'processing' | 'profile-form' | 'profile-review' | 'resume-draft' | 'resume-editor' | 'interview-prep';
 
 export interface CareerState {
     step: AppStep;
@@ -91,4 +91,5 @@ export interface CareerState {
     resumeHtml?: string;
     isProcessing: boolean;
     aiMessages: AiMessage[];
+    formData?: import('./form').CareerProfileFormData;
 }

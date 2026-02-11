@@ -1,8 +1,10 @@
 "use server";
 
-import { generateContent } from "@/lib/ai/gemini";
+import { generateContent } from "@/lib/ai/provider";
+import { generateContentWithSystem, generateStructuredContent, hasAIProvider } from "@/lib/ai/advanced";
 import { SYSTEM_PROMPTS } from "@/lib/ai/prompts";
 import { RawInput, CareerIntent, CareerProfile, ResumeDraft, ResumeBullet } from "@/types/career";
+import { CareerProfileFormData } from "@/types/form";
 import { hydrateContext } from "@/lib/context-hydrator";
 import { getTemplateById } from "@/lib/templates";
 import { processCareerProfile as processBridge } from "@/lib/bridge-process";
@@ -67,7 +69,6 @@ const MOCK_RESUME: ResumeDraft = {
     ]
 };
 
-
 export async function processCareerProfile(inputs: RawInput[], intent: CareerIntent, overrides?: any) {
     return await processBridge(inputs, intent, overrides);
 }
@@ -75,9 +76,22 @@ export async function processCareerProfile(inputs: RawInput[], intent: CareerInt
 // NEW: Step 1 - Raw Ingestion (Fast)
 import { ingestRawProfile as ingestBridge } from '@/lib/bridge-process';
 import { refineProfile as refineBridge } from '@/lib/ingestion/refinement';
+import { careerProfileToFormData } from '@/lib/form-converter';
 
 export async function ingestCareerProfile(inputs: RawInput[], intent: CareerIntent, overrides?: any) {
     return await ingestBridge(inputs, intent, overrides);
+}
+
+/**
+ * Extract form data from uploaded content
+ * This is the main function called when user clicks "Analyze Career & Suggest Resume"
+ */
+export async function extractFormData(inputs: RawInput[], intent: CareerIntent): Promise<CareerProfileFormData> {
+    // First, ingest the profile using existing logic
+    const profile = await ingestCareerProfile(inputs, intent);
+    
+    // Convert to form data format
+    return careerProfileToFormData(profile);
 }
 
 // NEW: Step 2 - Refinement (Slow)
@@ -85,73 +99,7 @@ export async function refineCareerProfile(profile: CareerProfile, intent: Career
     return await refineBridge(profile, intent, overrides || {});
 }
 
-// Renamed legacy function
-async function processLegacy(inputs: RawInput[], intent: CareerIntent) {
-    // Construct the parts for Gemini
-    // We will mix text parts and inlineData parts (for files)
-    const parts: any[] = [];
-
-    // Add System Context
-    const intentContext = `Target Role: ${intent.targetRole}\nTarget Location: ${intent.targetLocation}\nYOE: ${intent.yearsOfExperience}\nGoal: ${intent.jobSearchIntent}`;
-    parts.push({ text: `CONTEXT:\n${intentContext}` });
-
-    // Add Inputs
-    // We explicitly map the inputs to simple, 1-indexed integers so the model can easily cite them.
-    for (let i = 0; i < inputs.length; i++) {
-        const input = inputs[i];
-        const sourceId = i + 1;
-
-        if (input.type === 'file' && input.data && input.mimeType) {
-            parts.push({ text: `[Source ID: ${sourceId}] Filename: ${input.content}` });
-            parts.push({
-                inlineData: {
-                    mimeType: input.mimeType,
-                    data: input.data
-                }
-            });
-        } else if (input.type === 'url' || input.type === 'linkedin') {
-            // HYDRATION: Fetch content!
-            // We use a helper to fetch rich content (e.g. GitHub READMEs)
-            const hydratedContent = await hydrateContext(input.content);
-            parts.push({
-                text: `[Source ID: ${sourceId}] [URL: ${input.content}]\nCONTENT:\n${hydratedContent}`
-            });
-        } else {
-            // Text or URL
-            parts.push({ text: `[Source ID: ${sourceId}] (${input.type}): ${input.content}` });
-        }
-    }
-
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) return MOCK_PROFILE;
-
-    const { GoogleGenerativeAI } = require("@google/generative-ai");
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({
-        model: "gemini-2.0-flash-exp",
-        systemInstruction: SYSTEM_PROMPTS.CAREER_UNDERSTANDING
-    });
-
-    try {
-        const result = await model.generateContent({
-            contents: [{ role: "user", parts }],
-            generationConfig: { responseMimeType: "application/json" }
-        });
-        return JSON.parse(result.response.text()) as CareerProfile;
-    } catch (error: any) {
-        console.error("Gemini Error", error);
-        throw new Error(`AI Processing Failed: ${error.message || "Unknown Error"}`);
-    }
-}
-
 export async function generateProfileFromIntent(intent: CareerIntent): Promise<CareerProfile> {
-    const { GoogleGenerativeAI } = require("@google/generative-ai");
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
-    const model = genAI.getGenerativeModel({
-        model: "gemini-2.0-flash-exp",
-        systemInstruction: SYSTEM_PROMPTS.PROFILE_GENERATION
-    });
-
     const prompt = `
     GENERATE PROFILE FOR:
     Target Role: ${intent.targetRole}
@@ -161,15 +109,19 @@ export async function generateProfileFromIntent(intent: CareerIntent): Promise<C
     `;
 
     try {
-        const result = await model.generateContent({
-            contents: [{ role: "user", parts: [{ text: prompt }] }],
-            generationConfig: { responseMimeType: "application/json" }
-        });
+        const result = await generateContentWithSystem(
+            SYSTEM_PROMPTS.PROFILE_GENERATION,
+            prompt,
+            { responseMimeType: "application/json" }
+        );
 
-        return JSON.parse(result.response.text()) as CareerProfile;
+        if (!result) {
+            throw new Error("No response from AI provider");
+        }
+
+        return JSON.parse(result) as CareerProfile;
     } catch (e) {
         console.error("Profile Generation Error", e);
-        // Fallback or rethrow
         throw new Error("Failed to generate profile from intent");
     }
 }
@@ -212,123 +164,52 @@ export async function generateResumeDraft(profile: CareerProfile, intent: Career
 }
 
 export async function generateHtmlResume(profile: CareerProfile, intent: CareerIntent, templateHtml: string, options?: { fitToOnePage?: boolean; hasPhoto?: boolean }): Promise<string> {
-    const { GoogleGenerativeAI } = require("@google/generative-ai");
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
-    const model = genAI.getGenerativeModel({
-        model: "gemini-2.0-flash-exp",
-        systemInstruction: SYSTEM_PROMPTS.RESUME_TRANSLATION
-    });
-
-    // Provide a simplified profile context to save tokens/reduce noise
-    const profileContext = JSON.stringify(profile, null, 2);
-
-    let constraint = "";
-    if (options?.fitToOnePage) {
-        constraint = `
-        STRICT CONSTRAINT: FIT TO ONE PAGE.
-        - The output HTML MUST fit on a single A4 page (~450-500 words).
-        - OMIT older experience (older than 10 years or irrelevant).
-        - OMIT Volunteering if it pushes content to page 2.
-        - LIMIT bullets per role to 3-4 max.
-        - SHORTEN the summary to 2 lines max.
-        `;
-    }
-
-    // We want to force the model to output HTML that matches the TEMPLATE structure but with CONTENT from PROFILE.
-    const prompt = `
-    TASK:
-    Take the provided HTML TEMPLATE and replace the "Becky Shu" dummy content with the Candidate's actual data from the CAREER PROFLIE.
-    
-    ${constraint}
-
-    STRICT NEGATIVE CONSTRAINTS:
-    - DO NOT change the CSS classes or ID names.
-    - DO NOT swap the template structure or layout.
-    - DO NOT remove the <style> block.
-    - The provided HTML TEMPLATE is the single source of truth for visual design.
-
-    RULES:
-    1. OUTPUT ONLY HTML. No markdown.
-    2. STRICTLY PRESERVE the CSS (<style>) and class names.
-    3. KEEP the layout EXACTLY the same.
-    4. Replace:
-        - Name, Locations, Links
-        - **EMAIL**: Use the email from the Candidate Profile. WRAP IT in a <a href="mailto:..."> tag.
-        - **PROFILE PHOTO**: 
-            ${options?.hasPhoto !== false
-            ? `- If the candidate has a photo (in 'personal.photos' or 'upsert_personal.photos'), find the profile image tag (class='profile-photo', id='headshot', or generic img in header) and replace its 'src'.
-            - If no photo exists in profile, REMOVE the image tag entirely.`
-            : `- This template does NOT support profile photos. REMOVE any profile image tags entirely (class='profile-photo', id='headshot', or img in header).`
-        }
-        - **LINKEDIN / GITHUB / WEBSITE**: 
-            - MUST BE CLICKABLE.
-            - Structure: '<span><a href="https://..." target="_blank">text</a></span>'
-            - DO NOT add 'text-decoration: none' or 'color: black'. Let them look like standard links (blue/underlined).
-            - Ensure the 'href' starts with "https://".
-        - **PROJECT LINKS**: If a project has a URL, make it a clickable <a href="..." target="_blank"> link.
-        - ** Summary ** (Write a new professional summary based on profile)
-        - ** Experience Items ** (Map the candidate's roles to the experience item divs...)
-             - Look for classes like: .experience-item, .timeline-item, .job, .role-entry.
-             - Use 'organization' field for Company Name.
-             - Use 'title' field for Job Title.
-        - ** PROJECTS **: Map candidate's PROJECTS to the new Projects section.
-            - Use.experience - item class for structure.
-            - Format Title: "Project Name"
-            - Format Context: "Tech Stack" or "Project Link" or 'organization' field in the subtitle.If it's a Link, make it clickable.
-                - REMOVE the section if the candidate has NO projects.
-        - Education(Map education items to.education - item class)
-            - Use 'organization' field for University Name.
-            - Use 'title' field for Degree.
-                    - Skills(Map skills to.skills - list)
-                    - ** VOLUNTEERING **: Map to the Volunteering section.
-            - Use.experience - item class for structure.
-            - Use 'organization' for the Org Name.
-            - REMOVE if empty.
-        - ** CERTIFICATIONS & AWARDS **:
-            - Map Certifications to the "Certifications:" list. Use 'organization' for Issuer if available.
-            - Map Awards to the "Awards:" list. Use 'organization' for Issuer if available.
-            - REMOVE the entire section if BOTH are empty.
-        - ** LANGUAGES **: Map to the "Languages:" list in the Skills section.REMOVE if empty.
-    5. If the candidate has multiple items(jobs, projects, schools), generate multiple HTML blocks for them.Duplicate the structure as needed.
-    
-    CANDIDATE INTENT:
-    Target Role: ${intent.targetRole}
-    Target Location: ${intent.targetLocation}
-    ${intent.jobSearchIntent ? `\nTARGET JOB DESCRIPTION:\n${intent.jobSearchIntent}` : ''}
-
-    CAREER PROFILE QUERY:
-    ${profileContext}
-
-    HTML TEMPLATE(Use this structure):
-    ${templateHtml}
-    `;
-
+    // First, try the intelligent template population agent
     try {
-        const result = await model.generateContent(prompt);
-        let text = result.response.text();
-        text = text.replace(/```html/g, '').replace(/```/g, '');
-        
-        // Check if AI returned the template unchanged (contains placeholder data)
-        if (text.includes('Becky Shu') || text.includes('beckyshu') || text.includes('beckyhsiung96')) {
-            // Fall back to deterministic rendering
-            return generateDeterministicHtml(profile, templateHtml);
+        const { intelligentlyPopulateTemplate } = await import('@/lib/ai/template-populator');
+        const intelligentResult = await intelligentlyPopulateTemplate(
+            profile,
+            templateHtml,
+            {
+                targetRole: intent.targetRole,
+                targetLocation: intent.targetLocation,
+                jobSearchIntent: intent.jobSearchIntent
+            },
+            options
+        );
+
+        // Validate the result
+        if (intelligentResult && intelligentResult.trim().length > 0) {
+            // Check for placeholder text that wasn't replaced
+            const placeholderPatterns = [
+                /becky\s+shu/gi,
+                /beckyhsiung96/gi,
+                /john\s+doe/gi,
+                /jane\s+doe/gi
+            ];
+            
+            const hasPlaceholders = placeholderPatterns.some(pattern => pattern.test(intelligentResult));
+            
+            // Check if the result contains actual data (name from profile)
+            const profileName = profile.personal?.name || '';
+            if (!hasPlaceholders && (profileName ? intelligentResult.includes(profileName) : intelligentResult.length > 1000)) {
+                // Success - intelligent population worked
+                return intelligentResult;
+            } else {
+                console.warn("[generateHtmlResume] Intelligent population detected placeholders, falling back to deterministic");
+            }
         }
-        
-        return text;
-    } catch (e) {
-        console.error("Html Generation Error", e);
-        return generateDeterministicHtml(profile, templateHtml);
+    } catch (error) {
+        console.warn("[generateHtmlResume] Intelligent population failed, falling back to deterministic:", error);
     }
+
+    // Fallback to deterministic rendering
+    return generateDeterministicHtml(profile, templateHtml);
 }
 
-/**
- * Fallback: Generate HTML deterministically without AI
- * Converts CareerProfile to ResumeData and uses renderToTemplate
- */
 function generateDeterministicHtml(profile: CareerProfile, templateHtml: string): string {
     try {
         const resumeData = careerProfileToResumeData(profile);
-        
         const template = {
             id: 'current',
             name: 'Current Template',
@@ -338,143 +219,14 @@ function generateDeterministicHtml(profile: CareerProfile, templateHtml: string)
             sectionOrder: ['profile', 'summary', 'experience', 'education', 'skills', 'projects', 'languages', 'certifications', 'volunteering', 'awards', 'publications'] as SectionType[],
             pageSize: 'A4' as const,
         };
-        
-        const rendered = renderToTemplate(resumeData, template);
-        return rendered;
+        return renderToTemplate(resumeData, template);
     } catch (error) {
-        console.error('[generateDeterministicHtml] Deterministic rendering error:', error);
+        console.error('[generateDeterministicHtml] Error:', error);
         return templateHtml;
     }
 }
 
-// Helper type for the response
-interface ModifiedResumeResponse {
-    html: string;
-    annotated_html?: string;
-    summary: string;
-    changes: string[];
-}
-
-export async function modifyResumeHtml(currentHtml: string, instruction: string): Promise<ModifiedResumeResponse> {
-    if (!process.env.GEMINI_API_KEY) {
-        return {
-            html: currentHtml.replace('</body>', '<div style="color:red">API Key Missing - Mock Edit</div></body>'),
-            summary: "API Key Missing",
-            changes: ["Mock edit applied"]
-        };
-    }
-
-    const { GoogleGenerativeAI, SchemaType } = require("@google/generative-ai");
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-
-    const schema = {
-        description: "Modified Resume Response",
-        type: SchemaType.OBJECT,
-        properties: {
-            css_content: { type: SchemaType.STRING, description: "The internal CSS styles (<style> content). Return null if no changes needed." },
-            body_content: { type: SchemaType.STRING, description: "The inner HTML content of the <body> tag." },
-            summary: { type: SchemaType.STRING, description: "A summary of changes." },
-            changes: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING }, description: "List of specific changes." }
-        },
-        required: ["body_content", "summary", "changes"]
-    };
-
-    const model = genAI.getGenerativeModel({
-        model: "gemini-2.0-flash-exp",
-        generationConfig: {
-            responseMimeType: "application/json",
-            responseSchema: schema,
-            maxOutputTokens: 8192
-        },
-        systemInstruction: `
-       You are an expert HTML Resume Editor. 
-       Your job is to take the HTML of a resume and a User Instruction, and output the MODIFIED HTML that satisfies the instruction.
-       
-       RULES:
-       1. Follow the JSON schema strictly.
-       2. **OUTPUT OPTIMIZATION**:
-          - Return the content of the \`<body>\` tag data in \`body_content\`. Do NOT include the \`<body>\` wrapper tags.
-          - Return the content of the \`style\` tag in \`css_content\` ONLY IF YOU CHANGE IT. Otherwise return null.
-       3. Preserve the existing CSS classes and structure as much as possible unless asked to change it.
-       4. If the user asks to "Move Skills section to bottom", find the div with class="section" covering skills and move it to the end of the container.
-       5. If the user asks to "Edit the summary", find the summary div and rewrite the text professionally.
-       6. Provide a clear summary of changes.
-       `
-    });
-
-    try {
-        const result = await model.generateContent({
-            contents: [{
-                role: "user",
-                parts: [
-                    { text: `INSTRUCTION: ${instruction}` },
-                    { text: `CURRENT HTML:\n${currentHtml}` }
-                ]
-            }]
-        });
-
-        // With Schema, text() is guaranteed to be valid JSON
-        const text = result.response.text();
-        try {
-            const parsed = JSON.parse(text);
-
-            // Reconstruct HTML
-            let finalHtml = currentHtml;
-
-            // Regex to replace Body Content
-            // Matches <body [attrs]> ... </body>
-            // Case insensitive, multiline dotall
-            finalHtml = finalHtml.replace(/(<body[^>]*>)([\s\S]*?)(<\/body>)/i, (match, openTag, oldContent, closeTag) => {
-                return `${openTag}${parsed.body_content}${closeTag}`;
-            });
-
-            // Regex to replace CSS if provided
-            if (parsed.css_content) {
-                finalHtml = finalHtml.replace(/(<style[^>]*>)([\s\S]*?)(<\/style>)/i, (match, openTag, oldContent, closeTag) => {
-                    return `${openTag}${parsed.css_content}${closeTag}`;
-                });
-            }
-
-            return {
-                html: finalHtml,
-                summary: parsed.summary,
-                changes: parsed.changes
-            };
-
-        } catch (jsonErr) {
-            console.error("JSON Parse Failure - Response likely truncated", jsonErr);
-            return {
-                html: currentHtml,
-                summary: "⚠️ The AI response was too large and got cut off.",
-                changes: [
-                    "Resume is very long; try smaller edits.",
-                    "The model output limit was exceeded.",
-                    "No changes kept to prevent data loss."
-                ]
-            };
-        }
-
-    } catch (error: any) {
-        console.error("Gemini HTML Edit Error", error);
-        // Return error as a response so user sees it
-        return {
-            html: currentHtml,
-            summary: `❌ ERROR: ${error.message || "Unknown error"}`,
-            changes: ["Check server console for details", "Ensure API Key is valid", String(error)]
-        };
-    }
-}
-
-// Helper to extract URLs from text
-function extractUrls(text: string): string[] {
-    const urlRegex = /(https?:\/\/[^\s]+)/g;
-    return text.match(urlRegex) || [];
-}
-
 export async function modifyCareerProfile(currentProfile: CareerProfile, instruction: string): Promise<CareerProfile> {
-    const { GoogleGenerativeAI } = require("@google/generative-ai");
-
-    // 1. Context Hydration: Check if instruction contains URLs and fetch them
     let additionalContext = "";
     const urls = extractUrls(instruction);
     if (urls.length > 0) {
@@ -482,10 +234,7 @@ export async function modifyCareerProfile(currentProfile: CareerProfile, instruc
         additionalContext = `\n\nEXTERNAL RESOURCES PROVIDED BY USER:\n${hydratedContents.filter(Boolean).join('\n\n')}`;
     }
 
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
-    const model = genAI.getGenerativeModel({
-        model: "gemini-2.0-flash-exp",
-        systemInstruction: `
+    const systemInstruction = `
         You are an expert Senior Career Strategist & Resume Coach.
         Your goal is active improvement, not just passive editing.
         
@@ -498,112 +247,111 @@ export async function modifyCareerProfile(currentProfile: CareerProfile, instruc
         Update the CareerProfile JSON to be more impactful, detailed, and aligned with the user's intent.
         
         CRITICAL RULES:
-        1. **INGEST CONTEXT**: If the user provides a link (e.g. GitHub), USE that content to write specific, hard-hitting bullet points. Don't just say "Added GitHub project". Describe the tech stack, the problem solved, and the impact found in the README.
-        2. **BE PROACTIVE**: If the user asks to "expand skills", look at their project descriptions and roles to infer skills they missed (e.g. "React", "CI/CD", "System Design") and add them.
+        1. **INGEST CONTEXT**: If the user provides a link (e.g. GitHub), USE that content to write specific, hard-hitting bullet points.
+        2. **BE PROACTIVE**: If the user asks to "expand skills", look at their project descriptions and roles to infer skills they missed.
         3. **FORMAT**: Return ONLY the valid JSON of the updated CareerProfile.
         4. **INTEGRITY**: Maintain the structure. Do not delete valid data unless asked.
-        
-        Schema:
-        - items: Array of { id, category: 'role'|'education'|'project'|'skill'|..., title, description, ... }
-        - summary: string
-        `
-    });
+        `;
+
+    const userPrompt = `INSTRUCTION: ${instruction}\n\nADDITIONAL CONTEXT (FETCHED FROM LINKS): ${additionalContext}\n\nCURRENT PROFILE JSON:\n${JSON.stringify(currentProfile, null, 2)}`;
 
     try {
-        const result = await model.generateContent({
-            contents: [{
-                role: "user",
-                parts: [
-                    { text: `INSTRUCTION: ${instruction}` },
-                    { text: `ADDITIONAL CONTEXT (FETCHED FROM LINKS): ${additionalContext}` },
-                    { text: `CURRENT PROFILE JSON:\n${JSON.stringify(currentProfile, null, 2)}` }
-                ]
-            }],
-            generationConfig: { responseMimeType: "application/json" }
-        });
+        const result = await generateContentWithSystem(
+            systemInstruction,
+            userPrompt,
+            { responseMimeType: "application/json" }
+        );
 
-        return JSON.parse(result.response.text()) as CareerProfile;
+        if (!result) {
+            throw new Error("No response from AI provider");
+        }
+
+        return JSON.parse(result) as CareerProfile;
     } catch (e) {
         console.error("Profile Modification Error", e);
         throw new Error("Failed to modify profile.");
     }
 }
 
+function extractUrls(text: string): string[] {
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    return text.match(urlRegex) || [];
+}
 
-export async function swapResumeTemplate(currentHtml: string, targetTemplateId: string): Promise<string> {
-
-    // We are reverting this function to its previous state (AI Based)
-    // However, since we removed the "Template Selector" UI, this function is effectively dead code.
-    // We will keep it in a minimal state or restored state to prevent build errors if referenced elsewhere.
-
-    const template = getTemplateById(targetTemplateId);
-    if (!template) {
-        throw new Error(`Template not found: ${targetTemplateId}`);
+export async function modifyResumeHtml(currentHtml: string, instruction: string): Promise<{ html: string; summary: string; changes: string[] }> {
+    if (!hasAIProvider()) {
+        return {
+            html: currentHtml.replace('</body>', '<div style="color:red">API Key Missing - Mock Edit</div></body>'),
+            summary: "API Key Missing",
+            changes: ["Mock edit applied"]
+        };
     }
 
-    const { GoogleGenerativeAI } = require("@google/generative-ai");
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
-    const model = genAI.getGenerativeModel({
-        model: "gemini-2.0-flash-exp",
-        systemInstruction: "You are an expert HTML Resume Formatter."
-    });
+    const { SchemaType } = require("@google/generative-ai");
+    const schema = {
+        description: "Modified Resume Response",
+        type: SchemaType.OBJECT,
+        properties: {
+            css_content: { type: SchemaType.STRING, description: "The internal CSS styles (<style> content). Return null if no changes needed." },
+            body_content: { type: SchemaType.STRING, description: "The inner HTML content of the <body> tag." },
+            summary: { type: SchemaType.STRING, description: "A summary of changes." },
+            changes: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING }, description: "List of specific changes." }
+        },
+        required: ["body_content", "summary", "changes"]
+    };
 
-    // Strategy: 
-    // 1. Identify content from currentHtml (which might contain manual edits).
-    // 2. Map it into the targetTemplate's structure.
+    const systemInstruction = `
+       You are an expert HTML Resume Editor. 
+       Your job is to take the HTML of a resume and a User Instruction, and output the MODIFIED HTML that satisfies the instruction.
+       
+       RULES:
+       1. Follow the JSON schema strictly.
+       2. Return the content of the <body> tag data in body_content. Do NOT include the <body> wrapper tags.
+       3. Return the content of the style tag in css_content ONLY IF YOU CHANGE IT. Otherwise return null.
+       4. Preserve the existing CSS classes and structure as much as possible unless asked to change it.
+       5. Provide a clear summary of changes.
+       `;
 
-    const prompt = `
-    TASK:
-    Transplant the resume CONTENT from the CURRENT HTML into the TARGET HTML TEMPLATE structure.
-    
-    RULES:
-    1. EXTRACT ALL text content from the CURRENT HTML (Name, Contact, Summary, Experience, Education, Skills).
-    2. USE THE DATA exactly as is. **PRESERVE MANUAL EDITS** made by the user. Do not summarize or rewrite unless necessary for formatting (e.g. date formats).
-    3. INSERT the content into the TARGET HTML TEMPLATE.
-    4. STRICTLY KEEP the Target Template's CSS (<style>) and class names. Do not break the visual layout.
-    5. If the current resume has more jobs than the template shows, DUPLICATE the job item container in the template to fit them.
-    6. OUTPUT ONLY the final HTML.
-    
-    TARGET TEMPLATE ID: ${template.name}
-    
-    CURRENT HTML (Source of Truth):
-    ${currentHtml}
-
-    TARGET HTML TEMPLATE (Structure to use):
-    ${template.html}
-    `;
+    const userPrompt = `INSTRUCTION: ${instruction}\n\nCURRENT HTML:\n${currentHtml}`;
 
     try {
-        const result = await model.generateContent(prompt);
-        let text = result.response.text();
-        text = text.replace(/```html/g, '').replace(/```/g, '');
-        return text;
-    } catch (e) {
-        console.error("Template Swap Error", e);
-        throw new Error("Failed to swap template");
+        const parsed = await generateStructuredContent(systemInstruction, userPrompt, schema);
+        if (!parsed) throw new Error("No response from AI provider");
+
+        let finalHtml = currentHtml;
+        finalHtml = finalHtml.replace(/(<body[^>]*>)([\s\S]*?)(<\/body>)/i, (match: string, openTag: string, oldContent: string, closeTag: string) => {
+            return `${openTag}${parsed.body_content}${closeTag}`;
+        });
+
+        if (parsed.css_content) {
+            finalHtml = finalHtml.replace(/(<style[^>]*>)([\s\S]*?)(<\/style>)/i, (match: string, openTag: string, oldContent: string, closeTag: string) => {
+                return `${openTag}${parsed.css_content}${closeTag}`;
+            });
+        }
+
+        return {
+            html: finalHtml,
+            summary: parsed.summary,
+            changes: parsed.changes
+        };
+    } catch (error: any) {
+        console.error("HTML Edit Error", error);
+        return {
+            html: currentHtml,
+            summary: `❌ ERROR: ${error.message || "Unknown error"}`,
+            changes: ["Check server console for details", "Ensure API Key is valid", String(error)]
+        };
     }
 }
 
 export interface InterviewPrepResponse {
-    mindmap: {
-        related_skills: string[];
-        related_experiences: string[];
-        key_concepts: string[];
-    };
-    star_breakdown: {
-        situation: string;
-        task: string;
-        action: string;
-        result: string;
-    };
+    mindmap: { related_skills: string[]; related_experiences: string[]; key_concepts: string[] };
+    star_breakdown: { situation: string; task: string; action: string; result: string };
     follow_up_questions: string[];
 }
 
 export async function generateInterviewPrep(bullet: ResumeBullet, profile: CareerProfile): Promise<InterviewPrepResponse> {
-    const { GoogleGenerativeAI, SchemaType } = require("@google/generative-ai");
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
-
-    // We want a structured output for the UI
+    const { SchemaType } = require("@google/generative-ai");
     const schema = {
         description: "Interview Defense Preparation Data",
         type: SchemaType.OBJECT,
@@ -611,38 +359,28 @@ export async function generateInterviewPrep(bullet: ResumeBullet, profile: Caree
             mindmap: {
                 type: SchemaType.OBJECT,
                 properties: {
-                    related_skills: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING }, description: "Skills mentioned in this bullet or implied by it." },
-                    related_experiences: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING }, description: "Other items from the career profile that strengthen this claim." },
-                    key_concepts: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING }, description: "Core concepts (e.g. 'System Design', 'Conflict Resolution') demonstrated." }
+                    related_skills: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
+                    related_experiences: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
+                    key_concepts: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } }
                 },
                 required: ["related_skills", "related_experiences", "key_concepts"]
             },
             star_breakdown: {
                 type: SchemaType.OBJECT,
                 properties: {
-                    situation: { type: SchemaType.STRING, description: "The Context/Problem." },
-                    task: { type: SchemaType.STRING, description: "The Goal." },
-                    action: { type: SchemaType.STRING, description: "Specific steps taken." },
-                    result: { type: SchemaType.STRING, description: "Outcome/Impact." }
+                    situation: { type: SchemaType.STRING },
+                    task: { type: SchemaType.STRING },
+                    action: { type: SchemaType.STRING },
+                    result: { type: SchemaType.STRING }
                 },
                 required: ["situation", "task", "action", "result"]
             },
-            follow_up_questions: {
-                type: SchemaType.ARRAY,
-                items: { type: SchemaType.STRING },
-                description: "3-5 difficult follow-up questions an interviewer might ask."
-            }
+            follow_up_questions: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } }
         },
         required: ["mindmap", "star_breakdown", "follow_up_questions"]
     };
 
-    const model = genAI.getGenerativeModel({
-        model: "gemini-2.0-flash-exp",
-        generationConfig: {
-            responseMimeType: "application/json",
-            responseSchema: schema
-        },
-        systemInstruction: `
+    const systemInstruction = `
         You are an expert Technical Interview Coach.
         Your goal is to help a candidate defend a specific bullet point on their resume.
         
@@ -651,28 +389,19 @@ export async function generateInterviewPrep(bullet: ResumeBullet, profile: Caree
         2. The candidate's full Career Profile (The Context/Evidence).
         
         TASK:
-        1. **Mindmap**: Connect this bullet to other parts of their profile. What skills are used? What other projects are relevant?
-        2. **STAR**: Reverse-engineer the likely STAR story. If details are missing, infer logical steps based on the role (Senior Product Designer/Engineer etc).
+        1. **Mindmap**: Connect this bullet to other parts of their profile.
+        2. **STAR**: Reverse-engineer the likely STAR story.
         3. **Follow-ups**: Generate skeptical, deep-dive questions.
-        `
-    });
+        `;
+
+    const userPrompt = `TARGET BULLET POINT: ${bullet.text}\n\nFULL PROFILE CONTEXT: ${JSON.stringify(profile)}`;
 
     try {
-        const result = await model.generateContent({
-            contents: [{
-                role: "user",
-                parts: [
-                    { text: `TARGET BULLET POINT: ${bullet.text}` },
-                    { text: `FULL PROFILE CONTEXT: ${JSON.stringify(profile)}` }
-                ]
-            }]
-        });
-
-        const text = result.response.text();
-        return JSON.parse(text) as InterviewPrepResponse;
+        const result = await generateStructuredContent(systemInstruction, userPrompt, schema);
+        if (!result) throw new Error("No response from AI provider");
+        return result as InterviewPrepResponse;
     } catch (e) {
         console.error("Interview Prep Generation Error", e);
-        // Fallback
         return {
             mindmap: { related_skills: [], related_experiences: [], key_concepts: [] },
             star_breakdown: { situation: "Error generating", task: "", action: "", result: "" },
@@ -681,216 +410,119 @@ export async function generateInterviewPrep(bullet: ResumeBullet, profile: Caree
     }
 }
 
-
-
-
 export interface ReviewSuggestion {
     id: string;
     type: 'grammar' | 'tailor';
     originalText: string;
     suggestion: string;
     reason: string;
-    context: string; // Surrounding text to help locate
+    context: string;
     severity: 'critical' | 'suggestion';
 }
 
 export async function checkGrammar(html: string): Promise<ReviewSuggestion[]> {
-    if (!process.env.GEMINI_API_KEY) {
-        return [
-            {
-                id: "mock-err-1",
-                type: "grammar",
-                originalText: "specialized in",
-                suggestion: "specializing in",
-                reason: "Grammar: agreement with previous clause",
-                context: "experience in SaaS and Fintech. specialized in complex system design",
-                severity: "critical"
-            }
-        ];
+    if (!hasAIProvider()) {
+        return [{
+            id: "mock-err-1",
+            type: "grammar",
+            originalText: "specialized in",
+            suggestion: "specializing in",
+            reason: "Grammar: agreement with previous clause",
+            context: "experience in SaaS and Fintech. specialized in complex system design",
+            severity: "critical"
+        }];
     }
 
-    const { GoogleGenerativeAI, SchemaType } = require("@google/generative-ai");
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-
+    const { SchemaType } = require("@google/generative-ai");
     const schema = {
         description: "List of Grammar Issues",
         type: SchemaType.ARRAY,
         items: {
             type: SchemaType.OBJECT,
             properties: {
-                originalText: { type: SchemaType.STRING, description: "The exact text segment containing the error." },
-                suggestion: { type: SchemaType.STRING, description: "The corrected text." },
-                reason: { type: SchemaType.STRING, description: "Why this is an error." },
-                context: { type: SchemaType.STRING, description: "5-10 words of surrounding text to help identify location." },
-                severity: { type: SchemaType.STRING, enum: ["critical", "suggestion"], description: "Severity level." }
+                originalText: { type: SchemaType.STRING },
+                suggestion: { type: SchemaType.STRING },
+                reason: { type: SchemaType.STRING },
+                context: { type: SchemaType.STRING },
+                severity: { type: SchemaType.STRING, enum: ["critical", "suggestion"] }
             },
             required: ["originalText", "suggestion", "reason", "context", "severity"]
         }
     };
 
-    const model = genAI.getGenerativeModel({
-        model: "gemini-2.0-flash-exp",
-        generationConfig: {
-            responseMimeType: "application/json",
-            responseSchema: schema
-        },
-        systemInstruction: `
+    const systemInstruction = `
         You are an expert Copy Editor.
         Your task is to review the text content of an HTML Resume for grammar, spelling, and style issues.
         
         RULES:
-        1. Ignore HTML tags, class names, and technical terms (e.g. React, PostgreSQL).
-        2. Focus on:
-            - Typox (Spelling)
-            - Grammar (Subject-verb agreement, tense consistency)
-            - Punctuation errors
-            - Weak or passive voice (suggestion)
-        3. For 'context', provide enough surrounding text (pure text, no tags) to uniquely identify the error location.
-        4. Return an empty array [] if the resume is perfect.
-        5. Be strict but reasonable. Don't flag stylistic choices as critical errors.
-        `
-    });
+        1. Ignore HTML tags, class names, and technical terms.
+        2. Focus on: Typos, Grammar, Punctuation errors, Weak or passive voice.
+        3. Return an empty array [] if the resume is perfect.
+        `;
+
+    const userPrompt = `REVIEW THIS RESUME HTML FOR GRAMMAR ERRORS:\n${html}`;
 
     try {
-        const result = await model.generateContent({
-            contents: [{
-                role: "user",
-                parts: [{ text: `REVIEW THIS RESUME HTML FOR GRAMMAR ERRORS:\n${html}` }]
-            }]
-        });
-
-        const issues = JSON.parse(result.response.text()) as Omit<ReviewSuggestion, 'id' | 'type'>[];
-        // Add IDs and Type
-        return issues.map((issue, idx) => ({ ...issue, id: `gram-${Date.now()}-${idx}`, type: 'grammar' }));
-
+        const issues = await generateStructuredContent(systemInstruction, userPrompt, schema);
+        if (!issues || !Array.isArray(issues)) return [];
+        return issues.map((issue: any, idx: number) => ({ ...issue, id: `gram-${Date.now()}-${idx}`, type: 'grammar' }));
     } catch (e) {
         console.error("Grammar Check Error", e);
         return [];
     }
 }
 
-export async function exportResumeAsDocx(html: string): Promise<{ success: boolean; data?: string; error?: string }> {
-    try {
-        // For DOCX export, we'll convert HTML to a simplified format
-        // In a production app, you'd use a library like html-docx-js or similar
-        // For now, we'll return a base64 encoded HTML that can be opened in Word
-        
-        // Clean HTML for Word compatibility
-        let cleanHtml = html;
-        
-        // Remove contenteditable attributes
-        cleanHtml = cleanHtml.replace(/contenteditable="[^"]*"/g, '');
-        
-        // Remove review issue spans
-        cleanHtml = cleanHtml.replace(/<span class="review-issue"[^>]*>/g, '');
-        cleanHtml = cleanHtml.replace(/<\/span>/g, '');
-        
-        // Wrap in proper Word HTML structure
-        const wordHtml = `
-<!DOCTYPE html>
-<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
-<head>
-    <meta charset='utf-8'>
-    <title>Resume</title>
-    <!--[if gte mso 9]>
-    <xml>
-        <w:WordDocument>
-            <w:View>Print</w:View>
-            <w:Zoom>90</w:Zoom>
-            <w:DoNotOptimizeForBrowser/>
-        </w:WordDocument>
-    </xml>
-    <![endif]-->
-</head>
-<body>
-${cleanHtml}
-</body>
-</html>`;
-        
-        // Convert to base64
-        const base64 = Buffer.from(wordHtml).toString('base64');
-        
-        return { success: true, data: base64 };
-    } catch (error: any) {
-        console.error('DOCX Export Error:', error);
-        return { success: false, error: error.message || 'Failed to export as DOCX' };
-    }
-}
-
 export async function tailorResume(html: string, instruction: string): Promise<ReviewSuggestion[]> {
-    if (!process.env.GEMINI_API_KEY) {
-        return [
-            {
-                id: "mock-tailor-1",
-                type: "tailor",
-                originalText: "Led development of features",
-                suggestion: "Architected scalable cloud-native features for high-throughput data processing",
-                reason: "ATS Keyword Injection: 'Cloud-native', 'Scalable'. Strengthens impact.",
-                context: "Glacier restore throughput by 10x. Led development of features",
-                severity: "suggestion"
-            }
-        ];
+    if (!hasAIProvider()) {
+        return [{
+            id: "mock-tailor-1",
+            type: "tailor",
+            originalText: "Led development of features",
+            suggestion: "Architected scalable cloud-native features for high-throughput data processing",
+            reason: "ATS Keyword Injection: 'Cloud-native', 'Scalable'. Strengthens impact.",
+            context: "Glacier restore throughput by 10x. Led development of features",
+            severity: "suggestion"
+        }];
     }
 
-    const { GoogleGenerativeAI, SchemaType } = require("@google/generative-ai");
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-
+    const { SchemaType } = require("@google/generative-ai");
     const schema = {
         description: "List of Tailoring Suggestions",
         type: SchemaType.ARRAY,
         items: {
             type: SchemaType.OBJECT,
             properties: {
-                originalText: { type: SchemaType.STRING, description: "The exact existing text segment to replace." },
-                suggestion: { type: SchemaType.STRING, description: "The new, tailored text." },
-                reason: { type: SchemaType.STRING, description: "Explanation of why this change helps (e.g. 'Added keyword X', 'Improved impact')." },
-                context: { type: SchemaType.STRING, description: "5-10 words of surrounding text to help identify location." }
+                originalText: { type: SchemaType.STRING },
+                suggestion: { type: SchemaType.STRING },
+                reason: { type: SchemaType.STRING },
+                context: { type: SchemaType.STRING }
             },
             required: ["originalText", "suggestion", "reason", "context"]
         }
     };
 
-    const model = genAI.getGenerativeModel({
-        model: "gemini-2.0-flash-exp",
-        generationConfig: {
-            responseMimeType: "application/json",
-            responseSchema: schema
-        },
-        systemInstruction: `
+    const systemInstruction = `
         You are an expert ATS (Applicant Tracking System) Strategist.
         Your task is to tailor a resume's HTML content based on a Job Description/Instruction.
 
         RULES:
-        1. **Minimize Formatting Changes**: Only suggest changes to TEXT content within tags. Do not rewrite whole <div> structures.
-        2. **Focus on Quality**: Identify 3-5 high-impact improvements. Do not rewrite the whole document.
-        3. **Keywords**: Inject relevant keywords from the instruction naturally.
-        4. **Matching**: 'originalText' MUST match the existing text *exactly* (including whitespace if possible) so it can be found programmatically.
-        5. **Context**: Provide unique surrounding text to help locate the 'originalText'.
-        
-        OUTPUT:
-        Return a list of specific text replacements.
-        `
-    });
+        1. Only suggest changes to TEXT content within tags.
+        2. Identify 3-5 high-impact improvements.
+        3. Inject relevant keywords from the instruction naturally.
+        4. 'originalText' MUST match the existing text exactly.
+        `;
+
+    const userPrompt = `INSTRUCTION/JOB DESCRIPTION: ${instruction}\n\nRESUME HTML:\n${html}`;
 
     try {
-        const result = await model.generateContent({
-            contents: [{
-                role: "user",
-                parts: [
-                    { text: `INSTRUCTION/JOB DESCRIPTION: ${instruction}` },
-                    { text: `RESUME HTML:\n${html}` }
-                ]
-            }]
-        });
-
-        const suggestions = JSON.parse(result.response.text()) as Omit<ReviewSuggestion, 'id' | 'type' | 'severity'>[];
-        return suggestions.map((s, idx) => ({
+        const suggestions = await generateStructuredContent(systemInstruction, userPrompt, schema);
+        if (!suggestions || !Array.isArray(suggestions)) return [];
+        return suggestions.map((s: any, idx: number) => ({
             ...s,
             id: `tailor-${Date.now()}-${idx}`,
             type: 'tailor',
             severity: 'suggestion'
         }));
-
     } catch (e) {
         console.error("Tailor Resume Error", e);
         return [];

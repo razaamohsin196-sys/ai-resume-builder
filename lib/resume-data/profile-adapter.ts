@@ -140,11 +140,35 @@ function convertToProject(item: CareerProfileItem): ProjectItem {
 
 /**
  * Convert skill items to SkillsSection
+ * Supports both flat lists and grouped skills
  */
 function convertToSkills(skillItems: CareerProfileItem[]): SkillsSection | undefined {
   if (skillItems.length === 0) return undefined;
 
-  // Just use flat list for simplicity
+  // Check if skills have categories (in organization field)
+  const skillsWithCategories = skillItems.filter(item => item.organization && item.organization.trim());
+  
+  if (skillsWithCategories.length > 0) {
+    // Group skills by category
+    const grouped: { [category: string]: string[] } = {};
+    
+    skillItems.forEach(item => {
+      const category = item.organization?.trim() || 'Other';
+      if (!grouped[category]) {
+        grouped[category] = [];
+      }
+      grouped[category].push(item.title);
+    });
+    
+    const groups = Object.entries(grouped).map(([category, skills]) => ({
+      category,
+      skills
+    }));
+    
+    return { groups };
+  }
+  
+  // Fallback to flat list
   const skills = skillItems.map(item => item.title);
   return { items: skills };
 }

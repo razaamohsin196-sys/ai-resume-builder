@@ -1,7 +1,7 @@
 import { ApifyClient } from 'apify-client';
 import { IngestionAgent, IngestionSource, CareerProfilePatch, ChatLearning } from '../types';
 import { CareerIntent } from '@/types/career';
-import { generateContent } from '@/lib/ai/gemini';
+import { generateContent } from '@/lib/ai/provider';
 
 const SYSTEM_PROMPT = `
 You are LinkedInIngestionAgent.
@@ -162,7 +162,10 @@ export const LinkedInIngestionAgent: IngestionAgent = {
         });
 
         const result = await generateContent(SYSTEM_PROMPT, userContent);
-        if (!result) throw new Error("Generative AI failed");
+        if (!result) {
+            console.error("[LinkedIn Agent] AI generation failed - no API key available");
+            throw new Error("Generative AI failed: No API key found. Please set GEMINI_API_KEY or OPENAI_API_KEY environment variable.");
+        }
 
         // Force sourceId on the patch to be consistent
         const patch = result.career_profile_patch;

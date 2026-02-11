@@ -2372,7 +2372,7 @@ ${imgRels}</Relationships>`);
         try {
             // getLatestHtmlFromIframe() ensures any pending edits are captured
             const result = await modifyResumeHtml(getLatestHtmlFromIframe(), userMsg.content);
-            const { html, summary, changes, annotated_html } = result;
+            const { html, summary, changes } = result;
 
             setCurrentHtml(html);
             setResumeHtml(html); // Sync global
@@ -2388,11 +2388,6 @@ ${imgRels}</Relationships>`);
                 const merged = prev ? { ...prev, ...parsed, profile: { ...prev.profile, ...parsed.profile } } : parsed;
                 saveResumeEditsData(merged);
             } catch (_) { /* non-critical */ }
-
-            if (annotated_html) {
-                setAnnotatedHtml(annotated_html);
-                setShowHighlights(true); // Auto-show highlights on new edit
-            }
 
             const changeList = changes && changes.length > 0
                 ? `\n\n ** Changes:**\n${changes.map(c => `- ${c}`).join('\n')} `
