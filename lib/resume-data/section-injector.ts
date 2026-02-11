@@ -81,8 +81,23 @@ function findInsertionPoint(
   ];
   
   const targetIndex = sectionOrder.indexOf(sectionType);
+  
   if (targetIndex === -1) {
-    // Insert at end
+    // Section type not in template's section order.
+    // Find a structurally similar section to insert after.
+    const itemBased: SectionType[] = ['experience', 'projects', 'volunteering', 'education'];
+    const listBased: SectionType[] = ['skills', 'languages', 'certifications', 'awards', 'publications', 'training'];
+    
+    const isItemBased = itemBased.includes(sectionType);
+    const preferredNeighbors = isItemBased ? itemBased : listBased;
+    
+    // Try to find the last section of similar structure to insert after
+    for (const neighbor of [...preferredNeighbors].reverse()) {
+      const section = findExistingSection(doc, neighbor);
+      if (section) return section;
+    }
+    
+    // Fallback: insert after last section
     const sections = doc.querySelectorAll('.section, section');
     return sections[sections.length - 1] || doc.body;
   }
@@ -136,11 +151,65 @@ function getSectionKeywords(sectionType: SectionType): string[] {
     certifications: ['certification', 'certificate', 'license'],
     training: ['training', 'course'],
     volunteering: ['volunteering', 'volunteer', 'community'],
+    awards: ['award', 'honor', 'achievement'],
+    publications: ['publication'],
     custom: ['custom'],
   };
   
   return keywordMap[sectionType] || [];
 }
+
+/**
+ * Determine which existing section is structurally similar to the one being added.
+ * Item-based sections (experience, projects, volunteering) share structure.
+ * List-based sections (skills, languages, certifications, awards, training) share structure.
+ */
+function findBestSectionToClone(
+  doc: Document,
+  sectionType: SectionType
+): Element | null {
+  // Categorize section types by structure
+  const itemBased: SectionType[] = ['experience', 'projects', 'volunteering', 'education'];
+  const listBased: SectionType[] = ['skills', 'languages', 'certifications', 'awards', 'publications', 'training'];
+  
+  const isItemBased = itemBased.includes(sectionType);
+  const isListBased = listBased.includes(sectionType);
+  
+  // Try to find a section of the same structural category
+  const preferredTypes = isItemBased ? itemBased : isListBased ? listBased : [];
+  
+  for (const preferred of preferredTypes) {
+    if (preferred === sectionType) continue; // Don't match self
+    const section = findExistingSection(doc, preferred);
+    if (section) return section;
+  }
+  
+  // Fallback: try any non-summary section (avoid cloning about-me / summary)
+  const summaryKeywords = getSectionKeywords('summary');
+  const allSections = doc.querySelectorAll('.section, section, [class*="section"]');
+  for (const section of Array.from(allSections)) {
+    const titleEl = section.querySelector('.section-title, h2, h3');
+    if (titleEl) {
+      const titleText = extractText(titleEl).toLowerCase();
+      // Skip summary / about-me sections
+      if (summaryKeywords.some(kw => titleText.includes(kw))) continue;
+      return section;
+    }
+  }
+  
+  // Last fallback: first section
+  return allSections[0] || null;
+}
+
+/**
+ * Section-specific classes that should NOT be carried over when cloning
+ * a section for a different section type (prevents style leakage).
+ */
+const SECTION_SPECIFIC_CLASSES = [
+  'about-me', 'work-experience', 'education', 'skills',
+  'certification', 'language', 'volunteering', 'projects',
+  'awards', 'publications', 'training', 'summary',
+];
 
 /**
  * Create a new section element based on template style
@@ -151,18 +220,21 @@ function createSectionElement(
   data: ResumeData,
   template: ResumeTemplate
 ): Element | null {
-  // Find a similar existing section to use as a template
-  const existingSections = doc.querySelectorAll('.section, section');
-  if (existingSections.length === 0) {
+  // Find a structurally similar existing section to clone
+  const templateSection = findBestSectionToClone(doc, sectionType);
+  if (!templateSection) {
     return createGenericSection(doc, sectionType, data);
   }
   
-  // Clone an existing section structure to match the resume's format
-  const templateSection = existingSections[0];
   const newSection = cloneElement(templateSection);
   
-  // Preserve all classes and styles from the template
-  // This ensures the new section matches the resume's visual style
+  // Strip section-specific classes to prevent style leakage
+  // (e.g., cloning .about-me for a Projects section would apply summary CSS)
+  for (const cls of SECTION_SPECIFIC_CLASSES) {
+    (newSection as HTMLElement).classList.remove(cls);
+  }
+  // Ensure it has a generic 'section' class for baseline styling
+  (newSection as HTMLElement).classList.add('section');
   
   // Clear content but keep structure
   const titleEl = newSection.querySelector('.section-title, h2, h3');
@@ -170,11 +242,13 @@ function createSectionElement(
     titleEl.textContent = getSectionTitle(sectionType);
   }
   
-  // Clear existing content
-  const contentElements = newSection.querySelectorAll('.experience-item, .education-item, .skills-group, li, p, ul, div:not(.section-title):not(.job-header)');
+  // Clear existing content (items, lists, paragraphs, generic divs)
+  const contentElements = newSection.querySelectorAll(
+    '.experience-item, .education-item, .skills-group, .job, .volunteer-item, .project-item, li, p, ul, div:not(.section-title):not(.job-header):not([style*="display: flex"])'
+  );
   contentElements.forEach(el => el.remove());
   
-  // Populate with new data (including placeholders)
+  // Populate with actual data (no placeholders — empty if no data)
   populateSectionContent(newSection, sectionType, data, doc);
   
   // Add a subtle margin to separate from previous content
@@ -219,6 +293,8 @@ function getSectionTitle(sectionType: SectionType): string {
     certifications: 'Certifications',
     training: 'Training',
     volunteering: 'Volunteering',
+    awards: 'Awards',
+    publications: 'Publications',
     custom: 'Additional Information',
   };
   
@@ -243,11 +319,8 @@ function populateSectionContent(
           const item = createProjectItem(ownerDoc, project);
           section.appendChild(item);
         }
-      } else {
-        // Add placeholder project
-        const item = createPlaceholderProjectItem(ownerDoc);
-        section.appendChild(item);
       }
+      // No placeholder — if no data, section stays empty (will be removed by renderer)
       break;
       
     case 'languages':
@@ -259,16 +332,8 @@ function populateSectionContent(
           list.appendChild(li);
         }
         section.appendChild(list);
-      } else {
-        // Add placeholder
-        const list = ownerDoc.createElement('ul');
-        const li = ownerDoc.createElement('li');
-        li.textContent = 'English (Native)';
-        li.setAttribute('contenteditable', 'true');
-        li.style.color = '#999';
-        list.appendChild(li);
-        section.appendChild(list);
       }
+      // No placeholder — if no data, section stays empty
       break;
       
     case 'certifications':
@@ -283,16 +348,8 @@ function populateSectionContent(
           list.appendChild(li);
         }
         section.appendChild(list);
-      } else {
-        // Add placeholder
-        const list = ownerDoc.createElement('ul');
-        const li = ownerDoc.createElement('li');
-        li.textContent = 'Certification Name - Issuing Organization (Year)';
-        li.setAttribute('contenteditable', 'true');
-        li.style.color = '#999';
-        list.appendChild(li);
-        section.appendChild(list);
       }
+      // No placeholder — if no data, section stays empty
       break;
       
     case 'training':
@@ -304,16 +361,8 @@ function populateSectionContent(
           list.appendChild(li);
         }
         section.appendChild(list);
-      } else {
-        // Add placeholder
-        const list = ownerDoc.createElement('ul');
-        const li = ownerDoc.createElement('li');
-        li.textContent = 'Course Name - Provider';
-        li.setAttribute('contenteditable', 'true');
-        li.style.color = '#999';
-        list.appendChild(li);
-        section.appendChild(list);
       }
+      // No placeholder — if no data, section stays empty
       break;
       
     case 'volunteering':
@@ -322,30 +371,47 @@ function populateSectionContent(
           const item = createVolunteerItem(ownerDoc, vol);
           section.appendChild(item);
         }
-      } else {
-        // Add placeholder
-        const item = createPlaceholderVolunteerItem(ownerDoc);
-        section.appendChild(item);
+      }
+      // No placeholder — if no data, section stays empty
+      break;
+
+    case 'awards':
+      if (data.awards && data.awards.length > 0) {
+        const awardList = ownerDoc.createElement('ul');
+        for (const award of data.awards) {
+          const li = ownerDoc.createElement('li');
+          let text = award.name;
+          if (award.issuer) text += ` - ${award.issuer}`;
+          if (award.date) text += ` (${award.date})`;
+          li.textContent = text;
+          awardList.appendChild(li);
+        }
+        section.appendChild(awardList);
+      }
+      break;
+
+    case 'publications':
+      if (data.publications && data.publications.length > 0) {
+        const pubList = ownerDoc.createElement('ul');
+        for (const pub of data.publications) {
+          const li = ownerDoc.createElement('li');
+          let text = pub.title;
+          if (pub.publisher) text += ` - ${pub.publisher}`;
+          if (pub.date) text += ` (${pub.date})`;
+          li.textContent = text;
+          pubList.appendChild(li);
+        }
+        section.appendChild(pubList);
       }
       break;
       
     case 'custom':
-      // Add placeholder for custom section
-      const customItem = ownerDoc.createElement('div');
-      customItem.className = 'experience-item';
-      customItem.setAttribute('contenteditable', 'true');
-      customItem.style.color = '#999';
-      customItem.innerHTML = '<p>Add your custom content here. Click to edit.</p>';
-      section.appendChild(customItem);
+      // No placeholder — user can click to edit the empty section
       break;
       
     default:
-      // For other sections, add a placeholder
-      const p = ownerDoc.createElement('p');
-      p.textContent = 'Add content here. Click to edit.';
-      p.setAttribute('contenteditable', 'true');
-      p.style.color = '#999';
-      section.appendChild(p);
+      // No placeholder — section stays empty if no data
+      break;
   }
 }
 
@@ -384,50 +450,6 @@ function createProjectItem(doc: Document, project: ProjectItem): Element {
   return item;
 }
 
-/**
- * Create a placeholder project item
- */
-function createPlaceholderProjectItem(doc: Document): Element {
-  const item = doc.createElement('div');
-  item.className = 'experience-item project-item';
-  
-  const header = doc.createElement('div');
-  header.className = 'job-header';
-  
-  const title = doc.createElement('div');
-  title.className = 'job-title';
-  title.textContent = 'Project Name';
-  title.setAttribute('contenteditable', 'true');
-  title.style.color = '#999';
-  header.appendChild(title);
-  
-  const date = doc.createElement('div');
-  date.className = 'job-date';
-  date.textContent = 'Month Year - Month Year';
-  date.setAttribute('contenteditable', 'true');
-  date.style.color = '#999';
-  header.appendChild(date);
-  
-  item.appendChild(header);
-  
-  const org = doc.createElement('div');
-  org.className = 'company-location';
-  org.textContent = 'Organization or Personal Project';
-  org.setAttribute('contenteditable', 'true');
-  org.style.color = '#999';
-  item.appendChild(org);
-  
-  const list = doc.createElement('ul');
-  list.className = 'achievements';
-  const li = doc.createElement('li');
-  li.textContent = 'Describe your project, technologies used, and key achievements here';
-  li.setAttribute('contenteditable', 'true');
-  li.style.color = '#999';
-  list.appendChild(li);
-  item.appendChild(list);
-  
-  return item;
-}
 
 /**
  * Create a volunteer item element
@@ -456,50 +478,6 @@ function createVolunteerItem(doc: Document, vol: VolunteeringItem): Element {
   return item;
 }
 
-/**
- * Create a placeholder volunteer item
- */
-function createPlaceholderVolunteerItem(doc: Document): Element {
-  const item = doc.createElement('div');
-  item.className = 'experience-item volunteer-item';
-  
-  const header = doc.createElement('div');
-  header.className = 'job-header';
-  
-  const title = doc.createElement('div');
-  title.className = 'job-title';
-  title.textContent = 'Volunteer Role';
-  title.setAttribute('contenteditable', 'true');
-  title.style.color = '#999';
-  header.appendChild(title);
-  
-  const date = doc.createElement('div');
-  date.className = 'job-date';
-  date.textContent = 'Month Year - Present';
-  date.setAttribute('contenteditable', 'true');
-  date.style.color = '#999';
-  header.appendChild(date);
-  
-  item.appendChild(header);
-  
-  const org = doc.createElement('div');
-  org.className = 'company-location';
-  org.textContent = 'Organization Name';
-  org.setAttribute('contenteditable', 'true');
-  org.style.color = '#999';
-  item.appendChild(org);
-  
-  const list = doc.createElement('ul');
-  list.className = 'achievements';
-  const li = doc.createElement('li');
-  li.textContent = 'Describe your volunteer work, responsibilities, and impact here';
-  li.setAttribute('contenteditable', 'true');
-  li.style.color = '#999';
-  list.appendChild(li);
-  item.appendChild(list);
-  
-  return item;
-}
 
 /**
  * Check if a section exists in the HTML
@@ -567,6 +545,10 @@ function hasSectionData(data: ResumeData, sectionType: SectionType): boolean {
       return !!(data.training && data.training.length > 0);
     case 'volunteering':
       return !!(data.volunteering && data.volunteering.length > 0);
+    case 'awards':
+      return !!(data.awards && data.awards.length > 0);
+    case 'publications':
+      return !!(data.publications && data.publications.length > 0);
     default:
       return false;
   }

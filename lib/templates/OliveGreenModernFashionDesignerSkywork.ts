@@ -124,7 +124,7 @@ const html = `<style>
 
         .left-column,
         .right-column {
-            width: 50%;
+            width: calc(50% - 20px);
         }
 
         .job,

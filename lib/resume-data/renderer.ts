@@ -14,6 +14,8 @@ import {
   CertificationItem,
   TrainingItem,
   VolunteeringItem,
+  AwardItem,
+  PublicationItem,
 } from './schema';
 import { ResumeTemplate } from '../templates/types';
 import {
@@ -22,6 +24,7 @@ import {
   extractText,
   cloneElement,
 } from './utils';
+import { isPlaceholderText } from './placeholder-filter';
 
 /**
  * Main renderer function: ResumeData + Template → HTML
@@ -40,14 +43,28 @@ export function renderToTemplate(data: ResumeData, template: ResumeTemplate): st
   renderCertifications(doc, data);
   renderTraining(doc, data);
   renderVolunteering(doc, data);
+  renderAwards(doc, data);
+  renderPublications(doc, data);
   
   // Remove sections that have no user data (avoids blank placeholder sections)
   removeEmptySections(doc, data);
   
+  // Strip any remaining placeholder / Lorem ipsum content
+  stripRemainingPlaceholders(doc, data);
+  
   // Fix CSS for continuous content flow (no blank pages or clipping)
   fixContinuousLayoutCSS(doc, template);
   
-  return serializeDOMToHtml(doc);
+  // Embed ResumeData as JSON in the HTML for editor access
+  embedResumeData(doc, data);
+  
+  let html = serializeDOMToHtml(doc);
+  
+  // Final string-level safety net: strip any remaining placeholder text patterns
+  // that the DOM-based approach might have missed
+  html = stripPlaceholderStrings(html);
+  
+  return html;
 }
 
 /**
@@ -349,7 +366,24 @@ function renderSummary(doc: Document, data: ResumeData): void {
   
   let summaryRendered = false;
   
-  // Comprehensive summary selectors
+  // --- Step A: Always update header tagline paragraphs (e.g. ColorfulBlocks .header p) ---
+  // These are brief summary/taglines that sit inside the header alongside the name.
+  // We update them first, separately from the main summary section, so they always
+  // reflect real data even when a dedicated summary section also exists.
+  const headerParagraphs = doc.querySelectorAll('.header p');
+  for (const p of Array.from(headerParagraphs)) {
+    // Skip subtitle, contact-info children, and short all-caps titles
+    const text = extractText(p);
+    const looksLikeTitle = text && text === text.toUpperCase() && text.length < 100;
+    
+    if (!p.closest('.contact-info') && !p.classList.contains('subtitle') && !looksLikeTitle) {
+      p.textContent = data.summary.text;
+      summaryRendered = true;
+      break; // Only update the first matching header paragraph
+    }
+  }
+  
+  // --- Step B: Update dedicated summary sections (.summary-list, .about-me, etc.) ---
   const summarySelectors = [
     '.summary',
     '.about',
@@ -388,23 +422,6 @@ function renderSummary(doc: Document, data: ResumeData): void {
         }
       });
       if (summaryRendered) {
-        return;
-      }
-    }
-  }
-  
-  // Special case: ColorfulBlocks has summary in .header p (but not MinimalistSimplePhoto's .contact-info p or Template2ColumnMinimal's title p)
-  if (!summaryRendered) {
-    const headerParagraphs = doc.querySelectorAll('.header p');
-    for (const p of Array.from(headerParagraphs)) {
-      // Skip if it's inside contact-info or has subtitle class
-      // Also skip if it looks like a title/role (all uppercase, short text)
-      const text = extractText(p);
-      const looksLikeTitle = text && text === text.toUpperCase() && text.length < 100;
-      
-      if (!p.closest('.contact-info') && !p.classList.contains('subtitle') && !looksLikeTitle) {
-        p.textContent = data.summary.text;
-        summaryRendered = true;
         return;
       }
     }
@@ -948,21 +965,21 @@ function renderSkills(doc: Document, data: ResumeData): void {
 function renderProjects(doc: Document, data: ResumeData): void {
   if (!data.projects || data.projects.length === 0) {
     // Remove projects section if no data
-    const projectsSection = findSection(doc, ['projects']);
+    const projectsSection = findSection(doc, ['project']);
     if (projectsSection) {
       projectsSection.remove();
     }
     return;
   }
   
-  const projectsSection = findSection(doc, ['projects']);
+  const projectsSection = findSection(doc, ['project']);
   if (!projectsSection) return;
   
   const templateItem = projectsSection.querySelector('.project, .project-item, .experience-item');
   if (!templateItem) return;
   
-  // Clear existing items
-  const allItems = projectsSection.querySelectorAll('.project, .project-item');
+  // Clear existing items - need to check all possible item classes
+  const allItems = projectsSection.querySelectorAll('.project, .project-item, .experience-item');
   allItems.forEach(item => item.remove());
   
   // Render each project
@@ -977,8 +994,8 @@ function renderProjects(doc: Document, data: ResumeData): void {
  * Render a single project item
  */
 function renderProjectItem(element: Element, data: ProjectItem): void {
-  // Render title
-  const titleSelectors = ['.project-title', '.title', 'h3', 'h4'];
+  // Render title - include .job-title for KUSE template
+  const titleSelectors = ['.project-title', '.title', '.job-title', 'h3', 'h4'];
   for (const selector of titleSelectors) {
     const titleEl = element.querySelector(selector);
     if (titleEl) {
@@ -991,9 +1008,20 @@ function renderProjectItem(element: Element, data: ProjectItem): void {
     }
   }
   
-  // Render organization
+  // Render dates if present
+  if (data.startDate || data.endDate) {
+    const dateEl = element.querySelector('.job-date, .date, .project-date');
+    if (dateEl) {
+      const dateText = data.endDate 
+        ? `${data.startDate || ''} - ${data.endDate}` 
+        : data.startDate || data.endDate || '';
+      dateEl.textContent = dateText;
+    }
+  }
+  
+  // Render organization/tech stack - include .degree-info for KUSE template
   if (data.organization) {
-    const orgSelectors = ['.company', '.organization', '.subtitle'];
+    const orgSelectors = ['.company', '.organization', '.subtitle', '.degree-info'];
     for (const selector of orgSelectors) {
       const orgEl = element.querySelector(selector);
       if (orgEl) {
@@ -1003,10 +1031,26 @@ function renderProjectItem(element: Element, data: ProjectItem): void {
     }
   }
   
-  // Render description
+  // Render description - handle both text paragraphs and bullet lists
   const descEl = element.querySelector('.description, p');
-  if (descEl) {
+  if (descEl && !descEl.classList.contains('degree-info')) {
     descEl.textContent = data.description;
+  }
+  
+  // If template has achievements/bullets list, split description into bullets
+  const bulletsContainer = element.querySelector('.achievements, ul.achievements');
+  if (bulletsContainer && data.description) {
+    bulletsContainer.innerHTML = '';
+    const ownerDoc = element.ownerDocument || document;
+    
+    // Split description by newlines or periods to create bullets
+    const bullets = data.description.split(/\n|\.(?=\s)/).map(b => b.trim()).filter(b => b.length > 0);
+    
+    for (const bullet of bullets) {
+      const li = ownerDoc.createElement('li');
+      li.textContent = bullet.endsWith('.') ? bullet : bullet + '.';
+      bulletsContainer.appendChild(li);
+    }
   }
 }
 
@@ -1078,13 +1122,56 @@ function renderLanguages(doc: Document, data: ResumeData): void {
 function renderCertifications(doc: Document, data: ResumeData): void {
   if (!data.certifications || data.certifications.length === 0) {
     const certsSection = findSection(doc, ['certification', 'certificate']);
-    if (certsSection) certsSection.remove();
+    if (certsSection) {
+      // Check if this is a combined "Certifications & Awards" section
+      const titleEl = certsSection.querySelector('.section-title, h2, h3');
+      const titleText = titleEl ? extractText(titleEl).toLowerCase() : '';
+      
+      // If it's a combined section with awards, just remove the certifications group
+      if (titleText.includes('certification') && titleText.includes('award')) {
+        const skillsGroups = certsSection.querySelectorAll('.skills-group');
+        for (const group of Array.from(skillsGroups)) {
+          const categoryEl = group.querySelector('.skills-category');
+          if (categoryEl && /certification/i.test(extractText(categoryEl))) {
+            group.remove();
+          }
+        }
+      } else {
+        // Otherwise remove the entire section
+        certsSection.remove();
+      }
+    }
     return;
   }
   
   const certsSection = findSection(doc, ['certification', 'certificate']);
   if (!certsSection) return;
   
+  // Check for skills-group format (KUSE template: Certifications & Awards combined)
+  const skillsGroups = certsSection.querySelectorAll('.skills-group');
+  let certsGroupFound = false;
+  
+  for (const group of Array.from(skillsGroups)) {
+    const categoryEl = group.querySelector('.skills-category');
+    if (categoryEl && /certification/i.test(extractText(categoryEl))) {
+      const skillsListEl = group.querySelector('.skills-list');
+      if (skillsListEl) {
+        const certTexts = data.certifications.map(cert => {
+          let text = cert.name;
+          if (cert.issuer) text += ` (${cert.issuer})`;
+          return text;
+        });
+        skillsListEl.textContent = certTexts.join(', ');
+        certsGroupFound = true;
+        break;
+      }
+    }
+  }
+  
+  // If skills-group format handled, we're done
+  if (certsGroupFound) return;
+  
+  // Otherwise, handle list format
   const listEl = certsSection.querySelector('ul');
   if (listEl) {
     listEl.innerHTML = '';
@@ -1092,10 +1179,10 @@ function renderCertifications(doc: Document, data: ResumeData): void {
     const ownerDoc = listEl.ownerDocument || doc;
     for (const cert of data.certifications) {
       const li = ownerDoc.createElement('li');
-      li.textContent = `${cert.name} - ${cert.issuer}`;
-      if (cert.date) {
-        li.textContent += ` (${cert.date})`;
-      }
+      let certText = cert.name;
+      if (cert.issuer) certText += ` - ${cert.issuer}`;
+      if (cert.date) certText += ` (${cert.date})`;
+      li.textContent = certText;
       listEl.appendChild(li);
     }
   }
@@ -1121,7 +1208,9 @@ function renderTraining(doc: Document, data: ResumeData): void {
     const ownerDoc = listEl.ownerDocument || doc;
     for (const training of data.training) {
       const li = ownerDoc.createElement('li');
-      li.textContent = `${training.name} - ${training.provider}`;
+      let trainingText = training.name;
+      if (training.provider) trainingText += ` - ${training.provider}`;
+      li.textContent = trainingText;
       listEl.appendChild(li);
     }
   }
@@ -1156,9 +1245,153 @@ function renderVolunteering(doc: Document, data: ResumeData): void {
     const itemEl = cloneElement(templateItem);
     
     const roleEl = itemEl.querySelector('.role, .title, strong') || itemEl;
-    roleEl.textContent = `${vol.role} - ${vol.organization}`;
+    roleEl.textContent = vol.organization ? `${vol.role} - ${vol.organization}` : vol.role;
     
     parent.appendChild(itemEl);
+  }
+}
+
+/**
+ * Render awards section
+ */
+function renderAwards(doc: Document, data: ResumeData): void {
+  if (!data.awards || data.awards.length === 0) {
+    const awardsSection = findSection(doc, ['award', 'honor', 'achievement']);
+    if (awardsSection) {
+      // Check if this is a combined "Certifications & Awards" section
+      const titleEl = awardsSection.querySelector('.section-title, h2, h3');
+      const titleText = titleEl ? extractText(titleEl).toLowerCase() : '';
+      
+      // If it's a combined section with certifications, just remove the awards group
+      if (titleText.includes('certification') && titleText.includes('award')) {
+        const skillsGroups = awardsSection.querySelectorAll('.skills-group');
+        for (const group of Array.from(skillsGroups)) {
+          const categoryEl = group.querySelector('.skills-category');
+          if (categoryEl && /award/i.test(extractText(categoryEl))) {
+            group.remove();
+          }
+        }
+      } else {
+        // Otherwise remove the entire section
+        awardsSection.remove();
+      }
+    }
+    return;
+  }
+
+  const awardsSection = findSection(doc, ['award', 'honor', 'achievement']);
+  if (!awardsSection) return;
+
+  // Check for skills-group format (KUSE template: Certifications & Awards combined)
+  const skillsGroups = awardsSection.querySelectorAll('.skills-group');
+  let awardsGroupFound = false;
+  
+  for (const group of Array.from(skillsGroups)) {
+    const categoryEl = group.querySelector('.skills-category');
+    if (categoryEl && /award/i.test(extractText(categoryEl))) {
+      const skillsListEl = group.querySelector('.skills-list');
+      if (skillsListEl) {
+        const awardTexts = data.awards.map(award => {
+          let text = award.name;
+          if (award.date) text += ` (${award.date})`;
+          return text;
+        });
+        skillsListEl.textContent = awardTexts.join(', ');
+        awardsGroupFound = true;
+        break;
+      }
+    }
+  }
+  
+  // If skills-group format handled, we're done
+  if (awardsGroupFound) return;
+
+  // Otherwise, handle list format
+  const listEl = awardsSection.querySelector('ul');
+  if (listEl) {
+    listEl.innerHTML = '';
+
+    const ownerDoc = listEl.ownerDocument || doc;
+    for (const award of data.awards) {
+      const li = ownerDoc.createElement('li');
+      let text = award.name;
+      if (award.issuer) {
+        text += ` - ${award.issuer}`;
+      }
+      if (award.date) {
+        text += ` (${award.date})`;
+      }
+      li.textContent = text;
+      listEl.appendChild(li);
+    }
+  } else {
+    // Fallback: write into paragraphs or create a list
+    const titleEl = awardsSection.querySelector('.section-title, h2, h3');
+    // Remove existing content except title
+    const children = Array.from(awardsSection.children);
+    for (const child of children) {
+      if (child !== titleEl) child.remove();
+    }
+
+    const ownerDoc = awardsSection.ownerDocument || doc;
+    const ul = ownerDoc.createElement('ul');
+    for (const award of data.awards) {
+      const li = ownerDoc.createElement('li');
+      let text = award.name;
+      if (award.issuer) text += ` - ${award.issuer}`;
+      if (award.date) text += ` (${award.date})`;
+      li.textContent = text;
+      ul.appendChild(li);
+    }
+    awardsSection.appendChild(ul);
+  }
+}
+
+/**
+ * Render publications section
+ */
+function renderPublications(doc: Document, data: ResumeData): void {
+  if (!data.publications || data.publications.length === 0) {
+    const pubSection = findSection(doc, ['publication']);
+    if (pubSection) pubSection.remove();
+    return;
+  }
+
+  const pubSection = findSection(doc, ['publication']);
+  if (!pubSection) return;
+
+  const listEl = pubSection.querySelector('ul');
+  if (listEl) {
+    listEl.innerHTML = '';
+
+    const ownerDoc = listEl.ownerDocument || doc;
+    for (const pub of data.publications) {
+      const li = ownerDoc.createElement('li');
+      let text = pub.title;
+      if (pub.publisher) text += ` - ${pub.publisher}`;
+      if (pub.date) text += ` (${pub.date})`;
+      li.textContent = text;
+      listEl.appendChild(li);
+    }
+  } else {
+    // Fallback: create a list
+    const titleEl = pubSection.querySelector('.section-title, h2, h3');
+    const children = Array.from(pubSection.children);
+    for (const child of children) {
+      if (child !== titleEl) child.remove();
+    }
+
+    const ownerDoc = pubSection.ownerDocument || doc;
+    const ul = ownerDoc.createElement('ul');
+    for (const pub of data.publications) {
+      const li = ownerDoc.createElement('li');
+      let text = pub.title;
+      if (pub.publisher) text += ` - ${pub.publisher}`;
+      if (pub.date) text += ` (${pub.date})`;
+      li.textContent = text;
+      ul.appendChild(li);
+    }
+    pubSection.appendChild(ul);
   }
 }
 
@@ -1197,6 +1430,19 @@ function removeEmptySections(doc: Document, data: ResumeData): void {
     { keywords: ['certification', 'certificate'], hasData: !!(data.certifications && data.certifications.length > 0) },
     { keywords: ['training', 'course'], hasData: !!(data.training && data.training.length > 0) },
     { keywords: ['volunteering', 'volunteer'], hasData: !!(data.volunteering && data.volunteering.length > 0) },
+    { keywords: ['award', 'honor', 'achievement'], hasData: !!(data.awards && data.awards.length > 0) },
+    { keywords: ['publication'], hasData: !!(data.publications && data.publications.length > 0) },
+    { keywords: ['reference'], hasData: false }, // Always remove references section (not in career profile)
+    { keywords: ['interest', 'hobbies', 'hobby'], hasData: false }, // Always remove interests/hobbies (not in career profile)
+  ];
+
+  // Also remove standalone contact-info sections (e.g. PHONE, EMAIL, WEBSITE, ADDRESS)
+  // when corresponding data is not present
+  const standaloneContactChecks: { keywords: string[]; hasData: boolean }[] = [
+    { keywords: ['phone'], hasData: !!data.profile.phone },
+    { keywords: ['email'], hasData: !!data.profile.email },
+    { keywords: ['website', 'web', 'portfolio'], hasData: !!data.profile.website },
+    { keywords: ['address', 'location'], hasData: !!data.profile.location },
   ];
 
   const sections = doc.querySelectorAll('.section, section, [class*="section"]');
@@ -1207,12 +1453,161 @@ function removeEmptySections(doc: Document, data: ResumeData): void {
     
     const titleText = extractText(titleEl).toLowerCase();
     
+    // Check main section types
     for (const check of sectionChecks) {
       if (check.keywords.some(kw => titleText.includes(kw)) && !check.hasData) {
         section.remove();
         break;
       }
     }
+    
+    // Check standalone contact sections (Template2ColumnStylishBlocks, etc.)
+    // These are short, single-word titles like "PHONE", "EMAIL", "WEBSITE", "ADDRESS"
+    // titleText is already lowercased, so exact match with lowercase keywords suffices
+    for (const check of standaloneContactChecks) {
+      if (check.keywords.some(kw => titleText === kw) && !check.hasData) {
+        section.remove();
+        break;
+      }
+    }
+  }
+}
+
+/**
+ * Remove any remaining placeholder / Lorem ipsum content from the document.
+ * This is a safety net: after all rendering and section removal, any leftover
+ * placeholder text that wasn't replaced by real data gets stripped.
+ * Uses the comprehensive isPlaceholderText() utility from placeholder-filter.
+ *
+ * Strategy:
+ *  1. Walk every TEXT NODE and blank it if it's placeholder text. This avoids
+ *     destroying child elements (SVG icons, <br> tags, etc.)
+ *  2. Remove link elements that still point to placeholder URLs.
+ *  3. Clean up fully-emptied parent elements.
+ */
+function stripRemainingPlaceholders(doc: Document, data: ResumeData): void {
+  // ---------- Phase 1: Walk ALL text nodes and blank placeholder text ----------
+  const body = doc.body || doc.documentElement;
+  const walker = doc.createTreeWalker(body, 4 /* NodeFilter.SHOW_TEXT */, null);
+  const textNodesToBlank: Node[] = [];
+  
+  let node: Node | null;
+  while ((node = walker.nextNode())) {
+    const text = (node.nodeValue || '').trim();
+    if (!text) continue;
+    
+    // Skip text inside <style> and <script> tags
+    const parent = node.parentElement;
+    if (parent && (parent.tagName === 'STYLE' || parent.tagName === 'SCRIPT')) continue;
+    
+    if (isPlaceholderText(text)) {
+      textNodesToBlank.push(node);
+    }
+  }
+  
+  for (const textNode of textNodesToBlank) {
+    textNode.nodeValue = '';
+  }
+  
+  // ---------- Phase 2: Check element-level text for multi-node placeholders ----------
+  // Some placeholders span multiple text nodes (e.g. "Lorem ipsum <br> dolor sit amet")
+  // Check the extracted text of each content element as a whole.
+  //
+  // IMPORTANT: We intentionally do NOT include generic `div` here because large
+  // container divs (.right-column, .main-content, etc.) would aggregate ALL nested
+  // text. A single leftover placeholder word in a child would cause clearTextNodes()
+  // to wipe the ENTIRE container, blanking real data. Only target leaf-level or
+  // known content-bearing elements.
+  const contentElements = doc.querySelectorAll(
+    'p, li, span, td, th, a, ' +
+    '.item-description, .about-me-text, .summary, .details, .job-details, ' +
+    '.description, .reference-item, .reference-name, .contact-item, .footer-item'
+  );
+  for (const el of Array.from(contentElements)) {
+    // Skip section titles — we don't want to blank headings like "Experience"
+    if ((el as HTMLElement).classList?.contains('section-title')) continue;
+    
+    // Skip large layout containers — only process leaf or near-leaf content elements.
+    // If an element has more than 3 child elements, it's likely a container, not a
+    // content block. Clearing it would wipe too much.
+    if (el.children.length > 3) continue;
+    
+    const text = extractText(el);
+    if (!text) continue;
+    
+    if (isPlaceholderText(text)) {
+      // Clear all text nodes inside this element (preserves non-text children like SVGs)
+      clearTextNodes(el);
+    }
+  }
+  
+  // ---------- Phase 3: Remove placeholder links ----------
+  const placeholderLinks = doc.querySelectorAll(
+    'a[href*="example.com"], a[href*="reallygreatsite.com"], a[href*="interestingsite.com"]'
+  );
+  for (const link of Array.from(placeholderLinks)) {
+    link.remove();
+  }
+  
+  // Also remove links with placeholder href patterns
+  const allLinks = doc.querySelectorAll('a[href]');
+  for (const link of Array.from(allLinks)) {
+    const href = link.getAttribute('href') || '';
+    if (/reallygreatsite|interestingsite|example\.com/i.test(href)) {
+      link.remove();
+    }
+  }
+}
+
+/**
+ * Clear all text nodes inside an element without destroying child elements.
+ * This preserves SVG icons, <br> tags, etc. while removing visible text.
+ */
+function clearTextNodes(element: Element): void {
+  const walker = element.ownerDocument.createTreeWalker(
+    element, 4 /* NodeFilter.SHOW_TEXT */, null
+  );
+  const nodes: Node[] = [];
+  let n: Node | null;
+  while ((n = walker.nextNode())) {
+    nodes.push(n);
+  }
+  for (const textNode of nodes) {
+    textNode.nodeValue = '';
+  }
+}
+
+/**
+ * Embed ResumeData as JSON in the HTML document
+ * This allows the editor to access the structured data later for re-populating sections
+ */
+function embedResumeData(doc: Document, data: ResumeData): void {
+  const head = doc.querySelector('head');
+  const body = doc.querySelector('body');
+  
+  if (!head && !body) return;
+  
+  // Create a script tag with the resume data
+  const scriptEl = doc.createElement('script');
+  scriptEl.type = 'application/json';
+  scriptEl.id = 'resume-data';
+  
+  // Sanitize data to avoid XSS (remove any script tags from description fields)
+  const sanitizedData = JSON.stringify(data, (key, value) => {
+    if (typeof value === 'string') {
+      // Remove any <script> tags
+      return value.replace(/<script[^>]*>.*?<\/script>/gi, '');
+    }
+    return value;
+  });
+  
+  scriptEl.textContent = sanitizedData;
+  
+  // Append to head if available, otherwise to body
+  if (head) {
+    head.appendChild(scriptEl);
+  } else if (body) {
+    body.appendChild(scriptEl);
   }
 }
 
@@ -1248,6 +1643,36 @@ function fixContinuousLayoutCSS(doc: Document, template: ResumeTemplate): void {
       height: auto !important;
       max-height: 350px;
     }
+
+    /*
+     * Fix absolutely-positioned footers inside flex containers.
+     * Templates like OliveGreenModern use position:absolute on .footer
+     * which causes blank space when content exceeds one page because
+     * the footer sits at the bottom of the expanded .page, leaving
+     * a gap on page 1.
+     * Fix: convert the footer to normal document flow so it sits
+     * right after the content, and let it wrap in the flex container.
+     *
+     * NOTE: flex-wrap is applied via inline style ONLY to .main-content
+     * elements that contain a .footer child (see JS below). Applying it
+     * globally via CSS breaks two-column layouts like ColorfulBlocks.
+     */
+    .page > .main-content > .footer,
+    .page .footer[style*="position: absolute"],
+    .footer {
+      position: relative !important;
+      bottom: auto !important;
+      right: auto !important;
+      left: auto !important;
+      width: 100% !important;
+      flex-basis: 100% !important;
+      margin-top: 30px;
+    }
+    /* Ensure .page has bottom padding so footer content isn't clipped */
+    .page {
+      padding-bottom: 0 !important;
+    }
+
     @media print {
       .page {
         height: auto !important;
@@ -1269,4 +1694,48 @@ function fixContinuousLayoutCSS(doc: Document, template: ResumeTemplate): void {
     }
   }
   
+  // Apply flex-wrap ONLY to .main-content elements that contain a .footer child.
+  // This allows the footer to wrap to a new line while columns stay side-by-side
+  // (column widths must properly account for any gap so they sum to ≤ 100%).
+  const mainContents = doc.querySelectorAll('.main-content');
+  for (const mc of Array.from(mainContents)) {
+    if (mc.querySelector('.footer')) {
+      (mc as HTMLElement).style.flexWrap = 'wrap';
+    }
+  }
+}
+
+/**
+ * Final string-level cleanup for placeholder text in serialized HTML.
+ * Only touches text content between HTML tags (not attributes, class names, etc.).
+ * This is the absolute last safety net.
+ */
+function stripPlaceholderStrings(html: string): string {
+  // Patterns that indicate placeholder text content (only match inside HTML text nodes)
+  // We use a callback replacer that only blanks the text between > and <
+  const PLACEHOLDER_CONTENT_PATTERNS: RegExp[] = [
+    // Lorem ipsum and related filler
+    /lorem\s+ipsum[^<]*/gi,
+    /dolor\s+sit\s+amet[^<]*/gi,
+    /consectetur\s+adipiscing[^<]*/gi,
+    /nullam\s+pharetra[^<]*/gi,
+    /nunc\s+sit\s+amet\s+sem[^<]*/gi,
+    /donec\s+hendrerit[^<]*/gi,
+    /donec\s+risus\s+arcu[^<]*/gi,
+    /vel\s+tempus\s+metus[^<]*/gi,
+    /in\s+elementum\s+elit[^<]*/gi,
+    /in\s+enim\s+nunc[^<]*/gi,
+    /luctus\s+sollicitudin[^<]*/gi,
+    /sed\s+leo\s+nisl[^<]*/gi,
+  ];
+  
+  // Only replace text content (between > and <), not inside tags or attributes
+  for (const pattern of PLACEHOLDER_CONTENT_PATTERNS) {
+    html = html.replace(
+      new RegExp(`(>\\s*)${pattern.source}(\\s*<)`, pattern.flags.includes('i') ? 'gi' : 'g'),
+      '$1$2'
+    );
+  }
+  
+  return html;
 }

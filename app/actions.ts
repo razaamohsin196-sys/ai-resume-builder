@@ -334,8 +334,8 @@ function generateDeterministicHtml(profile: CareerProfile, templateHtml: string)
             name: 'Current Template',
             html: templateHtml,
             hasPhoto: false,
-            supportedSections: ['profile', 'summary', 'experience', 'education', 'skills', 'projects', 'languages', 'certifications', 'volunteering'] as SectionType[],
-            sectionOrder: ['profile', 'summary', 'experience', 'education', 'skills', 'projects', 'languages', 'certifications', 'volunteering'] as SectionType[],
+            supportedSections: ['profile', 'summary', 'experience', 'education', 'skills', 'projects', 'languages', 'certifications', 'volunteering', 'awards', 'publications'] as SectionType[],
+            sectionOrder: ['profile', 'summary', 'experience', 'education', 'skills', 'projects', 'languages', 'certifications', 'volunteering', 'awards', 'publications'] as SectionType[],
             pageSize: 'A4' as const,
         };
         

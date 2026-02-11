@@ -14,6 +14,7 @@ import { modifyResumeHtml, generateHtmlResume, generateResumeDraft, checkGrammar
 import { KUSE_RESUME_TEMPLATE } from '@/lib/templates/kuseResume';
 import { RESUME_TEMPLATES } from '@/lib/templates';
 import { ResumeTemplate } from '@/lib/templates/types';
+import { cleanTemplateHtmlForPreview } from '@/lib/resume-data/placeholder-filter';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Check, Settings, Layout } from 'lucide-react';
 import { Loader2 } from 'lucide-react';
@@ -67,14 +68,60 @@ interface ResumeEditorProps {
     initialHtml?: string;
 }
 
-// Helper to strip injected scripts from HTML
+// Helper to strip injected scripts AND pagination/editor artifacts from HTML
 function cleanHtmlScripts(html: string): string {
     if (!html) return html;
     let cleaned = html;
+
+    // --- Remove injected scripts ---
     cleaned = cleaned.replace(/<script>[\s\S]*?<\/script>/gi, '');
+
+    // --- Remove injected styles ---
     cleaned = cleaned.replace(/<style[^>]*>[\s\S]*?\.review-issue[\s\S]*?<\/style>/gi, '');
     cleaned = cleaned.replace(/<style[^>]*>[\s\S]*?\.page-break-gap[\s\S]*?<\/style>/gi, '');
-    cleaned = cleaned.replace(/<style[^>]*id="page-size-override"[\s\S]*?<\/style>/gi, '');
+    cleaned = cleaned.replace(/<style[^>]*id="page-size-override"[^>]*>[\s\S]*?<\/style>/gi, '');
+    cleaned = cleaned.replace(/<style[^>]*id="layout-flow-fix"[^>]*>[\s\S]*?<\/style>/gi, '');
+    cleaned = cleaned.replace(/<style[^>]*id="editor-styles"[^>]*>[\s\S]*?<\/style>/gi, '');
+
+    // --- Remove pagination DOM elements ---
+    // page-break-gap divs (visual page separators)
+    cleaned = cleaned.replace(/<div[^>]*class="page-break-gap"[^>]*>[\s\S]*?<\/div>/gi, '');
+    // page-margin-spacer divs
+    cleaned = cleaned.replace(/<div[^>]*class="page-margin-spacer"[^>]*>[\s\S]*?<\/div>/gi, '');
+    // page-break-indicator divs
+    cleaned = cleaned.replace(/<div[^>]*class="page-break-indicator"[^>]*>[\s\S]*?<\/div>/gi, '');
+    // page-number-footer divs
+    cleaned = cleaned.replace(/<div[^>]*class="page-number-footer"[^>]*>[\s\S]*?<\/div>/gi, '');
+
+    // --- Remove pagination-pushed class from elements ---
+    // e.g. class="section pagination-pushed" → class="section"
+    cleaned = cleaned.replace(/ pagination-pushed/g, '');
+    cleaned = cleaned.replace(/pagination-pushed /g, '');
+    cleaned = cleaned.replace(/class="pagination-pushed"/gi, '');
+
+    // --- Remove data-page-start attributes ---
+    cleaned = cleaned.replace(/\s*data-page-start="[^"]*"/gi, '');
+
+    // --- Remove contenteditable attributes ---
+    cleaned = cleaned.replace(/\s*contenteditable="true"/gi, '');
+    cleaned = cleaned.replace(/\s*contenteditable="false"/gi, '');
+
+    // --- Remove inline editor outline styles ---
+    cleaned = cleaned.replace(/\s*outline:\s*1px dashed rgba\(59,\s*130,\s*246,\s*0\.3\)\s*;?/gi, '');
+
+    // --- Remove inline margin-top added by pagination (style="margin-top: NNpx") ---
+    // Only strip standalone margin-top styles that were pagination-injected
+    // Be careful not to strip template-defined margin-top in combined style attrs
+    // We clean elements that had pagination-pushed (already stripped above), their margin-top
+    // was set by pagination. The pagination script will recalculate fresh.
+    // Pattern: strip margin-top from style attrs where it's the only property
+    cleaned = cleaned.replace(/\s*style="margin-top:\s*[\d.]+px\s*;?\s*--print-margin:\s*[\d.]+px\s*;?\s*"/gi, '');
+    // Also handle just --print-margin left over
+    cleaned = cleaned.replace(/\s*--print-margin:\s*[\d.]+px\s*;?/gi, '');
+
+    // --- Clean up empty style attributes left behind ---
+    cleaned = cleaned.replace(/\s*style="\s*"/gi, '');
+
     return cleaned;
 }
 
@@ -91,6 +138,9 @@ const TemplatePreviewCard = ({ template, isSelected, onClick }: { template: any,
 
     const containerWidth = baseWidth * scale; // ~200px
     const containerHeight = baseHeight * scale; // ~280px
+    
+    // Clean placeholder content from preview HTML (memoized per template)
+    const previewHtml = React.useMemo(() => cleanTemplateHtmlForPreview(template.html), [template.html]);
 
     return (
         <button
@@ -104,7 +154,7 @@ const TemplatePreviewCard = ({ template, isSelected, onClick }: { template: any,
             {/* Preview Area */}
             <div className="relative bg-white overflow-hidden" style={{ width: containerWidth, height: containerHeight }}>
                 <iframe
-                    srcDoc={template.html}
+                    srcDoc={previewHtml}
                     className="absolute top-0 left-0 border-none pointer-events-none select-none origin-top-left"
                     tabIndex={-1}
                     aria-hidden="true"
@@ -585,13 +635,20 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
             const pageWidthTwips = pageSize === 'Letter' ? 12240 : 11906;
             const pageHeightTwips = pageSize === 'Letter' ? 15840 : 16838;
 
-            // 3. Inject temporary cleanup styles (same as PDF export) for a clean capture
+            // 3. Inject temporary cleanup styles for a clean capture.
+            //    IMPORTANT: Do NOT override .pagination-pushed margins here.
+            //    Unlike PDF export (which uses the browser's print engine with CSS
+            //    page-break-before), DOCX export captures the canvas and slices it.
+            //    Collapsing pagination margins would misalign content with the fixed
+            //    slice intervals, causing content to be cut mid-line — especially in
+            //    colorful two-column templates where backgrounds must align per-page.
+            //    Instead, we keep the paginated layout intact and slice at positions
+            //    that skip the page-break gap areas.
             const tempStyle = iframeDoc.createElement('style');
             tempStyle.id = 'temp-docx-capture';
             tempStyle.textContent = `
                 .page-break-gap { display: none !important; }
                 .page-margin-spacer, .page-break-indicator, .page-number-footer { display: none !important; }
-                .pagination-pushed { margin-top: var(--print-margin, 0px) !important; }
                 .page, .resume-container { box-shadow: none !important; }
                 *[contenteditable] { outline: none !important; }
                 .review-issue { text-decoration: none !important; background-color: transparent !important; border-bottom: none !important; }
@@ -614,9 +671,22 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
             // Remove temporary styles
             iframeDoc.getElementById('temp-docx-capture')?.remove();
 
-            // 5. Slice into per-page images
+            // 5. Slice into per-page images, accounting for page-break gaps.
+            //    The pagination system inserts 28px-tall gap indicators between
+            //    pages and pushes content down accordingly. The captured canvas
+            //    includes these gap areas (rendered as blank space since we hid
+            //    the visual indicators). We must skip them when slicing so each
+            //    page image contains only its own content.
+            const pageGapHeight = 28; // Must match pagination script's pageGapHeight
+            // Use pageCount from React state (set via PAGE_COUNT message from the
+            // pagination script). Querying .page-break-gap elements from the DOM is
+            // unreliable here because html2canvas may trigger MutationObserver
+            // callbacks that cause the pagination script to remove & recreate them.
+            // Fall back to canvas-height calculation if state is stale.
             const capturedHeight = fullCanvas.height / scale;
-            const numPages = Math.max(1, Math.ceil(capturedHeight / pageHeightPx));
+            const numPages = pageCount > 1
+                ? pageCount
+                : Math.max(1, Math.ceil(capturedHeight / pageHeightPx));
 
             const pageImageBytes: Uint8Array[] = [];
             for (let i = 0; i < numPages; i++) {
@@ -627,7 +697,10 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
                 ctx.fillStyle = '#ffffff';
                 ctx.fillRect(0, 0, pgCanvas.width, pgCanvas.height);
 
-                const srcY = i * pageHeightPx * scale;
+                // Each page occupies pageHeightPx in the canvas, followed by a
+                // pageGapHeight gap (except for the last page). So page i starts
+                // at i * (pageHeightPx + pageGapHeight).
+                const srcY = i * (pageHeightPx + pageGapHeight) * scale;
                 const srcH = Math.min(pageHeightPx * scale, fullCanvas.height - srcY);
                 if (srcH > 0) {
                     ctx.drawImage(fullCanvas, 0, srcY, pageWidthPx * scale, srcH, 0, 0, pageWidthPx * scale, srcH);
@@ -714,10 +787,10 @@ ${imgRels}</Relationships>`);
         </w:drawing>
       </w:r>
     </w:p>`;
-                // Page break between pages
-                if (i < numPages - 1) {
-                    docBody += `\n    <w:p><w:r><w:br w:type="page"/></w:r></w:p>`;
-                }
+                // No explicit page break needed — each image is sized to fill the
+                // entire page (pageWidthEmu × pageHeightEmu with zero margins), so
+                // Word naturally starts the next image on a new page. Adding an
+                // explicit <w:br w:type="page"/> would create a blank page in between.
             }
 
             wordFolder.file('document.xml',
@@ -970,9 +1043,29 @@ ${imgRels}</Relationships>`);
             // getLatestHtmlFromIframe() ensures any pending edits are captured
             const latestHtml = getLatestHtmlFromIframe();
             
-            const { swapTemplate } = await import('@/lib/resume-data');
+            const { swapTemplate, parseResumeHtml, loadCareerProfileResumeData, loadResumeEditsData, saveResumeEditsData } = await import('@/lib/resume-data');
             
-            const html = swapTemplate(latestHtml, template);
+            // PRE-SAVE: Parse current HTML and save to edits BEFORE switching.
+            // This captures all inline edits, added sections, etc. that happened
+            // since the last save point — critical for preserving user work.
+            try {
+                const currentParsed = parseResumeHtml(latestHtml);
+                const prevEdits = loadResumeEditsData();
+                const preSaveData = prevEdits 
+                    ? { ...prevEdits, ...currentParsed, profile: { ...(prevEdits.profile || {}), ...currentParsed.profile } }
+                    : currentParsed;
+                saveResumeEditsData(preSaveData);
+            } catch (_) { /* non-critical */ }
+            
+            // Load career profile data (layer 3 - original data)
+            const careerData = loadCareerProfileResumeData();
+            // Load freshly saved edits (layer 2 - now includes all recent changes)
+            const editsData = loadResumeEditsData();
+            
+            const { html, mergedData } = swapTemplate(latestHtml, template, careerData, editsData);
+            
+            // Persist the merged data so edits accumulate across template switches
+            saveResumeEditsData(mergedData);
 
             setResumeHtml(html);
             setCurrentHtml(html);
@@ -1105,9 +1198,10 @@ ${imgRels}</Relationships>`);
 
     // Helper: Get the latest HTML from iframe (bypasses debounce)
     // This ensures user edits are not lost when performing operations
+    // Always returns cleaned HTML (no pagination/editor artifacts)
     const getLatestHtmlFromIframe = (): string => {
         if (iframeRef.current && iframeRef.current.contentDocument) {
-            return iframeRef.current.contentDocument.documentElement.outerHTML;
+            return cleanHtmlScripts(iframeRef.current.contentDocument.documentElement.outerHTML);
         }
         return currentHtml;
     };
@@ -1134,7 +1228,10 @@ ${imgRels}</Relationships>`);
     useEffect(() => {
         const handleMessage = (event: MessageEvent) => {
             if (event.data.type === 'RESUME_CONTENT_UPDATE') {
-                const newHtml = event.data.html;
+                // Clean pagination/editor artifacts from iframe HTML before storing
+                // This prevents stale pagination divs, margins, and classes from
+                // being baked into history, which would distort the template on undo/redo
+                const newHtml = cleanHtmlScripts(event.data.html);
                 if (newHtml !== currentHtml) {
                     isInternalUpdate.current = true; // MARK AS INTERNAL
                     setCurrentHtml(newHtml);
@@ -1280,6 +1377,33 @@ ${imgRels}</Relationships>`);
                                 min-height: \${pageHeight} !important;
                             }
                         \`;
+                        
+                        // Fix absolutely positioned footers (e.g. OliveGreenModern)
+                        // that cause blank space when content exceeds one page
+                        let layoutFixEl = document.getElementById('layout-flow-fix');
+                        if (!layoutFixEl) {
+                            layoutFixEl = document.createElement('style');
+                            layoutFixEl.id = 'layout-flow-fix';
+                            document.head.appendChild(layoutFixEl);
+                        }
+                        layoutFixEl.textContent = \`
+                            .page {
+                                height: auto !important;
+                                overflow: visible !important;
+                            }
+                            .main-content {
+                                flex-wrap: wrap !important;
+                            }
+                            .footer {
+                                position: relative !important;
+                                bottom: auto !important;
+                                right: auto !important;
+                                left: auto !important;
+                                width: 100% !important;
+                                flex-basis: 100% !important;
+                                margin-top: 30px;
+                            }
+                        \`;
 
                         document.body.addEventListener('input', function(e) {
                             clearTimeout(debounceTimer);
@@ -1312,14 +1436,15 @@ ${imgRels}</Relationships>`);
                                             const el = parent.nodeType === 1 ? parent : parent.parentElement;
                                             if (el) {
                                                 const px = parseFloat(window.getComputedStyle(el).fontSize);
-                                                // Map px to 1-7 legacy sizes (Strict Mapping for 14px Base)
-                                                if (px <= 10) fontSize = '1';      // Tiny
-                                                else if (px <= 13) fontSize = '2'; // Small
-                                                else if (px < 16) fontSize = '3';  // Normal (14px falls here)
-                                                else if (px < 22) fontSize = '4';  // Large (18px falls here)
-                                                else if (px < 28) fontSize = '5';  // Huge (26px falls here)
-                                                else if (px < 40) fontSize = '6';  // Title
-                                                else fontSize = '7';
+                                                // Map px to 1-7 sizes (matching our custom font size map)
+                                                // Using midpoints between sizes for better tolerance
+                                                if (px < 11) fontSize = '1';       // Tiny (10px)
+                                                else if (px < 13) fontSize = '2';  // Small (12px)
+                                                else if (px < 16) fontSize = '3';  // Normal (14px - matches template default)
+                                                else if (px < 21) fontSize = '4';  // Large (18px)
+                                                else if (px < 28) fontSize = '5';  // Huge (24px)
+                                                else if (px < 40) fontSize = '6';  // Title (32px)
+                                                else fontSize = '7';               // Max (48px+)
                                             }
                                         } catch (e) {
                                             fontSize = document.queryCommandValue('fontSize') || '3';
@@ -1437,6 +1562,34 @@ ${imgRels}</Relationships>`);
                                     type: 'RESUME_CONTENT_UPDATE',
                                     html: document.documentElement.outerHTML
                                 }, '*');
+                            }
+                            
+                            if (type === 'APPLY_FONT_SIZE' && event.data.size) {
+                                // Apply custom font size using inline styles
+                                const sel = window.getSelection();
+                                if (sel && sel.rangeCount > 0 && !sel.isCollapsed) {
+                                    const range = sel.getRangeAt(0);
+                                    const span = document.createElement('span');
+                                    span.style.fontSize = event.data.size;
+                                    
+                                    try {
+                                        range.surroundContents(span);
+                                    } catch(e) {
+                                        // If surroundContents fails, use a different approach
+                                        const fragment = range.extractContents();
+                                        span.appendChild(fragment);
+                                        range.insertNode(span);
+                                    }
+                                    
+                                    // Normalize to avoid fragmented spans
+                                    span.normalize();
+                                    
+                                    // Trigger content update
+                                    window.parent.postMessage({
+                                        type: 'RESUME_CONTENT_UPDATE',
+                                        html: document.documentElement.outerHTML
+                                    }, '*');
+                                }
                             }
 
                             if (type === 'MOVE_BLOCK') {
@@ -1850,6 +2003,30 @@ ${imgRels}</Relationships>`);
                                     mc.style.height = 'auto';
                                     mc.style.minHeight = 'auto';
                                 }
+                                
+                                // Fix flex row layouts (e.g. OliveGreenModern two-column layout)
+                                // that cause blank space when content exceeds one page.
+                                // Flex row containers can't be split across pages, so convert
+                                // to block layout when content overflows.
+                                if (mcStyle.display === 'flex' && mcStyle.flexDirection !== 'column') {
+                                    const mcRect = mc.getBoundingClientRect();
+                                    const mcTop = mcRect.top + window.scrollY;
+                                    const mcBottom = mcTop + mcRect.height;
+                                    // Check if this flex container's content would cross page 1 boundary
+                                    if (mcBottom > pageHeightPx) {
+                                        mc.style.display = 'block';
+                                        mc.style.flexWrap = '';
+                                        // Make column children full-width so they stack vertically
+                                        Array.from(mc.children).forEach(function(child) {
+                                            if (child.classList && 
+                                                (child.classList.contains('left-column') || 
+                                                 child.classList.contains('right-column'))) {
+                                                child.style.width = '100%';
+                                                child.style.display = 'block';
+                                            }
+                                        });
+                                    }
+                                }
                             });
                             
                             // Fix profile images that stretch to fill flex containers
@@ -2200,6 +2377,17 @@ ${imgRels}</Relationships>`);
             setCurrentHtml(html);
             setResumeHtml(html); // Sync global
             logHistory(html);
+            
+            // Persist edits: parse the new HTML and save to localStorage
+            // so edits survive template switches
+            try {
+                const { parseResumeHtml, saveResumeEditsData, loadResumeEditsData } = await import('@/lib/resume-data');
+                const parsed = parseResumeHtml(html);
+                const prev = loadResumeEditsData();
+                // Merge parsed on top of previous edits to accumulate
+                const merged = prev ? { ...prev, ...parsed, profile: { ...prev.profile, ...parsed.profile } } : parsed;
+                saveResumeEditsData(merged);
+            } catch (_) { /* non-critical */ }
 
             if (annotated_html) {
                 setAnnotatedHtml(annotated_html);
@@ -2253,6 +2441,29 @@ ${imgRels}</Relationships>`);
             if (url) val = url;
             else return;
         }
+        
+        // Map fontSize values to actual pixel sizes matching template defaults
+        if (cmd === 'fontSize' && val) {
+            const fontSizeMap: { [key: string]: string } = {
+                '1': '10px',   // Tiny
+                '2': '12px',   // Small
+                '3': '14px',   // Normal (matches template default)
+                '4': '18px',   // Large
+                '5': '24px',   // Huge
+                '6': '32px',   // Title
+                '7': '48px',   // Max
+            };
+            
+            if (fontSizeMap[val] && iframeRef.current && iframeRef.current.contentWindow) {
+                // Apply custom font size using inline styles
+                iframeRef.current.contentWindow.postMessage({ 
+                    type: 'APPLY_FONT_SIZE', 
+                    size: fontSizeMap[val] 
+                }, '*');
+                return;
+            }
+        }
+        
         if (iframeRef.current && iframeRef.current.contentWindow) {
             iframeRef.current.contentWindow.postMessage({ type: 'EXEC_COMMAND', cmd, val }, '*');
         }
@@ -2408,7 +2619,7 @@ ${imgRels}</Relationships>`);
 
                     <Popover open={isTemplatePopoverOpen} onOpenChange={setIsTemplatePopoverOpen}>
                         <PopoverTrigger asChild>
-                            <Button variant="outline" size="sm" className="h-8 gap-1 border-dashed" disabled={isChangingTemplate}>
+                            <Button variant="outline" size="sm" className="h-8 gap-1 border-dashed" disabled={!isEditing || isChangingTemplate}>
                                 {isChangingTemplate ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <LayoutTemplate className="w-3.5 h-3.5" />}
                                 <span className="hidden sm:inline-block max-w-[100px] truncate">Template</span>
                             </Button>
@@ -2440,7 +2651,7 @@ ${imgRels}</Relationships>`);
 
                     <Popover>
                         <PopoverTrigger asChild>
-                            <Button variant="ghost" size="sm" className="h-8 gap-1 ml-1">
+                            <Button variant="ghost" size="sm" className="h-8 gap-1 ml-1" disabled={!isEditing}>
                                 <Settings className="w-3.5 h-3.5" />
                                 Spacing
                             </Button>
@@ -2486,11 +2697,12 @@ ${imgRels}</Relationships>`);
                             logHistory(html);
                         }}
                         iframeRef={iframeRef}
+                        isEditing={isEditing}
                     />
                     
                     <Popover>
                         <PopoverTrigger asChild>
-                            <Button variant="ghost" size="sm" className="h-8 gap-1">
+                            <Button variant="ghost" size="sm" className="h-8 gap-1" disabled={!isEditing}>
                                 <Layout className="w-3.5 h-3.5" />
                                 {pageSize}
                             </Button>
@@ -2535,10 +2747,10 @@ ${imgRels}</Relationships>`);
 
                     <div className="h-4 w-px bg-border mx-2" />
 
-                    <Button variant="ghost" size="icon" disabled={historyIndex <= 0} onClick={handleUndo}>
+                    <Button variant="ghost" size="icon" disabled={!isEditing || historyIndex <= 0} onClick={handleUndo}>
                         <Undo className="w-4 h-4" />
                     </Button>
-                    <Button variant="ghost" size="icon" disabled={historyIndex >= history.length - 1} onClick={handleRedo}>
+                    <Button variant="ghost" size="icon" disabled={!isEditing || historyIndex >= history.length - 1} onClick={handleRedo}>
                         <Redo className="w-4 h-4" />
                     </Button>
                 </div>

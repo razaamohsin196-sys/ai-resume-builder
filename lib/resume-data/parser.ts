@@ -18,6 +18,8 @@ import {
   CertificationItem,
   TrainingItem,
   VolunteeringItem,
+  AwardItem,
+  PublicationItem,
 } from './schema';
 import {
   parseHtmlToDOM,
@@ -51,6 +53,8 @@ export function parseResumeHtml(html: string): ResumeData {
     certifications: parseCertifications(doc),
     training: parseTraining(doc),
     volunteering: parseVolunteering(doc),
+    awards: parseAwards(doc),
+    publications: parsePublications(doc),
   };
 }
 
@@ -917,6 +921,83 @@ function parseVolunteering(doc: Document): VolunteeringItem[] | undefined {
         id: generateId(),
         role,
         organization,
+      });
+    }
+  }
+  
+  return items.length > 0 ? items : undefined;
+}
+
+/**
+ * Parse awards section
+ */
+function parseAwards(doc: Document): AwardItem[] | undefined {
+  const items: AwardItem[] = [];
+  
+  const awardsSection = findSection(doc, ['award', 'honor', 'achievement']);
+  if (!awardsSection) return undefined;
+  
+  const itemElements = awardsSection.querySelectorAll('li, .award-item, .experience-item');
+  
+  for (const itemEl of Array.from(itemElements)) {
+    const text = extractText(itemEl);
+    if (text && !isPlaceholderText(text)) {
+      // Try to parse "Name - Issuer (Date)" format
+      const parts = text.split(/[-–—]/);
+      const name = parts[0]?.trim();
+      const rest = parts.slice(1).join('-').trim();
+      
+      // Try to extract date from parentheses
+      const dateMatch = rest.match(/\(([^)]+)\)/);
+      const date = dateMatch ? dateMatch[1] : undefined;
+      const issuer = rest.replace(/\([^)]+\)/, '').trim() || undefined;
+      
+      items.push({
+        id: generateId(),
+        name: name || text,
+        issuer,
+        date,
+        description: rest || undefined,
+      });
+    }
+  }
+  
+  return items.length > 0 ? items : undefined;
+}
+
+/**
+ * Parse publications section
+ */
+function parsePublications(doc: Document): PublicationItem[] | undefined {
+  const items: PublicationItem[] = [];
+  
+  const pubsSection = findSection(doc, ['publication']);
+  if (!pubsSection) return undefined;
+  
+  const itemElements = pubsSection.querySelectorAll('li, .publication-item, .experience-item');
+  
+  for (const itemEl of Array.from(itemElements)) {
+    const text = extractText(itemEl);
+    if (text && !isPlaceholderText(text)) {
+      // Try to parse "Title - Publisher (Date)" format
+      const parts = text.split(/[-–—]/);
+      const title = parts[0]?.trim();
+      const rest = parts.slice(1).join('-').trim();
+      
+      // Try to extract date from parentheses
+      const dateMatch = rest.match(/\(([^)]+)\)/);
+      const date = dateMatch ? dateMatch[1] : undefined;
+      const publisher = rest.replace(/\([^)]+\)/, '').trim() || undefined;
+      
+      const url = extractUrl(itemEl);
+      
+      items.push({
+        id: generateId(),
+        title: title || text,
+        publisher,
+        date,
+        url,
+        description: rest || undefined,
       });
     }
   }

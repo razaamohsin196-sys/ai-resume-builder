@@ -18,6 +18,8 @@ export type SectionType =
   | 'certifications'
   | 'training'
   | 'volunteering'
+  | 'awards'
+  | 'publications'
   | 'custom';
 
 // Profile/Contact Information
@@ -123,6 +125,25 @@ export interface VolunteeringItem {
   bullets?: string[];
 }
 
+// Award Item
+export interface AwardItem {
+  id: string;
+  name: string;
+  issuer?: string;
+  date?: string;
+  description?: string;
+}
+
+// Publication Item
+export interface PublicationItem {
+  id: string;
+  title: string;
+  publisher?: string;
+  date?: string;
+  url?: string;
+  description?: string;
+}
+
 // Custom Section (user-defined)
 export interface CustomSection {
   id: string;
@@ -150,6 +171,8 @@ export interface ResumeData {
   certifications?: CertificationItem[];
   training?: TrainingItem[];
   volunteering?: VolunteeringItem[];
+  awards?: AwardItem[];
+  publications?: PublicationItem[];
   custom?: CustomSection[];
   
   // Metadata
@@ -172,6 +195,8 @@ export type SectionData =
   | CertificationItem[]
   | TrainingItem[]
   | VolunteeringItem[]
+  | AwardItem[]
+  | PublicationItem[]
   | CustomSection[];
 
 // Validation helpers
@@ -206,6 +231,10 @@ export function getSectionData(data: ResumeData, section: SectionType): SectionD
       return data.training;
     case 'volunteering':
       return data.volunteering;
+    case 'awards':
+      return data.awards;
+    case 'publications':
+      return data.publications;
     case 'custom':
       return data.custom;
     default:

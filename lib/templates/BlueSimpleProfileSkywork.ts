@@ -42,6 +42,7 @@ const html = `<style>
             position: absolute;
             bottom: 0;
             left: 0;
+            z-index: 2;
         }
 
         .main-content {
@@ -51,6 +52,8 @@ const html = `<style>
             min-height: calc(100% - 70px);
             width: calc(100% - 60px);
             transform: translateY(70px) translateX(30px);
+            padding-bottom: 90px;
+            box-sizing: border-box;
         }
 
         .left-column {
