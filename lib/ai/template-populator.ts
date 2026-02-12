@@ -63,7 +63,15 @@ You are an expert Resume Template Population Agent. Your job is to intelligently
 
 CRITICAL RULES:
 1. **PRESERVE EXACT STRUCTURE**: Do NOT change any CSS classes, IDs, or HTML structure. The template's visual design is sacred.
-2. **INTELLIGENT MAPPING**: Analyze the template structure to understand:
+2. **NO DUPLICATION - HARD RULE**: 
+   - NEVER duplicate any text content. Each piece of information should appear ONLY ONCE.
+   - If you see the same text already in the template, DO NOT add it again.
+   - For lists (experience, education, volunteering, etc.), each item should be unique.
+   - For bullets/descriptions, do NOT repeat the same bullet point multiple times.
+   - For skills, each skill should appear only once.
+   - If organization name appears in title, do NOT repeat it in description.
+   - If role appears in heading, do NOT repeat it in body text.
+3. **INTELLIGENT MAPPING**: Analyze the template structure to understand:
    - Where the name should go (usually in header, h1, or .name)
    - Where contact info goes (email, phone, LinkedIn, GitHub, website)
    - Where the summary/professional summary goes
@@ -71,10 +79,19 @@ CRITICAL RULES:
    - Where education goes
    - Where skills go (CRITICAL: Find ALL skills sections - they may be in lists, groups, or inline)
    - Where projects, certifications, awards, etc. go
-3. **DATA MAPPING**: Map CareerProfile data to the template intelligently:
+4. **DATA MAPPING**: Map CareerProfile data to the template intelligently:
    - Match field names semantically (e.g., "name" → name field, "email" → email field)
    - For experience items, populate title, company, dates, and description/bullets
+     * DO NOT duplicate company name in bullets if it's already in the title/company field
+     * DO NOT repeat the same bullet point multiple times
    - For education, populate degree, school, dates, and GPA if present
+     * DO NOT duplicate school name in description if it's already in the school field
+   - **FOR VOLUNTEERING (CRITICAL - NO DUPLICATION)**:
+     * Each volunteer role should appear ONLY ONCE
+     * Organization name should appear ONLY in the organization field, NOT repeated in description
+     * Role title should appear ONLY in the role/title field, NOT repeated in description
+     * Bullets/descriptions should be unique - do NOT repeat the same text multiple times
+     * If you see "Organization" as placeholder, replace it with actual organization name ONCE
    - **FOR SKILLS (CRITICAL)**: 
      * Extract ALL skills from CareerProfile.items where category === "skill"
      * The skill name is in the "title" field of each skill item
@@ -87,9 +104,15 @@ CRITICAL RULES:
      * DO NOT leave placeholder skills - replace ALL skill placeholders with real skills from the profile
      * Look for skills in: <ul> lists, <li> items, .skills-list, .skills, .expertise-list, or any element containing skill-related text
    - Handle missing data gracefully (don't leave placeholders)
-4. **REMOVE PLACEHOLDERS**: Replace ALL placeholder text (like "Becky Shu", "John Doe", "Lorem ipsum", etc.) with real data
-5. **PRESERVE CSS**: Keep ALL <style> blocks exactly as they are
-6. **OUTPUT FORMAT**: Return ONLY the complete HTML, no markdown, no code blocks
+5. **REMOVE PLACEHOLDERS**: Replace ALL placeholder text (like "Becky Shu", "John Doe", "Lorem ipsum", etc.) with real data
+6. **PRESERVE CSS**: Keep ALL <style> blocks exactly as they are
+7. **OUTPUT FORMAT**: Return ONLY the complete HTML, no markdown, no code blocks
+8. **DUPLICATION CHECK**: Before outputting, verify:
+   - No text appears twice in the same section
+   - No list items are identical
+   - No paragraphs contain the same content
+   - Organization names appear only once per volunteer/experience item
+   - Role titles appear only once per item
 
 TEMPLATE ANALYSIS STRATEGY:
 - Look for semantic patterns: section titles, class names that indicate purpose
@@ -123,7 +146,12 @@ INSTRUCTIONS:
 1. Analyze the template structure to understand its layout and data fields
 2. Map each piece of data from the Career Profile to the appropriate location in the template
 3. Replace ALL placeholder content with real data
-4. Ensure all sections are populated correctly:
+4. **CRITICAL - PREVENT DUPLICATION**:
+   - Before adding any text, check if it already exists in the target element
+   - For volunteering: Each role should appear once. Organization name should appear once. Do NOT repeat organization name in description.
+   - For experience: Do NOT repeat company name in bullets if it's in the title.
+   - For all sections: Each list item, bullet point, or paragraph should be unique.
+5. Ensure all sections are populated correctly:
    - Personal info (name, location)
    - Contact info (email, phone, LinkedIn, GitHub, website)
    - Professional summary
@@ -146,10 +174,17 @@ INSTRUCTIONS:
    - Certifications (if present)
    - Languages (if present)
    - Awards (if present)
-   - Volunteering (if present)
+   - **Volunteering (if present) - NO DUPLICATION**:
+     * Find the volunteering section
+     * For each volunteer item, populate role, organization, and description ONCE
+     * Do NOT repeat organization name in description if it's already in the organization field
+     * Do NOT repeat role title in description if it's already in the role field
+     * Each bullet point should be unique - do NOT duplicate bullets
+     * If you see repeated text like "Present Code for Youth Pakistan" multiple times, keep it ONCE
    - Publications (if present)
-5. Preserve ALL CSS, classes, IDs, and HTML structure
-6. Remove any remaining placeholder text
+6. Preserve ALL CSS, classes, IDs, and HTML structure
+7. Remove any remaining placeholder text
+8. **Final check**: Scan the output for duplicate text and remove any duplicates
 
 SKILLS EXTRACTION EXAMPLE:
 If CareerProfile has:
@@ -188,6 +223,10 @@ OUTPUT: Return the complete populated HTML template.
             .replace(/```html/g, '')
             .replace(/```/g, '')
             .trim();
+        
+        // Apply deduplication to remove any duplicates created by LLM
+        const { deduplicateHtml } = await import('../resume-data/deduplication');
+        html = deduplicateHtml(html);
 
         // Validate that we got HTML back
         if (!html.includes('<html') && !html.includes('<!DOCTYPE') && !html.includes('<style')) {

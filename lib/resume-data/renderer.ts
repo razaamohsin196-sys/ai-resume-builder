@@ -25,6 +25,7 @@ import {
   cloneElement,
 } from './utils';
 import { isPlaceholderText } from './placeholder-filter';
+import { deduplicateArray, deduplicateElementText, deduplicateHtml } from './deduplication';
 
 /**
  * Main renderer function: ResumeData + Template → HTML
@@ -63,6 +64,9 @@ export function renderToTemplate(data: ResumeData, template: ResumeTemplate): st
   // Final string-level safety net: strip any remaining placeholder text patterns
   // that the DOM-based approach might have missed
   html = stripPlaceholderStrings(html);
+  
+  // Final deduplication pass to remove any remaining duplicates
+  html = deduplicateHtml(html);
   
   return html;
 }
@@ -675,12 +679,24 @@ function renderExperienceItem(element: Element, data: ExperienceItem): void {
   // Render bullets - comprehensive selectors
   const bulletsContainer = element.querySelector('.achievements, ul, .bullets, .item-description, .responsibilities-list, .experience-list, .job-description');
   if (bulletsContainer && data.bullets.length > 0) {
-    // If it's a paragraph element, join bullets with line breaks
-    if (bulletsContainer.tagName === 'P' || bulletsContainer.classList.contains('item-description')) {
+    // For AccentColorMinimal: .item-description is a <p>, but we want to render bullets as a <ul> inside it
+    if (bulletsContainer.classList.contains('item-description') && bulletsContainer.tagName === 'P') {
+      const ownerDoc = bulletsContainer.ownerDocument || document;
+      // Clear the paragraph and create a ul inside it
+      bulletsContainer.innerHTML = '';
+      const ul = ownerDoc.createElement('ul');
+      for (const bullet of data.bullets) {
+        const li = ownerDoc.createElement('li');
+        li.textContent = bullet;
+        ul.appendChild(li);
+      }
+      bulletsContainer.appendChild(ul);
+    } else if (bulletsContainer.tagName === 'P' || bulletsContainer.classList.contains('item-description')) {
+      // For other templates with paragraph descriptions, join bullets with line breaks
       bulletsContainer.textContent = data.bullets.join('. ');
     } else {
+      // It's a list element, populate with list items
       bulletsContainer.innerHTML = '';
-      
       const ownerDoc = element.ownerDocument || document;
       for (const bullet of data.bullets) {
         const li = ownerDoc.createElement('li');
@@ -1425,18 +1441,156 @@ function renderVolunteering(doc: Document, data: ResumeData): void {
   const parent = templateItem.parentElement;
   if (!parent) return;
   
-  // Clear existing items
-  parent.innerHTML = '';
+  // CRITICAL: Clear ALL existing items in the entire section, not just parent
+  // This prevents duplication from template structure or previous renders
+  const allExistingItems = volunteerSection.querySelectorAll('.volunteer-item, .experience-item, li');
+  allExistingItems.forEach(item => {
+    // Only remove if it's not our template item (we need that for cloning)
+    if (item !== templateItem) {
+      item.remove();
+    }
+  });
   
-  // Render each volunteer item
-  for (const vol of data.volunteering) {
+  // Also clear any duplicate content that might be in the section
+  // Remove any standalone "Organization" text or duplicate paragraphs
+  const allParagraphs = volunteerSection.querySelectorAll('p');
+  const seenParagraphs = new Set<string>();
+  for (const p of Array.from(allParagraphs)) {
+    const text = p.textContent?.trim() || '';
+    if (text === 'Organization' || text === 'organization') {
+      p.remove();
+    } else if (text) {
+      const normalized = text.toLowerCase().replace(/\s+/g, ' ');
+      if (seenParagraphs.has(normalized)) {
+        p.remove();
+      } else {
+        seenParagraphs.add(normalized);
+      }
+    }
+  }
+  
+  // Deduplicate volunteer items before rendering
+  const seenKeys = new Set<string>();
+  const uniqueVolunteering = data.volunteering.filter(vol => {
+    const key = `${vol.role}|${vol.organization}`.toLowerCase().trim();
+    if (seenKeys.has(key)) {
+      return false; // Skip duplicate
+    }
+    seenKeys.add(key);
+    return true;
+  });
+  
+  // Render each unique volunteer item
+  for (const vol of uniqueVolunteering) {
     const itemEl = cloneElement(templateItem);
     
-    const roleEl = itemEl.querySelector('.role, .title, strong') || itemEl;
-    roleEl.textContent = vol.organization ? `${vol.role} - ${vol.organization}` : vol.role;
+    // CRITICAL: Completely clear ALL content from cloned template item before populating
+    // This prevents duplication from template placeholders or existing content
+    const allContentElements = itemEl.querySelectorAll('*');
+    for (const el of Array.from(allContentElements)) {
+      // Clear text content but preserve element structure
+      if (el.textContent) {
+        el.textContent = '';
+      }
+      // Clear innerHTML for list containers
+      if (el.tagName === 'UL' || el.tagName === 'OL') {
+        el.innerHTML = '';
+      }
+    }
+    // Also clear direct text content of the item itself
+    if (itemEl.textContent) {
+      itemEl.textContent = '';
+    }
+    
+    // Now populate with actual data - find or create elements
+    // Set role/title
+    let roleEl = itemEl.querySelector('.role, .title, h3, h4, strong, b');
+    if (!roleEl) {
+      // Create role element if it doesn't exist
+      roleEl = doc.createElement('h3');
+      roleEl.className = 'title';
+      itemEl.insertBefore(roleEl, itemEl.firstChild);
+    }
+    roleEl.textContent = vol.role;
+    
+    // Set organization/company
+    let orgEl = itemEl.querySelector('.company, .organization, .details');
+    if (!orgEl) {
+      // Create org element if it doesn't exist
+      orgEl = doc.createElement('div');
+      orgEl.className = 'company';
+      if (roleEl.nextSibling) {
+        itemEl.insertBefore(orgEl, roleEl.nextSibling);
+      } else {
+        itemEl.appendChild(orgEl);
+      }
+    }
+    orgEl.textContent = vol.organization || '';
+    
+    // Set description if present
+    if (vol.description) {
+      let descEl = itemEl.querySelector('.description, p:not(.date), ul');
+      if (!descEl) {
+        // Create description element if it doesn't exist
+        descEl = doc.createElement('p');
+        descEl.className = 'description';
+        itemEl.appendChild(descEl);
+      }
+      
+      if (descEl.tagName === 'UL') {
+        // Clear existing list items
+        descEl.innerHTML = '';
+        // Split description by bullet points and add as list items
+        const bullets = vol.description.split(/[•·▪▸►‣⁃-]/).map(b => b.trim()).filter(b => b);
+        const deduplicatedBullets = deduplicateArray(bullets);
+        deduplicatedBullets.forEach(bullet => {
+          const li = doc.createElement('li');
+          li.textContent = bullet;
+          descEl.appendChild(li);
+        });
+      } else {
+        // For paragraphs, set text content directly
+        descEl.textContent = vol.description;
+      }
+    }
     
     parent.appendChild(itemEl);
   }
+  
+  // Final pass: Remove any duplicate items that might have been created
+  // This handles cases where the template structure itself might cause duplication
+  const allItems = volunteerSection.querySelectorAll('.volunteer-item, .experience-item, li');
+  const seenContent = new Set<string>();
+  const itemsToRemove: Element[] = [];
+  
+  for (const item of Array.from(allItems)) {
+    const itemText = item.textContent?.trim() || '';
+    if (!itemText) continue;
+    
+    // Normalize text for comparison
+    const normalized = itemText.toLowerCase().replace(/\s+/g, ' ');
+    
+    // Check if we've seen this content before
+    let isDuplicate = false;
+    for (const seen of seenContent) {
+      // Check if texts are similar (one contains the other or they're very similar)
+      if (normalized === seen || 
+          (normalized.length > 20 && seen.length > 20 && 
+           (normalized.includes(seen) || seen.includes(normalized)))) {
+        isDuplicate = true;
+        break;
+      }
+    }
+    
+    if (isDuplicate) {
+      itemsToRemove.push(item);
+    } else {
+      seenContent.add(normalized);
+    }
+  }
+  
+  // Remove duplicates
+  itemsToRemove.forEach(item => item.remove());
 }
 
 /**
@@ -1817,6 +1971,15 @@ function fixContinuousLayoutCSS(doc: Document, template: ResumeTemplate): void {
       min-height: ${pageHeight};
       overflow: visible !important;
     }
+    /* Prevent skills sections from being cut off at page breaks */
+    .section[class*="skill"],
+    section[class*="skill"],
+    .skills-section,
+    .section:has(.skills-grid),
+    .section:has(.skills-list) {
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
     .main-container {
       height: auto !important;
       min-height: 100%;
@@ -1879,6 +2042,55 @@ function fixContinuousLayoutCSS(doc: Document, template: ResumeTemplate): void {
     const body = doc.querySelector('body');
     if (body) {
       body.insertBefore(styleEl, body.firstChild);
+    }
+  }
+  
+  // Add template-specific fixes for AccentColorMinimal
+  if (template.id === 'accentcolorminimal') {
+    const accentStyleEl = doc.createElement('style');
+    accentStyleEl.textContent = `
+      /* AccentColorMinimal specific fixes - reduce excessive spacing */
+      .section {
+        margin-bottom: 15px !important;
+      }
+      .section:last-child {
+        margin-bottom: 0 !important;
+      }
+      .section-content {
+        margin-bottom: 12px !important;
+      }
+      .section-content:last-child {
+        margin-bottom: 0 !important;
+      }
+      .section-title {
+        margin-bottom: 12px !important;
+      }
+      .left-column .item {
+        margin-bottom: 0 !important;
+      }
+      .header {
+        margin-bottom: 30px !important;
+      }
+      .reference-item {
+        margin-bottom: 12px !important;
+      }
+      .expertise-item {
+        margin-bottom: 10px !important;
+      }
+      .expertise-item:last-child {
+        margin-bottom: 0 !important;
+      }
+      .section-title-bottom {
+        margin-bottom: 12px !important;
+      }
+    `;
+    if (head) {
+      head.appendChild(accentStyleEl);
+    } else {
+      const body = doc.querySelector('body');
+      if (body) {
+        body.insertBefore(accentStyleEl, body.firstChild);
+      }
     }
   }
   

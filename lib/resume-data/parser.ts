@@ -35,6 +35,7 @@ import {
   detectSectionType,
 } from './utils';
 import { isPlaceholderText, filterPlaceholderBullets } from './placeholder-filter';
+import { deduplicateArray, deduplicateText } from './deduplication';
 
 /**
  * Main parser function: HTML → ResumeData
@@ -498,8 +499,9 @@ function parseExperienceItem(element: Element): ExperienceItem | null {
   const bulletsEl = element.querySelector('.achievements, ul, .bullets, .item-description, .responsibilities-list, .experience-list, .job-description, [class*="description"]') || element;
   const rawBullets = extractBullets(bulletsEl);
   
-  // Filter out placeholder bullets
-  const bullets = filterPlaceholderBullets(rawBullets);
+  // Filter out placeholder bullets and deduplicate
+  const filteredBullets = filterPlaceholderBullets(rawBullets);
+  const bullets = deduplicateArray(filteredBullets);
   
   // If no valid bullets, try to extract from description paragraph
   if (bullets.length === 0 && bulletsEl) {
@@ -896,6 +898,7 @@ function parseTraining(doc: Document): TrainingItem[] | undefined {
  */
 function parseVolunteering(doc: Document): VolunteeringItem[] | undefined {
   const items: VolunteeringItem[] = [];
+  const seenRoles = new Set<string>();
   
   const volunteerSection = findSection(doc, ['volunteering', 'volunteer', 'community']);
   if (!volunteerSection) return undefined;
@@ -909,23 +912,73 @@ function parseVolunteering(doc: Document): VolunteeringItem[] | undefined {
   const itemElements = queryAllSelectors(volunteerSection, itemSelectors);
   
   for (const itemEl of itemElements) {
-    const roleEl = itemEl.querySelector('.role, .title, strong, b') || itemEl;
-    const role = extractText(roleEl);
+    const roleEl = itemEl.querySelector('.role, .title, strong, b, h3, h4') || itemEl;
+    let role = extractText(roleEl);
     
+    // Clean and deduplicate role text
     if (role) {
-      const text = extractText(itemEl);
-      const parts = text.split(/[-–—]/);
-      const organization = parts[1]?.trim() || 'Organization';
+      role = deduplicateText(role).trim();
+      
+      // Check if we've seen this role before (prevent duplicates)
+      const roleKey = role.toLowerCase().trim();
+      if (seenRoles.has(roleKey)) {
+        continue; // Skip duplicate
+      }
+      seenRoles.add(roleKey);
+    }
+    
+    if (role && !isPlaceholderText(role)) {
+      // Extract organization - be more careful to avoid duplication
+      let organization = '';
+      const orgEl = itemEl.querySelector('.company, .organization, .details');
+      if (orgEl) {
+        organization = extractText(orgEl);
+      } else {
+        // Try parsing from full text
+        const text = extractText(itemEl);
+        // Remove the role from the text to get organization
+        const textWithoutRole = text.replace(role, '').trim();
+        const parts = textWithoutRole.split(/[-–—]/);
+        organization = parts[0]?.trim() || parts[1]?.trim() || 'Organization';
+      }
+      
+      // Deduplicate organization text
+      organization = deduplicateText(organization).trim();
+      
+      // Extract description/bullets if present
+      const bulletsEl = itemEl.querySelector('ul, .description, p');
+      let description: string | undefined;
+      if (bulletsEl) {
+        const bullets = extractBullets(bulletsEl);
+        const filteredBullets = filterPlaceholderBullets(bullets);
+        const deduplicatedBullets = deduplicateArray(filteredBullets);
+        if (deduplicatedBullets.length > 0) {
+          description = deduplicatedBullets.join(' • ');
+        }
+      }
       
       items.push({
         id: generateId(),
         role,
-        organization,
+        organization: organization || 'Organization',
+        description,
       });
     }
   }
   
-  return items.length > 0 ? items : undefined;
+  // Final deduplication pass - remove items with duplicate role+organization
+  const uniqueItems: VolunteeringItem[] = [];
+  const seenKeys = new Set<string>();
+  
+  for (const item of items) {
+    const key = `${item.role}|${item.organization}`.toLowerCase().trim();
+    if (!seenKeys.has(key)) {
+      seenKeys.add(key);
+      uniqueItems.push(item);
+    }
+  }
+  
+  return uniqueItems.length > 0 ? uniqueItems : undefined;
 }
 
 /**

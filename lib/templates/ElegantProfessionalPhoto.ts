@@ -12,7 +12,7 @@ const html = `<style>
             background-color: #f0f0f0;
             display: flex;
             justify-content: center;
-            align-items: center;
+            align-items: flex-start;
             font-family: 'Montserrat', sans-serif;
             color: #333;
         }

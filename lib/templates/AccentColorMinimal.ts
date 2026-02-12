@@ -37,7 +37,7 @@ const html = `<style>
         .header {
             display: flex;
             align-items: center;
-            margin-bottom: 50px;
+            margin-bottom: 30px;
         }
 
         .profile-pic {
@@ -107,6 +107,46 @@ const html = `<style>
             display: flex;
             align-items: flex-start;
             justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        
+        /* Ensure expertise section doesn't break layout */
+        .right-column.bottom > div:last-child {
+            flex: 0 0 auto;
+            min-width: 200px;
+        }
+        
+        /* Remove excessive spacing from main-content */
+        .main-content {
+            gap: 0;
+        }
+        
+        /* Remove empty space from empty sections */
+        .section:empty,
+        .section-content:empty {
+            display: none;
+        }
+        
+        /* Ensure bottom section doesn't have excessive top margin */
+        .section:last-of-type {
+            margin-top: 0;
+        }
+        
+        /* Compact spacing for reference and expertise items */
+        .section-content .left-column .reference-item:last-child,
+        .section-content .right-column .reference-item:last-child {
+            margin-bottom: 0;
+        }
+        
+        /* Remove extra padding from item descriptions when empty */
+        .item-description:empty {
+            display: none;
+        }
+        
+        /* Compact item spacing */
+        .right-column .item {
+            margin-bottom: 0;
         }
 
         .section-title {
@@ -114,7 +154,7 @@ const html = `<style>
             font-size: 18px;
             font-weight: bold;
             color: #282522;
-            margin-bottom: 20px;
+            margin-bottom: 12px;
             padding-bottom: 5px;
             align-items: center;
             justify-content: space-between;
@@ -122,18 +162,38 @@ const html = `<style>
 
         .section-title::after {
             content: '';
-            width: calc(75% - 20px);
+            flex: 1;
+            margin-left: 20px;
             border-top: 1px dashed #000;
+            max-width: calc(75% - 20px);
         }
 
         .section {
             display: flex;
             flex-direction: column;
-            margin-bottom: 25px;
+            margin-bottom: 15px;
+        }
+        
+        /* Reduce spacing for sections without titles */
+        .section.no-title {
+            margin-bottom: 10px;
+            margin-top: 0;
+        }
+        
+        /* Remove bottom margin from last section */
+        .section:last-child {
+            margin-bottom: 0;
+        }
+        
+        /* Fix alignment for section-content items */
+        .section-content .left-column,
+        .section-content .right-column {
+            display: flex;
+            flex-direction: column;
         }
 
         .left-column .item {
-            margin-bottom: 25px;
+            margin-bottom: 0;
         }
 
         .left-column .item-title {
@@ -153,7 +213,7 @@ const html = `<style>
             font-size: 12px;
             font-weight: bold;
             color: #282522;
-            margin: 0 0 8px 0;
+            margin: 0 0 6px 0;
         }
 
         .right-column .item-description {
@@ -161,6 +221,18 @@ const html = `<style>
             color: #282522;
             line-height: 1.5;
             margin: 0;
+        }
+        
+        /* Handle bullet lists in item-description */
+        .right-column .item-description ul {
+            margin: 8px 0 0 0;
+            padding-left: 20px;
+            list-style-type: disc;
+        }
+        
+        .right-column .item-description li {
+            margin-bottom: 4px;
+            line-height: 1.5;
         }
 
         .dotted-separator {
@@ -188,9 +260,16 @@ const html = `<style>
             box-sizing: border-box;
         }
 
-        .reference-item,
+        .reference-item {
+            margin-bottom: 12px;
+        }
+        
         .expertise-item {
-            margin-bottom: 15px;
+            margin-bottom: 10px;
+        }
+        
+        .expertise-item:last-child {
+            margin-bottom: 0;
         }
 
         .reference-name {
@@ -247,6 +326,17 @@ const html = `<style>
 
         .section-content {
             display: flex;
+            margin-bottom: 12px;
+        }
+        
+        /* Reduce spacing between multiple section-content items */
+        .section .section-content:not(:last-child) {
+            margin-bottom: 15px;
+        }
+        
+        /* Last section-content in a section should have minimal bottom margin */
+        .section .section-content:last-child {
+            margin-bottom: 0;
         }
 
         .divider {
@@ -257,6 +347,8 @@ const html = `<style>
             display: flex;
             font-size: 18px;
             justify-content: space-between;
+            margin-bottom: 12px;
+            padding-bottom: 5px;
         }
 
         .divider-title {
@@ -282,6 +374,14 @@ const html = `<style>
 
         .left-column .item-title.nobold {
             font-weight: normal;
+        }
+        
+        /* Fix for typo in template - support both item-title and item-titl */
+        .left-column .item-titl {
+            font-size: 12px;
+            font-weight: normal;
+            color: #282522;
+            margin: 0;
         }
 
         .bold {
@@ -330,7 +430,7 @@ const html = `<style>
                 <div class="section-content" data-cid="buiLNk">
                     <div class="left-column" data-cid="LKoS6q">
                         <div class="item" data-cid="J1Fbfy">
-                            <p class="item-titl nobold" data-cid="CuvpmF">Professional Accountant</p>
+                            <p class="item-title nobold" data-cid="CuvpmF">Professional Accountant</p>
                             <p class="item-date bold" data-cid="mTZQvB">2019 - 2022</p>
                         </div>
                     </div>

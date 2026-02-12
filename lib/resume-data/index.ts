@@ -144,6 +144,10 @@ export function swapTemplate(
       }
     }
     
+    // Step 5: Final deduplication pass to ensure no duplicates exist
+    const { deduplicateHtml } = require('./deduplication');
+    html = deduplicateHtml(html);
+    
     return { html, mergedData: data };
   } catch (error) {
     console.error('[swapTemplate] Template swap error:', error);

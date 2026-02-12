@@ -13,7 +13,7 @@ const html = `<style>
             padding: 2em 0;
             display: flex;
             justify-content: center;
-            align-items: center;
+            align-items: flex-start;
         }
 
         .page {

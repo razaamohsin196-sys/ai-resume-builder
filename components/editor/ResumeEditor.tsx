@@ -2052,8 +2052,13 @@ ${imgRels}</Relationships>`);
                                 if (el.classList.contains('footer') || el.tagName === 'FOOTER') return true;
                                 if (el.classList.contains('header-bg') || el.classList.contains('footer-bg')) return true;
                                 if (el.classList.contains('page')) return true;
-                                        return false;
-                                    }
+                                // Never exclude skills sections - they must be included in pagination
+                                const isSkillsSection = el.classList.contains('section') && 
+                                    (el.querySelector('.skills-grid, .skills-list, .skills') || 
+                                     /skill/i.test(el.textContent || ''));
+                                if (isSkillsSection) return false;
+                                return false;
+                            }
                             
                             const SUB_ITEM_SELECTOR = '.experience-item, .education-item, .project-item, .volunteer-item, .timeline-item, .work-item, .job, .two-col-section, .section-content, .skills-group, .skill-group, .skills-grid';
                             
@@ -2080,13 +2085,24 @@ ${imgRels}</Relationships>`);
                                         return;
                                     }
                                     
+                                    // Check if this is a skills section - handle it specially to ensure it's not cut off
+                                    const sectionTitle = section.querySelector('.section-title, :scope > h2, :scope > h3');
+                                    const titleText = sectionTitle ? sectionTitle.textContent?.toLowerCase() || '' : '';
+                                    const isSkillsSection = /skill/i.test(titleText);
+                                    
                                     const subItems = section.querySelectorAll(SUB_ITEM_SELECTOR);
                                     
                                     if (subItems.length > 1) {
                                         // Section has multiple sub-items — add title and each item separately
-                                        const title = section.querySelector('.section-title, :scope > h2, :scope > h3');
-                                        if (title) addUnique(title);
+                                        if (sectionTitle) addUnique(sectionTitle);
                                         subItems.forEach(item => addUnique(item));
+                                    } else if (isSkillsSection && subItems.length === 0) {
+                                        // Skills section with no sub-items (skills-grid or flat list) - add entire section
+                                        // This ensures skills sections are never cut off
+                                        if (sectionTitle) addUnique(sectionTitle);
+                                        const skillsContent = section.querySelector('.skills-grid, .skills-list, ul, .skills');
+                                        if (skillsContent) addUnique(skillsContent);
+                                        else addUnique(section);
                                     } else {
                                         // Section is small (0-1 sub-items) — add entire section as one unit
                                         addUnique(section);
@@ -2140,7 +2156,17 @@ ${imgRels}</Relationships>`);
                                 
                                 for (let pageNum = 1; pageNum < pageCount; pageNum++) {
                                     const pageBreakY = pageNum * pageHeight + cumulativeOffset;
-                                    const pageTopMargin = 30; // Top margin for content on each new page
+                                    // Increase top margin for page 2+ to match template padding and prevent content from being too close to top
+                                    // For templates with .page container, use their top padding; otherwise use a reasonable default
+                                    const pageContainer = document.querySelector('.page');
+                                    let pageTopMargin = 30; // Default top margin
+                                    if (pageContainer) {
+                                        const pageStyle = window.getComputedStyle(pageContainer);
+                                        const topPadding = parseInt(pageStyle.paddingTop) || 0;
+                                        // Use template's top padding + extra space for visual separation on new pages
+                                        // This ensures page 2+ has proper spacing and doesn't look cramped
+                                        pageTopMargin = Math.max(topPadding + 25, 50);
+                                    }
                                     const pageBottomMargin = 20; // Bottom margin — keep content away from page edge
                                     const orphanThreshold = 80; // Push section titles if they'd be orphaned near page bottom
                                     // The bottom "safe edge" — content should not extend past this

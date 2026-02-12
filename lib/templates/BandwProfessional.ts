@@ -23,7 +23,7 @@ const html = `<style>
             min-height: 1123px;
             margin: 20px auto;
             box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
-            padding: 60px 70px;
+            padding: 20px 70px 60px 70px;
             box-sizing: border-box;
         }
 
