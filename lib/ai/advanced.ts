@@ -1,21 +1,8 @@
 import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 import OpenAI from "openai";
+import { resolveProvider, type AIProvider } from "./provider";
 
-type AIProvider = "gemini" | "openai" | "auto";
-
-/**
- * Get the preferred AI provider
- * Priority: GEMINI_API_KEY > OPENAI_API_KEY (Gemini first, OpenAI as fallback)
- */
-function getProvider(): "gemini" | "openai" | null {
-    if (process.env.GEMINI_API_KEY) {
-        return "gemini";
-    }
-    if (process.env.OPENAI_API_KEY) {
-        return "openai";
-    }
-    return null;
-}
+type ProviderType = "gemini" | "openai" | null;
 
 /**
  * Generate content with system instruction and custom model configuration
@@ -30,11 +17,7 @@ export async function generateContentWithSystem(
         provider?: AIProvider;
     }
 ): Promise<string | null> {
-    const provider = options?.provider === "auto" || !options?.provider 
-        ? getProvider() 
-        : (options.provider === "openai" && process.env.OPENAI_API_KEY ? "openai" : 
-           options.provider === "gemini" && process.env.GEMINI_API_KEY ? "gemini" : 
-           getProvider());
+    const provider = resolveProvider(options?.provider || "auto") as ProviderType;
 
     if (!provider) {
         console.warn("No AI API Key found.");
@@ -99,11 +82,7 @@ export async function generateStructuredContent(
         provider?: AIProvider;
     }
 ): Promise<any> {
-    const provider = options?.provider === "auto" || !options?.provider 
-        ? getProvider() 
-        : (options.provider === "openai" && process.env.OPENAI_API_KEY ? "openai" : 
-           options.provider === "gemini" && process.env.GEMINI_API_KEY ? "gemini" : 
-           getProvider());
+    const provider = resolveProvider(options?.provider || "auto") as ProviderType;
 
     if (!provider) {
         console.warn("No AI API Key found.");

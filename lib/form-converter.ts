@@ -2,6 +2,23 @@ import { CareerProfile, CareerProfileItem } from "@/types/career";
 import { CareerProfileFormData } from "@/types/form";
 
 /**
+ * Parse date range from string format
+ */
+function parseDateRange(dates?: string): { startDate?: string; endDate?: string; current: boolean } {
+    if (!dates) return { current: false };
+    
+    const dateMatch = dates.match(/(\d{4}|\w+\s+\d{4})/g);
+    const lowerDates = dates.toLowerCase();
+    const isCurrent = lowerDates.includes('present') || lowerDates.includes('current');
+    
+    return {
+        startDate: dateMatch?.[0],
+        endDate: isCurrent ? undefined : (dateMatch?.[1] || undefined),
+        current: isCurrent || !dateMatch?.[1],
+    };
+}
+
+/**
  * Convert CareerProfile to CareerProfileFormData for form editing
  */
 export function careerProfileToFormData(profile: CareerProfile): CareerProfileFormData {
@@ -9,12 +26,7 @@ export function careerProfileToFormData(profile: CareerProfile): CareerProfileFo
     const roles = profile.items
         .filter(item => item.category === 'role')
         .map(item => {
-            // Parse dates if available
-            const dateMatch = item.dates?.match(/(\d{4}|\w+\s+\d{4})/g);
-            const startDate = dateMatch?.[0];
-            const endDate = dateMatch?.[1] || (item.dates?.toLowerCase().includes('present') || item.dates?.toLowerCase().includes('current') ? undefined : dateMatch?.[1]);
-            const current = item.dates?.toLowerCase().includes('present') || item.dates?.toLowerCase().includes('current') || !endDate;
-
+            const { startDate, endDate, current } = parseDateRange(item.dates);
             return {
                 id: item.id,
                 title: item.title,
@@ -35,7 +47,7 @@ export function careerProfileToFormData(profile: CareerProfile): CareerProfileFo
                 id: item.id,
                 degree: item.title,
                 school: item.organization || '',
-                field: item.description.split('\n')[0], // First line as field
+                field: item.description.split('\n')[0],
                 startDate: dateMatch?.[0],
                 endDate: dateMatch?.[1],
             };
@@ -72,12 +84,13 @@ export function careerProfileToFormData(profile: CareerProfile): CareerProfileFo
         .filter(item => item.category === 'certification')
         .map(item => {
             const dateMatch = item.dates?.match(/(\d{4}|\w+\s+\d{4})/g);
+            const credentialId = item.description.match(/ID:\s*([^\n]+)/)?.[1]?.trim();
             return {
                 id: item.id,
                 name: item.title,
                 issuer: item.organization,
                 date: dateMatch?.[0],
-                credentialId: item.description.split('ID:')[1]?.trim(),
+                credentialId,
             };
         });
 
@@ -161,6 +174,21 @@ export function careerProfileToFormData(profile: CareerProfile): CareerProfileFo
 }
 
 /**
+ * Format date range string
+ */
+function formatDateRange(start?: string, end?: string, current?: boolean): string {
+    if (current) return `${start || ''} - Present`.trim();
+    return `${start || ''} - ${end || ''}`.trim();
+}
+
+/**
+ * Get source IDs from original profile or default to form
+ */
+function getSourceIds(originalProfile: CareerProfile | undefined, id: string): string[] {
+    return originalProfile?.items.find(i => i.id === id)?.sourceIds || ['form'];
+}
+
+/**
  * Convert CareerProfileFormData back to CareerProfile
  */
 export function formDataToCareerProfile(formData: CareerProfileFormData, originalProfile?: CareerProfile): CareerProfile {
@@ -168,51 +196,47 @@ export function formDataToCareerProfile(formData: CareerProfileFormData, origina
 
     // Convert roles
     formData.roles.forEach(role => {
-        const dates = role.current 
-            ? `${role.startDate || ''} - Present`
-            : `${role.startDate || ''} - ${role.endDate || ''}`;
-        
         items.push({
             id: role.id,
             category: 'role',
             title: role.title,
             organization: role.company,
             description: role.description,
-            dates: dates.trim(),
-            sourceIds: originalProfile?.items.find(i => i.id === role.id)?.sourceIds || ['form'],
+            dates: formatDateRange(role.startDate, role.endDate, role.current),
+            sourceIds: getSourceIds(originalProfile, role.id),
         });
     });
 
     // Convert education
     formData.education.forEach(edu => {
-        const dates = `${edu.startDate || ''} - ${edu.endDate || ''}`;
         items.push({
             id: edu.id,
             category: 'education',
             title: edu.degree,
             organization: edu.school,
             description: [edu.field, edu.gpa, edu.honors].filter(Boolean).join('\n'),
-            dates: dates.trim(),
-            sourceIds: originalProfile?.items.find(i => i.id === edu.id)?.sourceIds || ['form'],
+            dates: formatDateRange(edu.startDate, edu.endDate),
+            sourceIds: getSourceIds(originalProfile, edu.id),
         });
     });
 
     // Convert projects
     formData.projects.forEach(project => {
-        let description = project.description;
+        const parts: string[] = [];
         if (project.technologies?.length) {
-            description = `Technologies: ${project.technologies.join(', ')}\n${description}`;
+            parts.push(`Technologies: ${project.technologies.join(', ')}`);
         }
+        parts.push(project.description);
         if (project.url) {
-            description = `${description}\n${project.url}`;
+            parts.push(project.url);
         }
         
         items.push({
             id: project.id,
             category: 'project',
             title: project.name,
-            description,
-            sourceIds: originalProfile?.items.find(i => i.id === project.id)?.sourceIds || ['form'],
+            description: parts.join('\n'),
+            sourceIds: getSourceIds(originalProfile, project.id),
         });
     });
 
@@ -224,25 +248,20 @@ export function formDataToCareerProfile(formData: CareerProfileFormData, origina
             title: skill.name,
             organization: skill.category,
             description: skill.proficiency || '',
-            sourceIds: originalProfile?.items.find(i => i.id === skill.id)?.sourceIds || ['form'],
+            sourceIds: getSourceIds(originalProfile, skill.id),
         });
     });
 
     // Convert certifications
     formData.certifications.forEach(cert => {
-        let description = '';
-        if (cert.credentialId) {
-            description = `Credential ID: ${cert.credentialId}`;
-        }
-        
         items.push({
             id: cert.id,
             category: 'certification',
             title: cert.name,
             organization: cert.issuer,
-            description,
+            description: cert.credentialId ? `Credential ID: ${cert.credentialId}` : '',
             dates: cert.date,
-            sourceIds: originalProfile?.items.find(i => i.id === cert.id)?.sourceIds || ['form'],
+            sourceIds: getSourceIds(originalProfile, cert.id),
         });
     });
 
@@ -255,7 +274,7 @@ export function formDataToCareerProfile(formData: CareerProfileFormData, origina
             organization: award.issuer,
             description: award.description || '',
             dates: award.date,
-            sourceIds: originalProfile?.items.find(i => i.id === award.id)?.sourceIds || ['form'],
+            sourceIds: getSourceIds(originalProfile, award.id),
         });
     });
 
@@ -267,39 +286,36 @@ export function formDataToCareerProfile(formData: CareerProfileFormData, origina
             title: lang.name,
             organization: lang.proficiency,
             description: '',
-            sourceIds: originalProfile?.items.find(i => i.id === lang.id)?.sourceIds || ['form'],
+            sourceIds: getSourceIds(originalProfile, lang.id),
         });
     });
 
     // Convert volunteering
     formData.volunteering.forEach(vol => {
-        const dates = `${vol.startDate || ''} - ${vol.endDate || ''}`;
         items.push({
             id: vol.id,
             category: 'volunteer',
             title: vol.role,
             organization: vol.organization,
             description: vol.description || '',
-            dates: dates.trim(),
-            sourceIds: originalProfile?.items.find(i => i.id === vol.id)?.sourceIds || ['form'],
+            dates: formatDateRange(vol.startDate, vol.endDate),
+            sourceIds: getSourceIds(originalProfile, vol.id),
         });
     });
 
     // Convert publications
     formData.publications.forEach(pub => {
-        let description = pub.publisher || '';
-        if (pub.url) {
-            description = `${description}\n${pub.url}`;
-        }
+        const parts = [pub.publisher].filter(Boolean);
+        if (pub.url) parts.push(pub.url);
         
         items.push({
             id: pub.id,
             category: 'publication',
             title: pub.title,
             organization: pub.authors,
-            description,
+            description: parts.join('\n'),
             dates: pub.date,
-            sourceIds: originalProfile?.items.find(i => i.id === pub.id)?.sourceIds || ['form'],
+            sourceIds: getSourceIds(originalProfile, pub.id),
         });
     });
 
