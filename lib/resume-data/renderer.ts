@@ -888,11 +888,24 @@ function renderSkills(doc: Document, data: ResumeData): void {
   console.log(`[renderSkills] Found skills section, populating ${data.skills.items?.length || data.skills.groups?.length || 0} skills`);
   
   // CRITICAL: Clear ALL hardcoded/placeholder skills FIRST, before any population
-  // This must happen for both grouped and flat skills
+  // This must happen for both grouped and flat skills, including progress bars and expertise items
+  
+  // 1. Clear all expertise-item elements (progress bars with soft skills)
+  const expertiseItems = skillsSection.querySelectorAll('.expertise-item, .skill-item, [class*="expertise-item"], [class*="skill-item"]');
+  if (expertiseItems.length > 0) {
+    console.log(`[renderSkills] Found ${expertiseItems.length} expertise-item elements, removing them`);
+    expertiseItems.forEach(item => {
+      // Only remove if not in section title
+      if (!item.closest('.section-title') && !item.closest('h2') && !item.closest('h3')) {
+        item.remove();
+      }
+    });
+  }
+  
+  // 2. Clear all <ul> elements and their <li> items
   const allUlsInSection = skillsSection.querySelectorAll('ul');
   console.log(`[renderSkills] Found ${allUlsInSection.length} <ul> elements, clearing all existing <li> items`);
   
-  // Remove ALL <li> items from ALL <ul> elements in the skills section
   allUlsInSection.forEach((ul, idx) => {
     const listItems = ul.querySelectorAll('li');
     if (listItems.length > 0) {
@@ -901,10 +914,8 @@ function renderSkills(doc: Document, data: ResumeData): void {
     }
     
     // Clear innerHTML completely - this removes ALL hardcoded skills
-    // Only skip if the ul is actually part of a section title (which shouldn't happen)
     const isInTitle = ul.closest('h2, h3, .section-title');
     if (!isInTitle) {
-      // Completely clear the ul - we'll repopulate it with real skills
       ul.innerHTML = '';
       console.log(`[renderSkills] Cleared innerHTML of UL ${idx + 1}`);
     } else {
@@ -917,13 +928,67 @@ function renderSkills(doc: Document, data: ResumeData): void {
     }
   });
   
-  // Also clear any text content in skills containers that might have comma-separated skills
+  // 3. Clear progress bars and proficiency indicators
+  const progressBars = skillsSection.querySelectorAll('.expertise-bar, .expertise-level, .skill-bar, .proficiency-bar, [class*="progress"], [class*="bar"]');
+  if (progressBars.length > 0) {
+    console.log(`[renderSkills] Found ${progressBars.length} progress bar elements, removing them`);
+    progressBars.forEach(bar => {
+      if (!bar.closest('.section-title') && !bar.closest('h2') && !bar.closest('h3')) {
+        bar.remove();
+      }
+    });
+  }
+  
+  // 4. Clear expertise labels (text next to progress bars)
+  const expertiseLabels = skillsSection.querySelectorAll('.expertise-label, .skill-label, [class*="expertise-label"]');
+  if (expertiseLabels.length > 0) {
+    console.log(`[renderSkills] Found ${expertiseLabels.length} expertise label elements, removing them`);
+    expertiseLabels.forEach(label => {
+      if (!label.closest('.section-title') && !label.closest('h2') && !label.closest('h3')) {
+        label.remove();
+      }
+    });
+  }
+  
+  // 5. Clear parent containers that might hold expertise items (but keep the container structure)
+  // Find containers that have expertise-item children and clear their content
+  const containersWithExpertise = skillsSection.querySelectorAll('.section-content, .bottom-right, .right-column, div[class*="skill"], div[class*="expertise"]');
+  containersWithExpertise.forEach(container => {
+    if (!container.closest('.section-title') && !container.closest('h2') && !container.closest('h3')) {
+      // Check if this container has expertise items or progress bars
+      const hasExpertiseItems = container.querySelector('.expertise-item, .skill-item, .expertise-bar, .expertise-label');
+      if (hasExpertiseItems) {
+        // Clear only the expertise-related content, but keep the container
+        const itemsToRemove = container.querySelectorAll('.expertise-item, .skill-item, .expertise-bar, .expertise-label, .expertise-level');
+        if (itemsToRemove.length > 0) {
+          console.log(`[renderSkills] Removing ${itemsToRemove.length} expertise-related elements from container`);
+          itemsToRemove.forEach(item => item.remove());
+        }
+      }
+    }
+  });
+  
+  // 6. Clear any text content in skills containers that might have comma-separated skills
   const skillsContainers = skillsSection.querySelectorAll('.skills-list, .skills, .expertise-list, p, span, div');
   skillsContainers.forEach(el => {
-    if (!el.closest('.section-title') && !el.closest('ul') && !el.closest('h2') && !el.closest('h3')) {
+    if (!el.closest('.section-title') && !el.closest('ul') && !el.closest('h2') && !el.closest('h3') && 
+        !el.closest('.expertise-item') && !el.closest('.skill-item')) {
       const text = extractText(el).toLowerCase();
-      // If it looks like it contains skills (has commas and skill-like words), clear it
-      if (text.includes(',') && (text.includes('illustration') || text.includes('design') || text.includes('programming') || text.includes('knowledge') || text.length > 20)) {
+      // Check for hardcoded skills patterns (both soft skills and technical skills)
+      const hasHardcodedSkills = (
+        text.includes('management skills') || 
+        text.includes('negotiation') || 
+        text.includes('critical thinking') || 
+        text.includes('leadership') || 
+        text.includes('digital marketing') ||
+        text.includes('fashion illustration') ||
+        text.includes('3d garment design') ||
+        text.includes('textile') ||
+        text.includes('pattern making') ||
+        (text.includes(',') && (text.includes('illustration') || text.includes('design') || text.includes('programming') || text.includes('knowledge') || text.length > 20))
+      );
+      if (hasHardcodedSkills) {
+        console.log(`[renderSkills] Clearing hardcoded skills from container:`, text.substring(0, 50));
         el.textContent = '';
         el.innerHTML = '';
       }
