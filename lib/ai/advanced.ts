@@ -26,7 +26,7 @@ export async function generateContentWithSystem(
 
     if (provider === "openai") {
         const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-        const model = options?.model || "gpt-4o-mini";
+        const model = options?.model || "gpt-4o";
         
         try {
             const response = await client.chat.completions.create({
@@ -91,7 +91,7 @@ export async function generateStructuredContent(
 
     if (provider === "openai") {
         const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-        const model = options?.model || "gpt-4o-mini";
+        const model = options?.model || "gpt-4o";
         
         try {
             const response = await client.chat.completions.create({

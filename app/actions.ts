@@ -163,8 +163,83 @@ export async function generateResumeDraft(profile: CareerProfile, intent: Career
     return result as ResumeDraft;
 }
 
+/**
+ * Generate resume HTML with streaming support
+ * Shows real-time updates as the resume is generated
+ */
+export async function generateHtmlResumeStream(
+    profile: CareerProfile,
+    intent: CareerIntent,
+    templateHtml: string,
+    onChunk: (chunk: string, accumulated: string) => void,
+    options?: { fitToOnePage?: boolean; hasPhoto?: boolean }
+): Promise<string> {
+    // First, try the new backend streaming service
+    try {
+        const { generateResumeFromBackendStream } = await import('@/lib/api/resume-backend');
+        const backendResult = await generateResumeFromBackendStream(
+            profile,
+            intent,
+            {
+                ...options,
+                templateHtml: templateHtml,
+                // templateStyle will be detected from HTML by backend
+                onChunk: onChunk,
+            }
+        );
+
+        if (backendResult && backendResult.trim().length > 0) {
+            // Validate the result
+            const profileName = profile.personal?.name || '';
+            if (profileName && backendResult.includes(profileName)) {
+                console.log("[generateHtmlResumeStream] Successfully generated resume using backend streaming service");
+                return backendResult;
+            } else if (backendResult.length > 1000) {
+                console.log("[generateHtmlResumeStream] Backend generated resume (no name validation)");
+                return backendResult;
+            }
+        }
+    } catch (error: any) {
+        console.warn("[generateHtmlResumeStream] Backend streaming service failed, falling back to non-streaming:", error.message);
+        // Fall back to non-streaming version
+        return generateHtmlResume(profile, intent, templateHtml, options);
+    }
+
+    // Fallback to non-streaming
+    return generateHtmlResume(profile, intent, templateHtml, options);
+}
+
 export async function generateHtmlResume(profile: CareerProfile, intent: CareerIntent, templateHtml: string, options?: { fitToOnePage?: boolean; hasPhoto?: boolean }): Promise<string> {
-    // First, try the intelligent template population agent
+    // First, try the new backend service (populates and fixes the template)
+    try {
+        const { generateResumeFromBackend } = await import('@/lib/api/resume-backend');
+        const backendResult = await generateResumeFromBackend(
+            profile,
+            intent,
+            {
+                ...options,
+                templateHtml: templateHtml, // Pass the template HTML to populate and fix
+                // templateStyle will be detected from HTML by backend
+            }
+        );
+
+        if (backendResult && backendResult.trim().length > 0) {
+            // Validate the result
+            const profileName = profile.personal?.name || '';
+            if (profileName && backendResult.includes(profileName)) {
+                console.log("[generateHtmlResume] Successfully generated resume using backend service");
+                return backendResult;
+            } else if (backendResult.length > 1000) {
+                // If no name match but HTML is substantial, assume it's valid
+                console.log("[generateHtmlResume] Backend generated resume (no name validation)");
+                return backendResult;
+            }
+        }
+    } catch (error: any) {
+        console.warn("[generateHtmlResume] Backend service failed, falling back to template population:", error.message);
+    }
+
+    // Fallback: Try the intelligent template population agent
     try {
         const { intelligentlyPopulateTemplate } = await import('@/lib/ai/template-populator');
         const intelligentResult = await intelligentlyPopulateTemplate(
@@ -203,7 +278,7 @@ export async function generateHtmlResume(profile: CareerProfile, intent: CareerI
         console.warn("[generateHtmlResume] Intelligent population failed, falling back to deterministic:", error);
     }
 
-    // Fallback to deterministic rendering
+    // Final fallback: deterministic rendering
     return generateDeterministicHtml(profile, templateHtml);
 }
 

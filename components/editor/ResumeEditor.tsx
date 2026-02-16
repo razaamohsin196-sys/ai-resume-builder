@@ -10,10 +10,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Send, Edit2, Download, Save, Undo, Redo, LayoutTemplate, RotateCw, Sparkles, Bold, Italic, Underline, Link as LinkIcon, Trash2, ArrowUp, ArrowDown, GripVertical, AlignLeft, AlignCenter, AlignRight, AlignJustify, FileText, Image, Code, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useCareer } from '@/context/CareerContext';
-import { modifyResumeHtml, generateHtmlResume, generateResumeDraft, checkGrammar, tailorResume, ReviewSuggestion } from '@/app/actions';
+import { modifyResumeHtml, generateHtmlResume, generateHtmlResumeStream, generateResumeDraft, checkGrammar, tailorResume, ReviewSuggestion } from '@/app/actions';
 import { KUSE_RESUME_TEMPLATE } from '@/lib/templates/kuseResume';
 import { RESUME_TEMPLATES } from '@/lib/templates';
 import { ResumeTemplate } from '@/lib/templates/types';
+import { getCachedTemplate, saveCachedTemplate } from '@/lib/templates/template-cache';
 import { cleanTemplateHtmlForPreview } from '@/lib/resume-data/placeholder-filter';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Check, Settings, Layout } from 'lucide-react';
@@ -283,9 +284,11 @@ export function ResumeEditor({ initialHtml = '' }: ResumeEditorProps) {
 
     const [isChangingTemplate, setIsChangingTemplate] = useState(false);
     const [isTemplatePopoverOpen, setIsTemplatePopoverOpen] = useState(false);
+    const templateGenerationInProgress = useRef<string | null>(null); // Track which template is being generated
 
     // Local copy of HTML (cleaned of any injected scripts)
     const [currentHtml, setCurrentHtml] = useState<string>(() => cleanHtmlScripts(resumeHtml || initialHtml));
+    const [streamingHtml, setStreamingHtml] = useState<string>('');
     const [annotatedHtml, setAnnotatedHtml] = useState<string | null>(null);
     const [showHighlights, setShowHighlights] = useState(false);
 
@@ -1011,7 +1014,60 @@ ${imgRels}</Relationships>`);
             }
         }
     }, [resumeHtml]);
+
+    // Update iframe content when streamingHtml or currentHtml changes
+    useEffect(() => {
+        if (iframeRef.current && iframeRef.current.contentDocument) {
+            const htmlToDisplay = streamingHtml || currentHtml;
+            if (htmlToDisplay && htmlToDisplay.length > 0) {
+                const updateFrame = () => {
+                    if (iframeRef.current && iframeRef.current.contentDocument) {
+                        try {
+                            // During streaming, we need to write the HTML even if incomplete
+                            // The browser will render what it can and update as more arrives
+                            iframeRef.current.contentDocument.open();
+                            iframeRef.current.contentDocument.write(htmlToDisplay);
+                            iframeRef.current.contentDocument.close();
+                            
+                            // Log when we update during streaming for debugging
+                            if (streamingHtml && htmlToDisplay.length > 100) {
+                                console.log(`[Iframe] Updated with ${htmlToDisplay.length} chars of HTML`);
+                            }
+                        } catch (e) {
+                            console.warn('Error updating iframe:', e);
+                        }
+                    }
+                };
+                
+                if (streamingHtml) {
+                    // During streaming, update immediately without delay for real-time display
+                    // Use requestAnimationFrame to ensure smooth rendering without blocking
+                    requestAnimationFrame(updateFrame);
+                } else {
+                    // For non-streaming updates, update immediately
+                    updateFrame();
+                }
+            }
+        }
+    }, [streamingHtml, currentHtml]);
     const handleChangeTemplate = async (template: ResumeTemplate) => {
+        // Prevent duplicate template generation - if same template is already being generated, skip
+        if (templateGenerationInProgress.current === template.id) {
+            console.log(`[Template Switch] Template ${template.name} is already being generated, skipping duplicate call`);
+            return;
+        }
+        
+        // If a different template is being generated, wait for it to complete
+        if (templateGenerationInProgress.current !== null && templateGenerationInProgress.current !== template.id) {
+            console.log(`[Template Switch] Another template (${templateGenerationInProgress.current}) is being generated, waiting...`);
+            // Wait a bit and check again
+            await new Promise(resolve => setTimeout(resolve, 100));
+            if (templateGenerationInProgress.current === template.id) {
+                return; // Already started
+            }
+        }
+        
+        templateGenerationInProgress.current = template.id;
         setIsChangingTemplate(true);
         setIsTemplatePopoverOpen(false); // Close immediately for better UX
         setSelectedTemplate(template);
@@ -1030,6 +1086,7 @@ ${imgRels}</Relationships>`);
         // Reset pagination state to avoid stale page counts
         setIframeHeight(null);
         setPageCount(1);
+        setStreamingHtml(''); // Clear any previous streaming state
 
         // Add User Message
         const userMsgId = crypto.randomUUID();
@@ -1039,52 +1096,94 @@ ${imgRels}</Relationships>`);
         setAiMessages(prev => [...prev, { id: tempId, role: 'assistant', content: "Applying new template layout...", timestamp: Date.now() }]);
 
         try {
-            // Use deterministic template swapping (no LLM calls)
-            // getLatestHtmlFromIframe() ensures any pending edits are captured
-            const latestHtml = getLatestHtmlFromIframe();
-            
-            const { swapTemplate, parseResumeHtml, loadCareerProfileResumeData, loadResumeEditsData, saveResumeEditsData } = await import('@/lib/resume-data');
-            
-            // PRE-SAVE: Parse current HTML and save to edits BEFORE switching.
-            // This captures all inline edits, added sections, etc. that happened
-            // since the last save point — critical for preserving user work.
-            try {
-                const currentParsed = parseResumeHtml(latestHtml);
-                const prevEdits = loadResumeEditsData();
-                const preSaveData = prevEdits 
-                    ? { ...prevEdits, ...currentParsed, profile: { ...(prevEdits.profile || {}), ...currentParsed.profile } }
-                    : currentParsed;
-                saveResumeEditsData(preSaveData);
-            } catch (_) { /* non-critical */ }
-            
-            // Load career profile data (layer 3 - original data)
-            const careerData = loadCareerProfileResumeData();
-            // Load freshly saved edits (layer 2 - now includes all recent changes)
-            const editsData = loadResumeEditsData();
-            
-            const { html, mergedData } = swapTemplate(latestHtml, template, careerData, editsData);
-            
-            // Persist the merged data so edits accumulate across template switches
-            saveResumeEditsData(mergedData);
+            // Use streaming template population with populateAndFixTemplate
+            if (!profile || !intent) {
+                throw new Error('Profile or intent missing');
+            }
 
-            setResumeHtml(html);
-            setCurrentHtml(html);
+            // Check cache first
+            const cachedHtml = getCachedTemplate(
+                template,
+                profile,
+                intent,
+                {
+                    fitToOnePage: isFitToPage,
+                    hasPhoto: false,
+                }
+            );
+
+            let finalHtml: string;
+
+            if (cachedHtml) {
+                // Use cached template - no streaming needed
+                console.log(`[Template Switch] Using cached template: ${template.name}`);
+                finalHtml = cachedHtml;
+                setResumeHtml(finalHtml);
+                setCurrentHtml(finalHtml);
+            } else {
+                // Generate new template with streaming
+                console.log(`[Template Switch] Generating new template: ${template.name}`);
+                const { generateResumeFromBackendStream } = await import('@/lib/api/resume-backend');
+                finalHtml = await generateResumeFromBackendStream(
+                    profile,
+                    intent,
+                    {
+                        fitToOnePage: isFitToPage,
+                        hasPhoto: false,
+                        templateHtml: template.html,
+                        templateStyle: template.name,
+                        templateId: template.id,
+                        onChunk: (chunk: string, accumulated: string) => {
+                            // Update streaming HTML in real-time - this triggers the iframe update
+                            // Force immediate update by using a function that always returns the new value
+                            setStreamingHtml(() => accumulated);
+                            
+                            // Log progress for debugging (first chunk and every 10KB)
+                            if (accumulated.length < 500 || accumulated.length % 10000 < chunk.length) {
+                                console.log(`[Stream] Received chunk (${chunk.length} chars), total: ${accumulated.length} chars`);
+                            }
+                        }
+                    }
+                );
+
+                // Save to cache for future use
+                saveCachedTemplate(
+                    template,
+                    profile,
+                    intent,
+                    finalHtml,
+                    {
+                        fitToOnePage: isFitToPage,
+                        hasPhoto: false,
+                    }
+                );
+
+                // Clear streaming state and set final HTML
+                setStreamingHtml('');
+                setResumeHtml(finalHtml);
+                setCurrentHtml(finalHtml);
+            }
             
             // Pass the NEW template state to logHistory since state updates are async
             const newLayoutSettings = { lineHeight: 1.15, sectionSpacing: 18 };
             const newPageSize = template.pageSize || 'A4';
-            logHistory(html, template, newLayoutSettings, newPageSize);
+            logHistory(finalHtml, template, newLayoutSettings, newPageSize);
 
             setAiMessages(prev => prev.map(m =>
                 m.id === tempId ? { ...m, content: `✅ Switched to **${template.name}** template.` } : m
             ));
         } catch (e) {
             console.error('Error switching template:', e);
+            setStreamingHtml(''); // Clear streaming state on error
             setAiMessages(prev => prev.map(m =>
                 m.id === tempId ? { ...m, content: "❌ Error switching template." } : m
             ));
         } finally {
             setIsChangingTemplate(false);
+            // Clear the in-progress flag only if this was the current generation
+            if (templateGenerationInProgress.current === template.id) {
+                templateGenerationInProgress.current = null;
+            }
         }
     };
 
@@ -2449,7 +2548,9 @@ ${imgRels}</Relationships>`);
                 // Rerender current
                 if (iframeRef.current && iframeRef.current.contentDocument) {
                     iframeRef.current.contentDocument.open();
-                    iframeRef.current.contentDocument.write(currentHtml);
+                    // Use streaming HTML if available, otherwise use current HTML
+                    const htmlToDisplay = streamingHtml || currentHtml;
+                    iframeRef.current.contentDocument.write(htmlToDisplay);
                     iframeRef.current.contentDocument.close();
                 }
             }
@@ -2832,9 +2933,18 @@ ${imgRels}</Relationships>`);
                         className="w-full border-none"
                         style={{ 
                             height: iframeHeight ? `${iframeHeight}px` : (pageSize === 'Letter' ? '11in' : '297mm'),
-                            minHeight: pageSize === 'Letter' ? '11in' : '297mm'
+                            minHeight: pageSize === 'Letter' ? '11in' : '297mm',
+                            opacity: isChangingTemplate && streamingHtml ? 0.9 : 1,
+                            transition: 'opacity 0.2s'
                         }}
                     />
+                    {/* Streaming indicator */}
+                    {isChangingTemplate && streamingHtml && (
+                        <div className="absolute top-4 right-4 bg-blue-500 text-white px-3 py-1.5 rounded-full text-sm font-medium flex items-center gap-2 shadow-lg z-10">
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            <span>Generating template...</span>
+                        </div>
+                    )}
 
                     {/* HIDDEN FILE INPUT FOR IMAGE UPLOAD */}
                     <input

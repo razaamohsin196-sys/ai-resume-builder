@@ -78,11 +78,26 @@ function parseProfile(doc: Document): ProfileSection {
     '.right-header h1',
     '[class*="name"]',
   ];
-  profile.name = extractTextFromSelectors(doc, nameSelectors) || 'Unknown';
+  profile.name = extractTextFromSelectors(doc, nameSelectors) || '';
   
   // Filter placeholder names
   if (isPlaceholderText(profile.name)) {
     profile.name = '';
+  }
+  
+  // If name is still empty or "Unknown", try to extract from profile data embedded in HTML
+  if (!profile.name || profile.name === 'Unknown') {
+    try {
+      const scriptTag = doc.querySelector('script[type="application/json"][data-resume]');
+      if (scriptTag) {
+        const embeddedData = JSON.parse(scriptTag.textContent || '{}');
+        if (embeddedData.profile?.name && !isPlaceholderText(embeddedData.profile.name)) {
+          profile.name = embeddedData.profile.name;
+        }
+      }
+    } catch (e) {
+      // Ignore parsing errors
+    }
   }
   
   // Extract title/role - comprehensive selectors

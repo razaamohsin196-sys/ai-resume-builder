@@ -11,7 +11,7 @@ export async function generateContent(systemPrompt: string, userContent: string)
 
     try {
         const response = await client.chat.completions.create({
-            model: "gpt-4o-mini",
+            model: "gpt-4o",
             messages: [
                 { role: "system", content: systemPrompt },
                 { role: "user", content: userContent }

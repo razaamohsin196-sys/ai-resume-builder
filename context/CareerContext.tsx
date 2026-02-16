@@ -100,13 +100,9 @@ export function CareerProvider({ children }: { children: React.ReactNode }) {
     const finishProcessing = () => setState((prev) => ({ ...prev, isProcessing: false }));
 
     const resetSession = () => {
-        // Clear all localStorage items related to the session FIRST
+        // Clear ALL localStorage items completely
         // This must happen before setState to avoid race conditions
-        localStorage.removeItem('career_agent_session');
-        localStorage.removeItem('career_profile_resume_data');
-        localStorage.removeItem('resume_edits_data');
-        localStorage.removeItem('aiPanelWidth');
-        localStorage.removeItem('aiPanelCollapsed');
+        localStorage.clear();
         
         // Force a page reload to completely reset all component states
         // This ensures the editor and all other components start fresh
