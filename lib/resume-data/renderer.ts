@@ -2046,42 +2046,19 @@ function fixContinuousLayoutCSS(doc: Document, template: ResumeTemplate): void {
   }
   
   // Add template-specific fixes for AccentColorMinimal
+  // Note: Spacing is handled by LLM prompts, only essential rendering fixes here
   if (template.id === 'accentcolorminimal') {
     const accentStyleEl = doc.createElement('style');
     accentStyleEl.textContent = `
-      /* AccentColorMinimal specific fixes - reduce excessive spacing */
-      .section {
-        margin-bottom: 15px !important;
+      /* AccentColorMinimal essential rendering fixes only */
+      .page {
+        height: auto !important;
+        min-height: 1123px !important;
+        overflow: visible !important;
       }
-      .section:last-child {
-        margin-bottom: 0 !important;
-      }
-      .section-content {
-        margin-bottom: 12px !important;
-      }
-      .section-content:last-child {
-        margin-bottom: 0 !important;
-      }
-      .section-title {
-        margin-bottom: 12px !important;
-      }
-      .left-column .item {
-        margin-bottom: 0 !important;
-      }
-      .header {
-        margin-bottom: 30px !important;
-      }
-      .reference-item {
-        margin-bottom: 12px !important;
-      }
-      .expertise-item {
-        margin-bottom: 10px !important;
-      }
-      .expertise-item:last-child {
-        margin-bottom: 0 !important;
-      }
-      .section-title-bottom {
-        margin-bottom: 12px !important;
+      .main-content {
+        display: flex !important;
+        flex-direction: column !important;
       }
     `;
     if (head) {

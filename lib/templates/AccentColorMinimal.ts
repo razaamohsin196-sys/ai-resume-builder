@@ -37,7 +37,7 @@ const html = `<style>
         .header {
             display: flex;
             align-items: center;
-            margin-bottom: 30px;
+            margin-bottom: 25px;
         }
 
         .profile-pic {
@@ -154,8 +154,8 @@ const html = `<style>
             font-size: 18px;
             font-weight: bold;
             color: #282522;
-            margin-bottom: 12px;
-            padding-bottom: 5px;
+            margin-bottom: 8px;
+            padding-bottom: 3px;
             align-items: center;
             justify-content: space-between;
         }
@@ -171,12 +171,12 @@ const html = `<style>
         .section {
             display: flex;
             flex-direction: column;
-            margin-bottom: 15px;
+            margin-bottom: 12px;
         }
         
         /* Reduce spacing for sections without titles */
         .section.no-title {
-            margin-bottom: 10px;
+            margin-bottom: 8px;
             margin-top: 0;
         }
         
@@ -213,7 +213,7 @@ const html = `<style>
             font-size: 12px;
             font-weight: bold;
             color: #282522;
-            margin: 0 0 6px 0;
+            margin: 0 0 4px 0;
         }
 
         .right-column .item-description {
@@ -261,11 +261,15 @@ const html = `<style>
         }
 
         .reference-item {
-            margin-bottom: 12px;
+            margin-bottom: 8px;
+        }
+        
+        .reference-item:last-child {
+            margin-bottom: 0;
         }
         
         .expertise-item {
-            margin-bottom: 10px;
+            margin-bottom: 8px;
         }
         
         .expertise-item:last-child {
@@ -326,12 +330,12 @@ const html = `<style>
 
         .section-content {
             display: flex;
-            margin-bottom: 12px;
+            margin-bottom: 10px;
         }
         
         /* Reduce spacing between multiple section-content items */
         .section .section-content:not(:last-child) {
-            margin-bottom: 15px;
+            margin-bottom: 12px;
         }
         
         /* Last section-content in a section should have minimal bottom margin */
@@ -347,8 +351,8 @@ const html = `<style>
             display: flex;
             font-size: 18px;
             justify-content: space-between;
-            margin-bottom: 12px;
-            padding-bottom: 5px;
+            margin-bottom: 8px;
+            padding-bottom: 3px;
         }
 
         .divider-title {
